@@ -99,3 +99,57 @@ export interface HermesTokenUsage {
   notes?: string | null;
   created_at?: string;
 }
+
+export type UserRole =
+  | 'master_admin'
+  | 'gestor_trafego'
+  | 'cs_account'
+  | 'cliente_admin'
+  | 'cliente_membro';
+
+export type UserModulePermission = 'midia' | 'whatsapp' | 'criativos' | 'crm' | 'financeiro';
+
+export interface AppUser {
+  id: string;
+  nome: string;
+  email: string;
+  role: UserRole;
+  cliente_id?: string | null;
+  cliente_nome?: string | null;
+  status: 'ativo' | 'convidado' | 'bloqueado';
+  modulos: UserModulePermission[];
+  avatar_url?: string;
+  ultimo_acesso?: string | null;
+  criado_em?: string;
+}
+
+export interface UserInvite {
+  id: string;
+  nome: string;
+  email: string;
+  role: UserRole;
+  cliente_id?: string | null;
+  cliente_nome?: string | null;
+  modulos: UserModulePermission[];
+  token: string;
+  link_ativacao: string;
+  status: 'pendente' | 'aceito' | 'expirado' | 'revogado';
+  expira_em: string;
+  criado_em: string;
+}
+
+export interface SyncRodada {
+  id?: string;
+  fonte: 'kommo' | 'meta' | 'google' | string;
+  account_id?: string;
+  entidade?: string;
+  iniciado_em: string;
+  terminado_em?: string | null;
+  status: 'ok' | 'erro' | 'em_andamento' | string;
+  linhas?: number | null;
+  erro?: string | null;
+  detalhes?: Record<string, unknown> | null;
+}
+
+
+

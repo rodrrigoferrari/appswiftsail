@@ -1,11 +1,20 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Calendar, RefreshCw, Bell, User, Sparkles, Filter } from 'lucide-react';
+import { Calendar, RefreshCw, Crown, Building, ArrowLeftRight, Check } from 'lucide-react';
 import { useTenant } from './TenantProvider';
 
 export default function Header() {
-  const { dateRange, setDateRange, activeClient, selectedClientId } = useTenant();
+  const {
+    dateRange,
+    setDateRange,
+    activeClient,
+    selectedClientId,
+    viewMode,
+    setViewMode,
+    switchToAdminHQ,
+  } = useTenant();
+
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [customStart, setCustomStart] = useState(dateRange.start);
   const [customEnd, setCustomEnd] = useState(dateRange.end);
@@ -29,20 +38,33 @@ export default function Header() {
 
   return (
     <header className="h-16 border-b border-slate-800/80 bg-[#0B0F19]/80 backdrop-blur-xl px-6 flex items-center justify-between sticky top-0 z-30">
-      {/* Active Workspace / Breadcrumb */}
+      {/* Active Mode Indicator / Breadcrumb */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span className="text-xs font-semibold text-slate-300">
-            {selectedClientId === 'ALL'
-              ? 'Multi-Tenant Consolidado (14 Contas)'
-              : activeClient?.nome || selectedClientId}
-          </span>
-        </div>
-        {activeClient?.grupo_whatsapp_id && (
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800/80 text-cyan-400 border border-slate-700/60 hidden md:inline-block">
-            {activeClient.grupo_whatsapp_id}
-          </span>
+        {viewMode === 'admin' ? (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 text-amber-300">
+            <Crown className="w-4 h-4 text-amber-400 animate-pulse" />
+            <span className="text-xs font-black uppercase tracking-wider">
+              👑 Modo Master Admin — Swiftsail HQ (Visão Geral)
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500/15 via-blue-500/10 to-transparent border border-cyan-500/30 text-cyan-300">
+              <Building className="w-4 h-4 text-cyan-400" />
+              <span className="text-xs font-bold">
+                Workspace: {activeClient?.nome || selectedClientId}
+              </span>
+            </div>
+
+            <button
+              onClick={switchToAdminHQ}
+              className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-semibold text-slate-300 hover:text-amber-300 hover:border-amber-500/40 transition-all flex items-center gap-1.5"
+              title="Retornar para o painel de governança da agência"
+            >
+              <Crown className="w-3 h-3 text-amber-400" />
+              <span>Voltar ao Admin</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -122,12 +144,12 @@ export default function Header() {
 
         {/* User Pill */}
         <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-300 font-semibold text-xs">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500/20 via-cyan-500/20 to-blue-500/20 border border-amber-500/30 flex items-center justify-center text-amber-300 font-bold text-xs">
             RF
           </div>
           <div className="hidden lg:block text-left">
             <p className="text-xs font-semibold text-slate-200 leading-tight">Rodrigo Ferrari</p>
-            <p className="text-[10px] text-slate-400 font-mono">Admin</p>
+            <p className="text-[10px] text-amber-400 font-mono font-semibold">Master Admin</p>
           </div>
         </div>
       </div>
@@ -190,3 +212,4 @@ export default function Header() {
     </header>
   );
 }
+

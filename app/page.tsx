@@ -15,14 +15,31 @@ import {
   Sparkles,
   BarChart3,
   ExternalLink,
+  Crown,
+  Building,
+  UserPlus,
+  ArrowRight,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
+import Link from 'next/link';
 
 export default function DashboardPage() {
-  const { selectedClientId, activeClient, dateRange } = useTenant();
+  const {
+    selectedClientId,
+    activeClient,
+    clients,
+    dateRange,
+    viewMode,
+    selectClientAndSwitchToWorkspace,
+    csStatusList,
+    users,
+  } = useTenant();
 
-  // Dynamic calculated metrics based on active client or aggregated
-  const isAggregated = selectedClientId === 'ALL';
-  const clientTitle = isAggregated ? 'Consolidado Swiftsail' : activeClient?.nome || selectedClientId;
+  const isAggregated = viewMode === 'admin' || selectedClientId === 'ALL';
+  const clientTitle = isAggregated
+    ? 'Painel Master — Swiftsail HQ'
+    : activeClient?.nome || selectedClientId;
 
   // Mock computed data dynamically responding to selected tenant
   const investment = isAggregated ? 'R$ 148.520,00' : 'R$ 18.450,00';
@@ -38,28 +55,53 @@ export default function DashboardPage() {
         <div className="absolute right-0 top-0 w-96 h-full bg-radial from-cyan-500/10 via-transparent to-transparent pointer-events-none" />
         <div className="space-y-1 z-10">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
-              <Sparkles className="w-3 h-3" />
-              Inteligência de Tráfego & IA
+            <span
+              className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border flex items-center gap-1 ${
+                isAggregated
+                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                  : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
+              }`}
+            >
+              {isAggregated ? <Crown className="w-3 h-3 text-amber-400" /> : <Sparkles className="w-3 h-3 text-cyan-400" />}
+              {isAggregated ? 'Governança & Gestão Global' : 'Inteligência de Tráfego & IA'}
             </span>
             <span className="text-xs text-slate-400 font-mono">| Período: {dateRange.label}</span>
           </div>
-          <h2 className="text-2xl font-extrabold text-white tracking-tight">
-            {clientTitle}
-          </h2>
+          <h2 className="text-2xl font-extrabold text-white tracking-tight">{clientTitle}</h2>
           <p className="text-xs text-slate-400 max-w-xl">
-            Visão unificada de performance de anúncios, conversões de WhatsApp (Uazapi/CoEx), pipeline de vendas e faturamento.
+            {isAggregated
+              ? 'Consolidado global de faturamento, leads gerados por tráfego pago, automações de WhatsApp e saúde operacional da carteira de clientes.'
+              : `Visão unificada de performance de anúncios, conversões de WhatsApp, pipeline de vendas e faturamento de ${activeClient?.nome || selectedClientId}.`}
           </p>
         </div>
 
         <div className="flex items-center gap-3 z-10">
-          <div className="bg-slate-950/80 border border-slate-800 px-4 py-2.5 rounded-xl text-right">
-            <p className="text-[10px] uppercase font-semibold tracking-wider text-slate-400">Status da Conta</p>
-            <p className="text-xs font-bold text-emerald-400 flex items-center justify-end gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              Operação Saudável
-            </p>
-          </div>
+          {isAggregated ? (
+            <div className="flex items-center gap-2">
+              <Link
+                href="/admin/usuarios"
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 flex items-center gap-1.5 transition-all"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Convidar Usuário</span>
+              </Link>
+              <Link
+                href="/admin/clientes"
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white border border-slate-700 flex items-center gap-1.5 transition-all"
+              >
+                <Building className="w-3.5 h-3.5" />
+                <span>Ver Clientes</span>
+              </Link>
+            </div>
+          ) : (
+            <div className="bg-slate-950/80 border border-slate-800 px-4 py-2.5 rounded-xl text-right">
+              <p className="text-[10px] uppercase font-semibold tracking-wider text-slate-400">Status do Workspace</p>
+              <p className="text-xs font-bold text-emerald-400 flex items-center justify-end gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Operação Ativa & Saudável
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -105,7 +147,7 @@ export default function DashboardPage() {
           </div>
           <p className="text-2xl font-black text-white">{cpa}</p>
           <div className="flex items-center gap-1 mt-2 text-[11px] text-cyan-400 font-medium">
-            <span>Dentro da meta (Meta: R$ 65)</span>
+            <span>Dentro da meta de eficiência</span>
           </div>
         </div>
 
@@ -134,10 +176,64 @@ export default function DashboardPage() {
           <p className="text-2xl font-black text-white">{revenue}</p>
           <div className="flex items-center gap-1 mt-2 text-[11px] text-emerald-400 font-medium">
             <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>8 Vendas Fechadas</span>
+            <span>Fechamentos validados</span>
           </div>
         </div>
       </div>
+
+      {/* ADMIN EXCLUSIVE SECTION: Multi-tenant Clients Quick Matrix */}
+      {isAggregated && (
+        <div className="glass-card p-6 space-y-4 border-cyan-500/20">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Building className="w-4 h-4 text-cyan-400" />
+                Visão Rápida da Carteira de Clientes ({clients.length})
+              </h3>
+              <p className="text-xs text-slate-400">
+                Selecione qualquer cliente para entrar diretamente no seu workspace individual
+              </p>
+            </div>
+
+            <Link
+              href="/admin/clientes"
+              className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+            >
+              <span>Gerenciar todos os clientes</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+            {clients.slice(0, 6).map((client) => {
+              const clientUsersCount = users.filter((u) => u.cliente_id === client.cliente_id).length;
+              return (
+                <div
+                  key={client.cliente_id}
+                  onClick={() => selectClientAndSwitchToWorkspace(client.cliente_id)}
+                  className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 hover:bg-slate-900/90 cursor-pointer transition-all group flex items-center justify-between"
+                >
+                  <div className="space-y-1 min-w-0 pr-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <h4 className="font-bold text-white text-xs truncate group-hover:text-cyan-300 transition-colors">
+                        {client.nome}
+                      </h4>
+                    </div>
+                    <p className="text-[11px] text-slate-400 font-mono truncate">
+                      {client.grupo_whatsapp_id ? '📱 WhatsApp OK' : 'Sem grupo'} • {clientUsersCount} usuários
+                    </p>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-slate-800 text-slate-400 group-hover:text-cyan-400 group-hover:bg-cyan-500/10 transition-colors">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Funnel Attribution Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -272,3 +368,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

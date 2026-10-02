@@ -1,21 +1,30 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Cliente, GroupAdAccount, GroupAdMapping, CsStatus } from '@/types/database';
+import { Cliente, GroupAdAccount, GroupAdMapping, CsStatus, AppUser, UserInvite } from '@/types/database';
 
 interface TenantContextType {
   selectedClientId: string;
   setSelectedClientId: (id: string) => void;
+  viewMode: 'admin' | 'client';
+  setViewMode: (mode: 'admin' | 'client') => void;
   clients: Cliente[];
-  setClients: (clients: Cliente[]) => void;
+  setClients: React.Dispatch<React.SetStateAction<Cliente[]>>;
   adAccounts: GroupAdAccount[];
   mappings: GroupAdMapping[];
   csStatusList: CsStatus[];
+  users: AppUser[];
+  setUsers: React.Dispatch<React.SetStateAction<AppUser[]>>;
+  invites: UserInvite[];
+  setInvites: React.Dispatch<React.SetStateAction<UserInvite[]>>;
   dateRange: { start: string; end: string; label: string };
   setDateRange: (range: { start: string; end: string; label: string }) => void;
   activeClient: Cliente | undefined;
   activeClientAdAccounts: GroupAdAccount[];
   activeClientCsStatus: CsStatus | undefined;
+  selectClientAndSwitchToWorkspace: (clientId: string) => void;
+  switchToAdminHQ: () => void;
+  refreshUsers: () => Promise<void>;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
@@ -32,6 +41,9 @@ export function TenantProvider({
   const [mappings, setMappings] = useState<GroupAdMapping[]>([]);
   const [csStatusList, setCsStatusList] = useState<CsStatus[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>('ALL');
+  const [viewMode, setViewMode] = useState<'admin' | 'client'>('admin');
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [invites, setInvites] = useState<UserInvite[]>([]);
   const [dateRange, setDateRange] = useState({
     start: '2026-09-01',
     end: '2026-10-02',
@@ -54,8 +66,46 @@ export function TenantProvider({
         console.error('Failed to load bootstrap data from Supabase:', err);
       }
     }
+
+    async function loadUsers() {
+      try {
+        const res = await fetch('/api/users');
+        const data = await res.json();
+        if (data.success) {
+          if (data.users) setUsers(data.users);
+          if (data.invites) setInvites(data.invites);
+        }
+      } catch (err) {
+        console.error('Failed to load users:', err);
+      }
+    }
+
     loadBootstrap();
+    loadUsers();
   }, []);
+
+  const refreshUsers = async () => {
+    try {
+      const res = await fetch('/api/users');
+      const data = await res.json();
+      if (data.success) {
+        if (data.users) setUsers(data.users);
+        if (data.invites) setInvites(data.invites);
+      }
+    } catch (err) {
+      console.error('Failed to refresh users:', err);
+    }
+  };
+
+  const selectClientAndSwitchToWorkspace = (clientId: string) => {
+    setSelectedClientId(clientId);
+    setViewMode('client');
+  };
+
+  const switchToAdminHQ = () => {
+    setSelectedClientId('ALL');
+    setViewMode('admin');
+  };
 
   const activeClient = clients.find((c) => c.cliente_id === selectedClientId);
 
@@ -76,16 +126,25 @@ export function TenantProvider({
       value={{
         selectedClientId,
         setSelectedClientId,
+        viewMode,
+        setViewMode,
         clients,
         setClients,
         adAccounts,
         mappings,
         csStatusList,
+        users,
+        setUsers,
+        invites,
+        setInvites,
         dateRange,
         setDateRange,
         activeClient,
         activeClientAdAccounts,
         activeClientCsStatus,
+        selectClientAndSwitchToWorkspace,
+        switchToAdminHQ,
+        refreshUsers,
       }}
     >
       {children}
@@ -100,3 +159,4 @@ export function useTenant() {
   }
   return context;
 }
+
