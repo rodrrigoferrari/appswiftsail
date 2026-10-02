@@ -94,16 +94,42 @@ export default function DashboardPage() {
               </Link>
             </div>
           ) : (
-            <div className="bg-slate-950/80 border border-slate-800 px-4 py-2.5 rounded-xl text-right">
-              <p className="text-[10px] uppercase font-semibold tracking-wider text-slate-400">Status do Workspace</p>
-              <p className="text-xs font-bold text-emerald-400 flex items-center justify-end gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                Operação Ativa & Saudável
+            <div className="bg-slate-950/80 border border-slate-800 px-4 py-2.5 rounded-xl text-right max-w-sm">
+              <p className="text-[10px] uppercase font-semibold tracking-wider text-slate-400">
+                Saúde CS (Agente @CS)
               </p>
+              <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    activeClientCsStatus?.nivel === 'saudavel'
+                      ? 'bg-emerald-400 animate-pulse'
+                      : activeClientCsStatus?.nivel === 'atencao'
+                      ? 'bg-amber-400'
+                      : 'bg-rose-400'
+                  }`}
+                />
+                <p
+                  className={`text-xs font-bold uppercase ${
+                    activeClientCsStatus?.nivel === 'saudavel'
+                      ? 'text-emerald-400'
+                      : activeClientCsStatus?.nivel === 'atencao'
+                      ? 'text-amber-400'
+                      : 'text-rose-400'
+                  }`}
+                >
+                  {activeClientCsStatus?.nivel || 'Saudável'}
+                </p>
+              </div>
+              {activeClientCsStatus?.sinais?.nota && (
+                <p className="text-[10px] text-slate-400 truncate mt-0.5 max-w-[220px]">
+                  {String(activeClientCsStatus.sinais.nota)}
+                </p>
+              )}
             </div>
           )}
         </div>
       </div>
+
 
       {/* KPI Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">

@@ -113,10 +113,15 @@ export function TenantProvider({
   const activeClientAdAccounts = adAccounts.filter((a) => {
     if (selectedClientId === 'ALL') return true;
     if (activeClient?.grupo_whatsapp_id && a.group_jid === activeClient.grupo_whatsapp_id) return true;
-    // fallback name matching
-    const slug = selectedClientId.toLowerCase().split('_')[0];
-    return a.account_name.toLowerCase().includes(slug);
+    
+    // Normalized slug and name matching
+    const slug = selectedClientId.toLowerCase().replace(/_/g, ' ');
+    const firstWord = selectedClientId.toLowerCase().split('_')[0];
+    const accName = a.account_name.toLowerCase();
+    
+    return accName.includes(firstWord) || slug.includes(accName) || accName.includes(slug);
   });
+
 
   // Filter latest CS Status for active client
   const activeClientCsStatus = csStatusList.find((cs) => cs.cliente_id === selectedClientId);

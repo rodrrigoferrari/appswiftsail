@@ -47,7 +47,7 @@ let INITIAL_USERS: AppUser[] = [
     nome: 'Eduardo Dabol',
     email: 'eduardo@dabol.com.br',
     role: 'cliente_admin',
-    cliente_id: 'dabol',
+    cliente_id: 'DABOL_ENGENHARIA',
     cliente_nome: 'Dabol Engenharia',
     status: 'ativo',
     modulos: ['midia', 'whatsapp', 'crm', 'financeiro'],
@@ -60,7 +60,7 @@ let INITIAL_USERS: AppUser[] = [
     nome: 'Mariana Silva (Comercial)',
     email: 'mariana.vendas@dabol.com.br',
     role: 'cliente_membro',
-    cliente_id: 'dabol',
+    cliente_id: 'DABOL_ENGENHARIA',
     cliente_nome: 'Dabol Engenharia',
     status: 'ativo',
     modulos: ['whatsapp', 'crm'],
@@ -73,7 +73,7 @@ let INITIAL_USERS: AppUser[] = [
     nome: 'Ricardo Adriática',
     email: 'ricardo@adriatica.com.br',
     role: 'cliente_admin',
-    cliente_id: 'adriatica',
+    cliente_id: 'ADRIATICA_INCORPORADORA',
     cliente_nome: 'Adriática Incorporadora',
     status: 'ativo',
     modulos: ['midia', 'whatsapp', 'crm', 'criativos'],
@@ -87,13 +87,13 @@ let INITIAL_INVITES: UserInvite[] = [
   {
     id: 'inv_101',
     nome: 'Fernanda Rocha (Diretoria)',
-    email: 'fernanda@medsenior.com.br',
+    email: 'fernanda@plamev.com.br',
     role: 'cliente_admin',
-    cliente_id: 'medsenior',
-    cliente_nome: 'MedSênior Saúde',
+    cliente_id: 'PLAMEV_RJ',
+    cliente_nome: 'Plamev RJ',
     modulos: ['midia', 'whatsapp', 'crm'],
-    token: 'inv_med_99342',
-    link_ativacao: 'https://app.swiftsail.co/convite/inv_med_99342',
+    token: 'inv_plm_99342',
+    link_ativacao: 'https://app.swiftsail.co/convite/inv_plm_99342',
     status: 'pendente',
     expira_em: '2026-10-09',
     criado_em: '2026-10-02 14:00',
@@ -113,6 +113,7 @@ let INITIAL_INVITES: UserInvite[] = [
     criado_em: '2026-10-02 16:30',
   },
 ];
+
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
