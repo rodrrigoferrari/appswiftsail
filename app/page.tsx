@@ -33,8 +33,10 @@ export default function DashboardPage() {
     viewMode,
     selectClientAndSwitchToWorkspace,
     csStatusList,
+    activeClientCsStatus,
     users,
   } = useTenant();
+
 
   const isAggregated = viewMode === 'admin' || selectedClientId === 'ALL';
   const clientTitle = isAggregated

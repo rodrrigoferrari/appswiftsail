@@ -6,6 +6,7 @@ export async function getClientes(): Promise<Cliente[]> {
     const { data, error } = await supabaseAdmin
       .from('clientes')
       .select('*')
+      .eq('status', 'ativo')
       .order('nome', { ascending: true });
 
     if (error) {
@@ -18,6 +19,7 @@ export async function getClientes(): Promise<Cliente[]> {
     return [];
   }
 }
+
 
 export async function getGroupAdAccounts(): Promise<GroupAdAccount[]> {
   try {
