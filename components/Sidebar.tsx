@@ -13,8 +13,10 @@ import {
   KeyRound,
   ShieldCheck,
   ChevronRight,
-  Bot
+  Bot,
+  Building,
 } from 'lucide-react';
+
 import { useTenant } from './TenantProvider';
 
 const NAV_ITEMS = [
@@ -25,7 +27,9 @@ const NAV_ITEMS = [
 
   { href: '/crm', label: 'Pipeline CRM (Kommo)', icon: KanbanSquare },
   { href: '/financeiro', label: 'Financeiro (Asaas)', icon: CreditCard },
-  { href: '/credenciais', label: 'Credenciais & API Keys', icon: KeyRound },
+  { href: '/credenciais/cliente', label: 'Kommo CRM do Cliente', icon: Building },
+  { href: '/credenciais/admin', label: 'Credenciais Master Admin', icon: KeyRound },
+
 ];
 
 export default function Sidebar() {
