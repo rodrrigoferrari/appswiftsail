@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { Cliente, GroupAdAccount, GroupAdMapping, AgenteEvento, CsStatus, WhatsAppDailySummary } from '@/types/database';
+import { Cliente, GroupAdAccount, GroupAdMapping, AgenteEvento, CsStatus, WhatsAppDailySummary, ContaAdsPainel } from '@/types/database';
 
 export async function getClientes(): Promise<Cliente[]> {
   try {
@@ -20,6 +20,18 @@ export async function getClientes(): Promise<Cliente[]> {
   }
 }
 
+
+export async function getContasAdsPainel(): Promise<ContaAdsPainel[] | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('painel_contas_ads')
+      .select('cliente_id,plataforma,account_id,nome,status,moeda');
+    if (error) return null;
+    return (data || []) as ContaAdsPainel[];
+  } catch {
+    return null;
+  }
+}
 
 export async function getGroupAdAccounts(): Promise<GroupAdAccount[]> {
   try {

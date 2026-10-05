@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Cliente, GroupAdAccount, GroupAdMapping, CsStatus, AppUser, UserInvite } from '@/types/database';
+import { Cliente, GroupAdAccount, GroupAdMapping, CsStatus, AppUser, UserInvite, ContaAdsPainel } from '@/types/database';
+import { hojeBRT, diasAtrasBRT } from '@/lib/date';
 
 interface TenantContextType {
   selectedClientId: string;
@@ -39,16 +40,17 @@ export function TenantProvider({
   const [clients, setClients] = useState<Cliente[]>(initialClients);
   const [adAccounts, setAdAccounts] = useState<GroupAdAccount[]>([]);
   const [mappings, setMappings] = useState<GroupAdMapping[]>([]);
+  const [contasAds, setContasAds] = useState<ContaAdsPainel[] | null>(null);
   const [csStatusList, setCsStatusList] = useState<CsStatus[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'admin' | 'client'>('admin');
   const [users, setUsers] = useState<AppUser[]>([]);
   const [invites, setInvites] = useState<UserInvite[]>([]);
-  const [dateRange, setDateRange] = useState({
-    start: '2026-09-01',
-    end: '2026-10-02',
+  const [dateRange, setDateRange] = useState(() => ({
+    start: diasAtrasBRT(29),
+    end: hojeBRT(),
     label: 'Últimos 30 Dias',
-  });
+  }));
 
   // Fetch full bootstrap dataset from Supabase API
   useEffect(() => {
@@ -60,6 +62,7 @@ export function TenantProvider({
           if (data.clientes && data.clientes.length > 0) setClients(data.clientes);
           if (data.adAccounts) setAdAccounts(data.adAccounts);
           if (data.mappings) setMappings(data.mappings);
+          setContasAds(Array.isArray(data.contasAds) ? data.contasAds : null);
           if (data.csStatus) setCsStatusList(data.csStatus);
         }
       } catch (err) {
@@ -109,20 +112,18 @@ export function TenantProvider({
 
   const activeClient = clients.find((c) => c.cliente_id === selectedClientId);
 
-  // Known inactive/churned client group JIDs to exclude from active operations
-  const inactiveGroupJids = new Set([
-    '120363024964921278@g.us', // Toddler (inativo)
-    '120363423799295040@g.us', // Abrao (inativo)
-    '120363281768786763@g.us', // Atlantic (inativo)
-    '120363428090168267@g.us', // Beppler (inativo)
-    '120363402742952870@g.us', // Plamev RJ (encerrado)
-  ]);
+  // Operação ativa = grupos de WhatsApp de clientes com status 'ativo' em public.clientes
+  const activeGroupJids = new Set(
+    clients
+      .filter((c) => c.status === 'ativo' && c.grupo_whatsapp_id)
+      .map((c) => c.grupo_whatsapp_id as string)
+  );
 
   // Precise filter for accounts belonging to active operations / active client
-  const activeClientAdAccounts = adAccounts.filter((a) => {
+  const legacyAdAccounts = adAccounts.filter((a) => {
     if (selectedClientId === 'ALL') {
-      // In HQ/Master view, only show accounts of active operations
-      return !inactiveGroupJids.has(a.group_jid || '');
+      // Visão HQ: apenas contas de clientes ativos
+      return activeGroupJids.has(a.group_jid || '');
     }
 
     // 1. Direct group_jid match on client
@@ -167,6 +168,20 @@ export function TenantProvider({
     return false;
   });
 
+  // Fonte preferida: painel.contas_ads (já amarrada por cliente_id e só de clientes ativos).
+  // O filtro por grupo de WhatsApp acima fica apenas como contingência se o painel estiver indisponível.
+  const activeClientAdAccounts: GroupAdAccount[] = contasAds
+    ? contasAds
+        .filter((c) => selectedClientId === 'ALL' || c.cliente_id === selectedClientId)
+        .map((c) => ({
+          id: `${c.plataforma}:${c.account_id}`,
+          cliente_id: c.cliente_id,
+          plataforma: c.plataforma,
+          account_id: c.account_id,
+          account_name: c.nome,
+          ativo: true,
+        }))
+    : legacyAdAccounts;
 
   // Filter latest CS Status for active client
   const activeClientCsStatus = csStatusList.find((cs) => cs.cliente_id === selectedClientId);

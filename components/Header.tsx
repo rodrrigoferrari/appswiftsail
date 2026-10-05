@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Calendar, RefreshCw, Crown, Building, ArrowLeftRight, Check } from 'lucide-react';
 import { useTenant } from './TenantProvider';
+import { hojeBRT, diasAtrasBRT } from '@/lib/date';
 
 export default function Header() {
   const {
@@ -75,8 +76,8 @@ export default function Header() {
           <button
             onClick={() =>
               setDateRange({
-                start: '2026-10-02',
-                end: '2026-10-02',
+                start: hojeBRT(),
+                end: hojeBRT(),
                 label: 'Hoje',
               })
             }
@@ -91,8 +92,8 @@ export default function Header() {
           <button
             onClick={() =>
               setDateRange({
-                start: '2026-09-25',
-                end: '2026-10-02',
+                start: diasAtrasBRT(6),
+                end: hojeBRT(),
                 label: 'Últimos 7 Dias',
               })
             }
@@ -107,8 +108,8 @@ export default function Header() {
           <button
             onClick={() =>
               setDateRange({
-                start: '2026-09-01',
-                end: '2026-10-02',
+                start: diasAtrasBRT(29),
+                end: hojeBRT(),
                 label: 'Últimos 30 Dias',
               })
             }

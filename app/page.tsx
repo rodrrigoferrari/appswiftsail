@@ -52,6 +52,7 @@ export default function DashboardPage() {
   const [metaData, setMetaData] = useState<any>(null);
   const [googleData, setGoogleData] = useState<any>(null);
   const [kommoData, setKommoData] = useState<any>(null);
+  const [unavailable, setUnavailable] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchRealMetrics() {
@@ -70,9 +71,11 @@ export default function DashboardPage() {
           resKommo.json(),
         ]);
 
-        if (dataMeta.success) setMetaData(dataMeta);
-        if (dataGoogle.success) setGoogleData(dataGoogle);
-        if (dataKommo.success) setKommoData(dataKommo);
+        const falha = [dataMeta, dataGoogle, dataKommo].find((d) => !d.success);
+        setUnavailable(falha ? falha.motivo || falha.error || 'Fonte de dados indisponível' : null);
+        setMetaData(dataMeta.success ? dataMeta : null);
+        setGoogleData(dataGoogle.success ? dataGoogle : null);
+        setKommoData(dataKommo.success ? dataKommo : null);
       } catch (err) {
         console.error('Error fetching dashboard real metrics:', err);
       } finally {
@@ -88,10 +91,11 @@ export default function DashboardPage() {
   const googleSpend = Number(googleData?.totais?.gasto || 0);
   const totalSpend = metaSpend + googleSpend;
 
-  const metaLeads = Number(metaData?.totais?.leads || 0);
+  // Contrato Cleide: leads (formulário) e conversas_iniciadas (WhatsApp/Direct) são eventos distintos — não somar como se fossem o mesmo tipo
+  const metaCadastros = Number(metaData?.totais?.leads || 0);
+  const metaConversas = Number(metaData?.totais?.conversas_iniciadas || 0);
   const googleConversions = Number(googleData?.totais?.conversoes || 0);
-  const kommoLeads = Number(kommoData?.total_leads || 0);
-  const totalLeads = metaLeads + googleConversions + kommoLeads;
+  const totalOportunidades = metaCadastros + metaConversas + googleConversions;
 
   const metaClicks = Number(metaData?.totais?.cliques || 0);
   const googleClicks = Number(googleData?.totais?.cliques || 0);
@@ -101,7 +105,7 @@ export default function DashboardPage() {
   const googleImpressions = Number(googleData?.totais?.impressoes || 0);
   const totalImpressions = metaImpressions + googleImpressions;
 
-  const cpaReal = totalLeads > 0 ? totalSpend / totalLeads : 0;
+  const cpaReal = totalOportunidades > 0 ? totalSpend / totalOportunidades : 0;
   const ctrReal = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
 
   // Active accounts breakdown
@@ -191,6 +195,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {unavailable && (
+        <div className="p-4 rounded-xl text-xs font-semibold flex items-start gap-2 border bg-amber-500/10 text-amber-300 border-amber-500/30">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <span>
+            Investimento, leads e CPA indisponíveis: não foi possível ler os dados de tráfego do Cleide. {unavailable}
+          </span>
+        </div>
+      )}
+
       {/* KPI Metric Cards — 100% Dynamic Real Data */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Investimento Real */}
@@ -202,7 +215,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="text-2xl font-black text-white">
-            {loading ? <RefreshCw className="w-5 h-5 animate-spin text-cyan-400 inline" /> : formatBRL(totalSpend)}
+            {loading ? <RefreshCw className="w-5 h-5 animate-spin text-cyan-400 inline" /> : unavailable ? '—' : formatBRL(totalSpend)}
           </p>
           <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/80">
             <span>Meta: {formatBRL(metaSpend)}</span>
@@ -219,11 +232,11 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="text-2xl font-black text-white">
-            {loading ? <RefreshCw className="w-5 h-5 animate-spin text-cyan-400 inline" /> : totalLeads.toLocaleString('pt-BR')}
+            {loading ? <RefreshCw className="w-5 h-5 animate-spin text-cyan-400 inline" /> : unavailable ? '—' : totalOportunidades.toLocaleString('pt-BR')}
           </p>
           <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/80">
-            <span>Meta: {metaLeads} leads</span>
-            <span>Google: {googleConversions} conv</span>
+            <span>Meta: {metaCadastros} leads · {metaConversas} conv.</span>
+            <span>Google: {googleConversions} conv.</span>
           </div>
         </div>
 
@@ -236,7 +249,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="text-2xl font-black text-white">
-            {totalLeads > 0 ? formatBRL(cpaReal) : 'R$ 0,00'}
+            {unavailable ? '—' : totalOportunidades > 0 ? formatBRL(cpaReal) : '—'}
           </p>
           <div className="text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
             <span>Custo por lead/conversa gerada</span>
@@ -411,7 +424,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
-                  {metaAccounts.length > 0 ? 'Conectado' : 'Sem contas'}
+                  {metaAccounts.length > 0 ? 'Cadastrada' : 'Sem contas'}
                 </span>
               </div>
 
@@ -424,7 +437,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
-                  {googleAccounts.length > 0 ? 'Conectado' : 'Sem contas'}
+                  {googleAccounts.length > 0 ? 'Cadastrada' : 'Sem contas'}
                 </span>
               </div>
             </div>

@@ -25,6 +25,7 @@ export interface GroupAdMapping {
 
 export interface GroupAdAccount {
   id: string;
+  cliente_id?: string;
   group_jid?: string;
   plataforma: 'meta' | 'google' | string;
   account_id: string;
@@ -32,6 +33,37 @@ export interface GroupAdAccount {
   ativo: boolean;
   created_at?: string;
   updated_at?: string;
+}
+
+// painel.contas_ads (Cleide): conta de anúncio já amarrada ao cliente_id
+export interface ContaAdsPainel {
+  cliente_id: string;
+  plataforma: 'meta' | 'google' | string;
+  account_id: string;
+  nome: string;
+  status?: string | number | null;
+  moeda?: string | null;
+}
+
+// painel.kommo_etapas (Cleide): etapas do pipeline com classificação conta_como
+export interface KommoEtapaPainel {
+  cliente_id: string;
+  pipeline_id: number | string;
+  pipeline_nome: string;
+  status_id: number | string;
+  etapa_nome: string;
+  conta_como: 'aberta' | 'ganho' | 'perda' | string;
+}
+
+// painel.campanhas_status (Cleide): status e orçamento diário em reais
+export interface CampanhaStatusPainel {
+  cliente_id: string;
+  plataforma: 'meta' | 'google' | string;
+  campaign_id: string;
+  campanha: string;
+  status: string | null;
+  effective_status: string | null;
+  orcamento_diario: number | null;
 }
 
 export interface CsStatus {
