@@ -151,5 +151,139 @@ export interface SyncRodada {
   detalhes?: Record<string, unknown> | null;
 }
 
+// Cleide Schema: ads.meta_*
+export interface MetaConta {
+  account_id: string;
+  cliente_id: string;
+  nome: string;
+  account_status?: number | string | null;
+  moeda?: string | null;
+}
+
+export interface MetaCampanha {
+  campaign_id: string;
+  cliente_id: string;
+  nome: string;
+  objetivo?: string | null;
+  status?: string | null;
+  effective_status?: string | null;
+  daily_budget?: number | null;
+  lifetime_budget?: number | null;
+  excluido_em?: string | null;
+}
+
+export interface MetaConjunto {
+  adset_id: string;
+  campaign_id: string;
+  cliente_id: string;
+  nome: string;
+  daily_budget?: number | null;
+  excluido_em?: string | null;
+}
+
+export interface MetaAnuncio {
+  ad_id: string;
+  adset_id: string;
+  campaign_id: string;
+  cliente_id: string;
+  nome: string;
+  creative_id?: string | null;
+  excluido_em?: string | null;
+}
+
+export interface MetaResultadoAnuncioDia {
+  cliente_id: string;
+  campaign_id: string;
+  adset_id?: string;
+  ad_id?: string;
+  data: string;
+  gasto: number;
+  impressoes: number;
+  alcance?: number;
+  frequencia?: number;
+  cliques: number;
+  cliques_link: number;
+  ctr?: number;
+  cpm?: number;
+  leads: number;
+  conversas_iniciadas?: number;
+  video_views?: number;
+  thruplays?: number;
+}
+
+// Cleide Schema: ads.google_*
+export interface GoogleConta {
+  customer_id: string;
+  cliente_id: string;
+  nome: string;
+  status?: string | null;
+  moeda?: string | null;
+}
+
+export interface GoogleCampanha {
+  campaign_id: string;
+  customer_id: string;
+  cliente_id: string;
+  nome: string;
+  tipo?: string | null;
+  status?: string | null;
+  orcamento_diario?: number | null;
+  excluido_em?: string | null;
+}
+
+export interface GoogleResultadoDia {
+  cliente_id: string;
+  nivel: string;
+  entidade_id: string;
+  campaign_id?: string;
+  data: string;
+  gasto: number;
+  impressoes: number;
+  cliques: number;
+  conversoes: number;
+  valor_conversoes?: number;
+}
+
+// Cleide Schema: ads.kommo_*
+export interface KommoConta {
+  conta: string;
+  cliente_id: string;
+}
+
+export interface KommoFunil {
+  pipeline_id: number | string;
+  nome: string;
+  cliente_id: string;
+}
+
+export interface KommoEtapa {
+  status_id: number | string;
+  pipeline_id: number | string;
+  nome: string;
+  conta_como?: string | null;
+}
+
+export interface KommoLead {
+  id?: string | number;
+  cliente_id: string;
+  origem?: string | null;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_content?: string | null;
+  utm_term?: string | null;
+  gclid?: string | null;
+  fbclid?: string | null;
+  campanha_nome?: string | null;
+  criativo_nome?: string | null;
+  anuncio_meta_id?: string | null;
+  criado_em: string;
+  pipeline_id?: number | string | null;
+  status_id?: number | string | null;
+  valor?: number | null;
+  excluido_em?: string | null;
+}
+
+
 
 

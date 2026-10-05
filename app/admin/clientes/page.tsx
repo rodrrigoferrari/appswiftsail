@@ -109,6 +109,38 @@ export default function AdminClientesPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const handleStatusChange = async (clientId: string, newStatus: string) => {
+    const client = clients.find((c) => c.cliente_id === clientId);
+    if (!client) return;
+
+    try {
+      const res = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cliente_id: client.cliente_id,
+          nome: client.nome,
+          grupo_whatsapp_id: client.grupo_whatsapp_id,
+          drive_folder_id: client.drive_folder_id,
+          status: newStatus,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setClients((prev) =>
+          prev.map((c) => (c.cliente_id === clientId ? { ...c, status: newStatus } : c))
+        );
+        setFeedback({
+          type: 'success',
+          text: `Status de ${client.nome} alterado para ${newStatus.toUpperCase()}. O Sinapse atualizará a sincronização.`,
+        });
+      }
+    } catch {
+      setFeedback({ type: 'error', text: 'Falha ao atualizar status no servidor.' });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
@@ -226,30 +258,33 @@ export default function AdminClientesPage() {
             >
               <div className="space-y-3">
                 {/* Card Header */}
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-2">
                   <div>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
-                        client.status === 'ativo'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : 'bg-slate-800 text-slate-400 border border-slate-700'
-                      }`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          client.status === 'ativo' ? 'bg-emerald-400' : 'bg-slate-500'
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={client.status || 'ativo'}
+                        onChange={(e) => handleStatusChange(client.cliente_id, e.target.value)}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border focus:outline-none cursor-pointer ${
+                          client.status === 'ativo'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            : client.status === 'pausado'
+                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                            : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
                         }`}
-                      />
-                      {client.status === 'ativo' ? 'Ativo' : 'Inativo'}
-                    </span>
-                    <h3 className="text-base font-black text-white mt-1 group-hover:text-cyan-300 transition-colors">
-                      {client.nome}
+                      >
+                        <option value="ativo" className="bg-slate-900 text-emerald-400">🟢 Ativo (Sync ON)</option>
+                        <option value="pausado" className="bg-slate-900 text-amber-400">🟡 Pausado</option>
+                        <option value="encerrado" className="bg-slate-900 text-rose-400">🔴 Encerrado (Sync OFF)</option>
+                      </select>
+                    </div>
+                    <h3 className="text-base font-black text-white mt-1.5 group-hover:text-cyan-300 transition-colors">
+                      {client.nome === 'EMOVERE' ? 'Emovere' : client.nome}
                     </h3>
                     <p className="text-[11px] text-slate-400 font-mono">ID: {client.cliente_id}</p>
                   </div>
 
-                  <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-cyan-400 font-bold text-sm">
-                    {client.nome.substring(0, 2).toUpperCase()}
+                  <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-cyan-400 font-bold text-sm shrink-0">
+                    {(client.nome === 'EMOVERE' ? 'Emovere' : client.nome).substring(0, 2).toUpperCase()}
                   </div>
                 </div>
 

@@ -113,11 +113,15 @@ export default function Sidebar() {
             onChange={(e) => setSelectedClientId(e.target.value)}
             className="w-full bg-slate-950 text-xs font-semibold text-slate-200 border border-cyan-500/30 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-cyan-400 transition-colors"
           >
-            {clients.map((c) => (
-              <option key={c.cliente_id} value={c.cliente_id}>
-                {c.nome} {c.status === 'ativo' ? '🟢' : '⚪'}
-              </option>
-            ))}
+            {clients.map((c) => {
+              const displayName = c.nome === 'EMOVERE' ? 'Emovere' : c.nome;
+              const statusIcon = c.status === 'ativo' ? '🟢' : c.status === 'pausado' ? '🟡' : '🔴';
+              return (
+                <option key={c.cliente_id} value={c.cliente_id}>
+                  {statusIcon} {displayName}
+                </option>
+              );
+            })}
           </select>
         </div>
       )}

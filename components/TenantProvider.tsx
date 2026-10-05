@@ -109,17 +109,62 @@ export function TenantProvider({
 
   const activeClient = clients.find((c) => c.cliente_id === selectedClientId);
 
-  // Filter accounts belonging to active client
+  // Known inactive/churned client group JIDs to exclude from active operations
+  const inactiveGroupJids = new Set([
+    '120363024964921278@g.us', // Toddler (inativo)
+    '120363423799295040@g.us', // Abrao (inativo)
+    '120363281768786763@g.us', // Atlantic (inativo)
+    '120363428090168267@g.us', // Beppler (inativo)
+    '120363402742952870@g.us', // Plamev RJ (encerrado)
+  ]);
+
+  // Precise filter for accounts belonging to active operations / active client
   const activeClientAdAccounts = adAccounts.filter((a) => {
-    if (selectedClientId === 'ALL') return true;
-    if (activeClient?.grupo_whatsapp_id && a.group_jid === activeClient.grupo_whatsapp_id) return true;
-    
-    // Normalized slug and name matching
-    const slug = selectedClientId.toLowerCase().replace(/_/g, ' ');
-    const firstWord = selectedClientId.toLowerCase().split('_')[0];
-    const accName = a.account_name.toLowerCase();
-    
-    return accName.includes(firstWord) || slug.includes(accName) || accName.includes(slug);
+    if (selectedClientId === 'ALL') {
+      // In HQ/Master view, only show accounts of active operations
+      return !inactiveGroupJids.has(a.group_jid || '');
+    }
+
+    // 1. Direct group_jid match on client
+    if (activeClient?.grupo_whatsapp_id && a.group_jid === activeClient.grupo_whatsapp_id) {
+      return true;
+    }
+
+    // 2. Known explicit mappings for active clients
+    const explicitGroupJids: Record<string, string[]> = {
+      REALIZACOES_GONZAGA: ['120363426423528090@g.us', '120363431326920012@g.us'],
+      GONZAGA_AMST: ['120363426423528090@g.us'],
+      GONZAGA_SCA_181: ['120363431326920012@g.us'],
+      GENOVA_URBANISMO: ['120363402899636100@g.us'],
+      ADRIATICA_INCORPORADORA: ['120363045527587307@g.us'],
+      CONSTRUTORA_PESSOA: ['120363408072588129@g.us'],
+      PACIFIC_INCORPORADORA: ['120363043621675919@g.us'],
+      DABOL_ENGENHARIA: ['120363321592688249@g.us'],
+      LEGALIZZAR: ['120363044308380781@g.us'],
+      CALURE_EMPREENDIMENTOS: ['120363412421256861@g.us'],
+    };
+
+    if (explicitGroupJids[selectedClientId]?.includes(a.group_jid || '')) {
+      return true;
+    }
+
+    // 3. Check group_ad_mapping for active client
+    const mapped = mappings.find((m) => m.group_jid === a.group_jid);
+    if (mapped) {
+      const clientNameNorm = (activeClient?.nome || selectedClientId).toLowerCase();
+      const mappedClientNorm = (mapped.client_name || '').toLowerCase();
+      const mappedGroupNorm = (mapped.group_name || '').toLowerCase();
+
+      if (
+        (mappedClientNorm && clientNameNorm.includes(mappedClientNorm)) ||
+        (mappedGroupNorm && clientNameNorm.includes(mappedGroupNorm)) ||
+        (mappedClientNorm && mappedClientNorm.includes(clientNameNorm))
+      ) {
+        return true;
+      }
+    }
+
+    return false;
   });
 
 
