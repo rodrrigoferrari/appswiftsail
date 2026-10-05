@@ -17,8 +17,11 @@ import {
   AlertCircle,
   ExternalLink,
   Zap,
+  Eye,
 } from 'lucide-react';
 import Link from 'next/link';
+import CreativePreviewModal, { CreativePreviewItem } from '@/components/CreativePreviewModal';
+import LeadsDrilldownModal from '@/components/LeadsDrilldownModal';
 
 export default function CRMPage() {
   const { selectedClientId, activeClient, dateRange, viewMode } = useTenant();
@@ -351,6 +354,13 @@ function AttributionMatrix({
     'origem' | 'campanha' | 'conjunto' | 'criativo' | 'termo'
   >('origem');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCreativeModal, setSelectedCreativeModal] = useState<CreativePreviewItem | null>(null);
+  const [leadsDrilldown, setLeadsDrilldown] = useState<{
+    isOpen: boolean;
+    title: string;
+    type: 'form' | 'whatsapp';
+    count: number;
+  } | null>(null);
 
   // Conjuntos / Públicos simulados/atribuídos com base na estrutura de tráfego
   const conjuntosData = [
@@ -360,12 +370,95 @@ function AttributionMatrix({
     { nome: 'Remarketing Visitantes LP / Engajamento 30d', tipo: 'Remarketing', leads: Math.round(totalLeads * 0.12), convRate: '18.2%' },
   ];
 
-  // Criativos / Anúncios com formato e performance
-  const criativosData = [
-    { nome: 'Carrossel 1:1 — Plantas & Diferenciais Exclusivos', formato: 'Carrossel', leads: Math.round(totalLeads * 0.38), ctr: '2.14%' },
-    { nome: 'Reels 9:16 — Vídeo Tour Decorado com Apresentador', formato: 'Vídeo 9:16', leads: Math.round(totalLeads * 0.32), ctr: '3.45%' },
-    { nome: 'Estático 1:1 — Condições Especiais de Lançamento', formato: 'Imagem 1:1', leads: Math.round(totalLeads * 0.18), ctr: '1.65%' },
-    { nome: 'Anúncio de Texto — Google Search Título Dinâmico', formato: 'Texto Search', leads: Math.round(totalLeads * 0.12), ctr: '4.80%' },
+  // Criativos / Anúncios com formato e performance com metadados de mockup real
+  const criativosData: (CreativePreviewItem & { convRate?: string })[] = [
+    {
+      id: 'ad-meta-001',
+      nome: 'Carrossel 1:1 — 5 Benefícios do Alinhador Invisível',
+      formato: 'carousel',
+      badge: '4 CARDS',
+      thumbUrl: 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=400&auto=format&fit=crop&q=80',
+      leads: Math.round(totalLeads * 0.38),
+      ctr: '2.84%',
+      cpl: 35.0,
+      gasto: 980,
+      campanha: '[Invisalign] Captação Direta WhatsApp SP',
+      adset: 'Lookalike 1% Compradores Recentes',
+      headline: 'Alinhe seu sorriso sem aparelho de metal em 2026',
+      copy: 'Quer dentes perfeitamente alinhados sem dor e com discrição total? O alinhador invisível da Clínica Sorriso Prime utiliza escaneamento 3D de precisão. Deslize para ver os benefícios e clique abaixo para falar no WhatsApp.',
+      ctaText: '💬 Enviar Mensagem no WhatsApp',
+      accountHandle: 'sorrisoprime.odontologia',
+      accountName: 'Clínica Sorriso Prime',
+      accountAvatar: '🦷',
+      slides: [
+        { num: 1, title: '1. 100% Transparente & Discreto', desc: 'Ninguém percebe que você está usando alinhador.', imgUrl: 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=600&auto=format&fit=crop&q=80' },
+        { num: 2, title: '2. Planejamento Digital 3D', desc: 'Veja o resultado final antes de iniciar.', imgUrl: 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=600&auto=format&fit=crop&q=80' },
+        { num: 3, title: '3. Removível para Comer', desc: 'Sem restrições alimentares no dia a dia.', imgUrl: 'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=600&auto=format&fit=crop&q=80' },
+        { num: 4, title: '4. Condição Especial de Avaliação', desc: 'Escaneamento 3D incluso pelo WhatsApp.', imgUrl: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&auto=format&fit=crop&q=80' },
+      ],
+    },
+    {
+      id: 'ad-meta-002',
+      nome: 'Reels 9:16 — Demonstração Prática Scanner 3D',
+      formato: 'reels',
+      badge: 'REELS 9:16',
+      thumbUrl: 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=400&auto=format&fit=crop&q=80',
+      leads: Math.round(totalLeads * 0.32),
+      ctr: '3.65%',
+      cpl: 38.18,
+      gasto: 840,
+      campanha: '[Invisalign] Captação Direta WhatsApp SP',
+      adset: 'Interesses Alto Padrão',
+      headline: 'Planejamento 3D ao vivo na Clínica Sorriso Prime',
+      copy: 'Assista a Dra. demonstrando como o scanner intraoral mapeia sua arcada em menos de 60 segundos sem massinha! Clique em WhatsApp e agende seu horário.',
+      ctaText: '💬 Enviar Mensagem no WhatsApp',
+      accountHandle: 'sorrisoprime.odontologia',
+      accountName: 'Clínica Sorriso Prime',
+      accountAvatar: '🦷',
+      videoTitle: 'Demonstração Prática do Scanner 3D',
+      videoDesc: 'Tecnologia de ponta em alta velocidade • Sem moldes desconfortáveis',
+      imageUrl: 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=600&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'ad-meta-003',
+      nome: 'Estático 1:1 — Imagem Única Clareamento a Laser',
+      formato: 'image',
+      badge: 'ESTÁTICO 1:1',
+      thumbUrl: 'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=400&auto=format&fit=crop&q=80',
+      leads: Math.round(totalLeads * 0.18),
+      ctr: '1.45%',
+      cpl: 38.18,
+      gasto: 420,
+      campanha: 'Campanha Secundária Meta',
+      adset: 'Público Aberto',
+      headline: 'Sorriso Branco & Radiante em apenas 1 Sessão a Laser',
+      copy: 'Procedimento seguro, rápido e com tecnologia que reduz a sensibilidade dentária. Aproveite nossa condição especial com agendamento online.',
+      ctaText: '🌐 Agendar Consulta / Comprar Online',
+      offerBadge: '30% OFF NA PRIMEIRA AVALIAÇÃO',
+      imageTitle: 'Clareamento Dental a Laser Premium',
+      accountHandle: 'sorrisoprime.odontologia',
+      accountAvatar: '✨',
+      imageUrl: 'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=600&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'ad-meta-004',
+      nome: 'Reels 9:16 — Depoimento Paciente Real Antes & Depois',
+      formato: 'reels',
+      badge: 'REELS 9:16',
+      thumbUrl: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=400&auto=format&fit=crop&q=80',
+      leads: Math.round(totalLeads * 0.12),
+      ctr: '3.12%',
+      cpl: 37.14,
+      gasto: 520,
+      campanha: 'Campanha Secundária Meta',
+      adset: 'Remarketing Visitantes LP',
+      headline: 'Como conquistei o sorriso dos sonhos em 6 meses',
+      copy: 'Depoimento emocionante de paciente real relatando a transformação e a segurança transmitida pela equipe durante todo o processo com alinhador.',
+      ctaText: '💬 Enviar Mensagem no WhatsApp',
+      accountHandle: 'sorrisoprime.odontologia',
+      accountAvatar: '🌟',
+      imageUrl: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&auto=format&fit=crop&q=80',
+    },
   ];
 
   // Termos de Busca Reais digitados pelos usuários no Google Ads
@@ -521,23 +614,84 @@ function AttributionMatrix({
       {selectedDimension === 'criativo' && (
         <div className="space-y-3">
           {criativosData.map((criat) => {
-            const percent = totalLeads > 0 ? ((criat.leads / totalLeads) * 100).toFixed(1) : '0';
+            const leadsCount = criat.leads ?? 0;
+            const percent = totalLeads > 0 ? ((leadsCount / totalLeads) * 100).toFixed(1) : '0';
             return (
-              <div key={criat.nome} className="p-3 bg-slate-900/60 rounded-xl border border-slate-800 space-y-1.5">
-                <div className="flex justify-between text-xs items-center">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                      {criat.formato}
-                    </span>
-                    <span className="font-bold text-slate-200">{criat.nome}</span>
+              <div key={criat.nome} className="p-3.5 bg-slate-900/60 rounded-xl border border-slate-800 space-y-2 hover:border-slate-700 transition-colors">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-3">
+                    {/* Thumbnail Clicável */}
+                    {criat.thumbUrl && (
+                      <div
+                        onClick={() => setSelectedCreativeModal(criat)}
+                        className="relative w-12 h-12 rounded-lg overflow-hidden cursor-pointer border border-white/20 shadow-md group shrink-0 transition-all hover:scale-105 hover:border-cyan-400 hover:shadow-cyan-500/20"
+                        title="Clique para abrir e ver o anúncio real"
+                        style={{
+                          backgroundImage: `url(${criat.thumbUrl})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                        }}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent group-hover:bg-cyan-900/30 transition-colors flex items-center justify-center">
+                          {criat.formato === 'reels' && (
+                            <div className="w-4 h-4 rounded-full bg-white/90 text-slate-900 flex items-center justify-center text-[8px] shadow">
+                              ▶
+                            </div>
+                          )}
+                        </div>
+                        <span className="absolute bottom-0.5 right-0.5 px-1 rounded text-[7px] font-black bg-black/80 text-white backdrop-blur-xs">
+                          {criat.badge || (criat.formato === 'reels' ? 'REELS' : '1:1')}
+                        </span>
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                          {criat.formato === 'carousel' ? 'Carrossel 1:1' : criat.formato === 'reels' ? 'Reels 9:16' : 'Estático 1:1'}
+                        </span>
+                        <span
+                          onClick={() => setSelectedCreativeModal(criat)}
+                          className="font-bold text-slate-200 hover:text-cyan-300 cursor-pointer transition-colors"
+                          title="Clique para abrir prévia real"
+                        >
+                          {criat.nome}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                        ID: {criat.id} • Conjunto: {criat.adset}
+                      </p>
+                    </div>
                   </div>
+
                   <div className="flex items-center gap-3">
                     <span className="text-slate-400 text-[11px]">CTR: {criat.ctr}</span>
-                    <span className="text-amber-400 font-mono font-bold">
-                      {criat.leads} leads <span className="text-slate-500 font-normal">({percent}%)</span>
-                    </span>
+                    <button
+                      onClick={() =>
+                        setLeadsDrilldown({
+                          isOpen: true,
+                          title: `${criat.nome} • ${criat.adset || 'Meta Ads'}`,
+                          type: 'form',
+                          count: criat.leads || 0,
+                        })
+                      }
+                      className="text-amber-400 font-mono font-bold hover:underline hover:text-amber-300 transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Clique para ver os nomes e contatos capturados neste criativo"
+                    >
+                      <span>{criat.leads} leads</span>
+                      <span className="text-slate-500 font-normal">({percent}%)</span>
+                      <span className="text-[9px] text-amber-300">👁️</span>
+                    </button>
+                    <button
+                      onClick={() => setSelectedCreativeModal(criat)}
+                      className="px-2.5 py-1 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 font-semibold text-[10px] transition-all flex items-center gap-1"
+                    >
+                      <Eye className="w-3 h-3" />
+                      <span>Ver Anúncio</span>
+                    </button>
                   </div>
                 </div>
+
                 <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
                   <div className="bg-gradient-to-r from-amber-500 to-orange-400 h-full rounded-full" style={{ width: `${percent}%` }} />
                 </div>
@@ -585,6 +739,23 @@ function AttributionMatrix({
             </table>
           </div>
         </div>
+      )}
+
+      {/* Popup Modal do Criativo Real */}
+      <CreativePreviewModal
+        creative={selectedCreativeModal}
+        onClose={() => setSelectedCreativeModal(null)}
+      />
+
+      {/* Popup Modal para Ver Nomes e Contatos de Formulário */}
+      {leadsDrilldown && (
+        <LeadsDrilldownModal
+          isOpen={leadsDrilldown.isOpen}
+          onClose={() => setLeadsDrilldown(null)}
+          title={leadsDrilldown.title}
+          type={leadsDrilldown.type}
+          leadsCount={leadsDrilldown.count}
+        />
       )}
     </div>
   );
