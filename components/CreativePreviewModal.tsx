@@ -40,6 +40,8 @@ export interface CreativePreviewItem {
   thumbUrl?: string;
   campanha?: string;
   adset?: string;
+  campaignId?: string;
+  adsetId?: string;
   gasto?: number;
   leads?: number;
   conversas?: number;
@@ -57,9 +59,11 @@ export interface CreativePreviewItem {
   videoTitle?: string;
   videoDesc?: string;
   imageTitle?: string;
-  imageDesc?: string;
-  offerBadge?: string;
   imageUrl?: string;
+  offerBadge?: string;
+  imageDesc?: string;
+  preview_link?: string;
+  link_permanente?: string;
 }
 
 interface CreativePreviewModalProps {
@@ -118,34 +122,34 @@ export default function CreativePreviewModal({
     {
       num: 1,
       bg: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
-      icon: '✨😁',
-      title: '1. 100% Transparente & Discreto',
-      desc: 'Ninguém percebe que você está usando alinhador no trabalho, reuniões ou eventos sociais.',
-      imgUrl: 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=600&auto=format&fit=crop&q=80',
+      icon: '🏢✨',
+      title: '1. Localização Nobre & Valorização',
+      desc: 'Plantas exclusivas no melhor endereço da região, com fácil acesso e alto potencial de valorização.',
+      imgUrl: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=80',
     },
     {
       num: 2,
       bg: 'linear-gradient(135deg, #0f766e, #06b6d4)',
-      icon: '🖥️🔍',
-      title: '2. Planejamento Digital 3D',
-      desc: 'Veja o resultado final do seu novo sorriso antes mesmo de iniciar o tratamento.',
-      imgUrl: 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=600&auto=format&fit=crop&q=80',
+      icon: '📐🌿',
+      title: '2. Plantas Inteligentes & Acabamento Premium',
+      desc: 'Espaços amplos planejados para o máximo conforto da sua família com acabamento impecável.',
+      imgUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80',
     },
     {
       num: 3,
       bg: 'linear-gradient(135deg, #581c87, #a855f7)',
-      icon: '🍽️🪥',
-      title: '3. Removível para Comer',
-      desc: 'Sem restrições com alimentos duros e higienização muito mais rápida e sem dor.',
-      imgUrl: 'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=600&auto=format&fit=crop&q=80',
+      icon: '🏊‍♂️🏋️',
+      title: '3. Lazer Completo Equipado e Decorado',
+      desc: 'Estrutura completa de lazer, piscinas, espaço gourmet e academia de ponta sem sair de casa.',
+      imgUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&auto=format&fit=crop&q=80',
     },
     {
       num: 4,
       bg: 'linear-gradient(135deg, #064e3b, #10b981)',
-      icon: '🎁⭐',
-      title: '4. Condição Especial de Avaliação',
-      desc: 'Escaneamento 3D de alta precisão incluso na primeira consulta agendada pelo WhatsApp.',
-      imgUrl: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&auto=format&fit=crop&q=80',
+      icon: '📲🔑',
+      title: '4. Condição Especial de Negociação',
+      desc: 'Valores promocionais de tabela e fluxo de pagamento facilitado direto com a incorporadora.',
+      imgUrl: 'https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?w=600&auto=format&fit=crop&q=80',
     },
   ];
 
@@ -172,13 +176,13 @@ export default function CreativePreviewModal({
     }
   };
 
-  const accountHandle = creative.accountHandle || 'swiftsail.marketing';
-  const accountName = creative.accountName || 'Clínica Sorriso Prime';
+  const accountHandle = creative.accountHandle || 'swiftsail.midia';
+  const accountName = creative.accountName || 'Swiftsail Mídia';
   const defaultHeadline =
-    creative.headline || 'Transforme seu Sorriso com Tecnologia 3D e Atendimento Humanizado';
+    creative.headline || 'Oportunidade Exclusiva • Alto Padrão e Localização Nobre';
   const defaultCopy =
     creative.copy ||
-    'Descubra a liberdade de alinhar seus dentes sem aparelhos metálicos fixos. Tratamento previsível, rápido e planejado 100% digitalmente por especialistas. Clique abaixo para falar direto com nossa equipe no WhatsApp e agendar sua avaliação!';
+    'Descubra plantas inteligentes com acabamento premium e localização privilegiada. Fale direto com a nossa equipe no WhatsApp para receber o material completo e condições especiais de lançamento.';
   const defaultCta = creative.ctaText || '💬 Enviar Mensagem no WhatsApp';
 
   return (
@@ -207,6 +211,18 @@ export default function CreativePreviewModal({
           </div>
 
           <div className="flex items-center gap-2">
+            {(creative.preview_link || creative.link_permanente) && (
+              <a
+                href={creative.preview_link || creative.link_permanente}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-lg text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 transition-all flex items-center gap-1.5 border border-blue-500/30 font-semibold"
+                title="Abrir anúncio original publicado no Facebook / Instagram"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Ver no Meta / Insta</span>
+              </a>
+            )}
             <button
               onClick={handleCopyText}
               className="px-3 py-1.5 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all flex items-center gap-1.5 border border-slate-700"
@@ -236,7 +252,7 @@ export default function CreativePreviewModal({
                 <div className="flex items-center justify-between p-3 border-b border-white/5">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-sm font-bold shadow">
-                      {creative.accountAvatar || '🦷'}
+                      {creative.accountAvatar || '🏢'}
                     </div>
                     <div>
                       <div className="text-xs font-bold leading-tight hover:underline cursor-pointer">{accountHandle}</div>
@@ -440,7 +456,7 @@ export default function CreativePreviewModal({
                 <div className="relative z-20 space-y-2.5 max-w-[80%]">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-full bg-cyan-500 flex items-center justify-center text-xs font-bold text-white shadow">
-                      {creative.accountAvatar || '🦷'}
+                      {creative.accountAvatar || '🏢'}
                     </div>
                     <div>
                       <div className="text-xs font-bold text-white">{accountHandle}</div>
@@ -493,13 +509,13 @@ export default function CreativePreviewModal({
                 >
                   <div className="space-y-2 relative z-10">
                     <span className="inline-block px-3 py-1 rounded-lg text-xs font-black bg-emerald-500 text-slate-950 shadow-lg">
-                      {creative.offerBadge || '30% OFF NA PRIMEIRA AVALIAÇÃO'}
+                      {creative.offerBadge || 'CONDIÇÃO ESPECIAL DE LANÇAMENTO'}
                     </span>
                     <h4 className="text-xl font-black text-white leading-tight drop-shadow-md">
                       {creative.imageTitle || defaultHeadline}
                     </h4>
                     <p className="text-xs text-white/90 leading-snug drop-shadow">
-                      {creative.imageDesc || 'Condição exclusiva para agendamentos realizados hoje via anúncio online.'}
+                      {creative.imageDesc || 'Condição exclusiva direto com a incorporadora via atendimento digital.'}
                     </p>
                   </div>
                 </div>
@@ -603,13 +619,13 @@ export default function CreativePreviewModal({
                 <div className="flex items-center justify-between text-slate-400">
                   <span>Campanha:</span>
                   <span className="font-semibold text-slate-200 truncate max-w-[200px]" title={creative.campanha}>
-                    {creative.campanha || '[Invisalign] Captação Direta SP'}
+                    {creative.campanha || 'Campanha Principal Meta'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-slate-400">
                   <span>Conjunto (AdSet):</span>
                   <span className="font-semibold text-slate-200 truncate max-w-[200px]" title={creative.adset}>
-                    {creative.adset || 'Lookalike 1% Compradores'}
+                    {creative.adset || 'Público Segmentado'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-slate-400">

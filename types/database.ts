@@ -316,6 +316,56 @@ export interface KommoLead {
   excluido_em?: string | null;
 }
 
+export interface MetaAnuncioCriativoPainel {
+  cliente_id: string;
+  account_id?: string;
+  campaign_id: string;
+  campanha: string | null;
+  adset_id: string;
+  conjunto: string | null;
+  ad_id: string;
+  anuncio: string | null;
+  status: string | null;
+  effective_status: string | null;
+  creative_id?: string | null;
+  criativo_nome?: string | null;
+  criativo_titulo?: string | null;
+  criativo_tipo?: string | null;
+  preview_link?: string | null;
+  link_permanente?: string | null;
+  instagram_permalink_url?: string | null;
+  link_destino?: string | null;
+  thumbnail_storage_path?: string | null;
+  created_time?: string | null;
+  updated_time?: string | null;
+}
 
-
-
+export interface KommoLeadPainel {
+  cliente_id: string;
+  conta?: string | null;
+  lead_id: string;
+  contato_principal_nome?: string | null;
+  pipeline_id?: string | number | null;
+  pipeline_nome?: string | null;
+  status_id?: string | number | null;
+  etapa_nome?: string | null;
+  conta_como?: string | null;
+  responsavel_id?: string | number | null;
+  loss_reason_id?: string | null;
+  valor?: number | null;
+  criado_em: string;
+  fechado_em?: string | null;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_content?: string | null;
+  utm_term?: string | null;
+  origem?: string | null;
+  publico?: string | null;
+  campanha_nome?: string | null;
+  conta_origem?: string | null;
+  criativo_nome?: string | null;
+  anuncio_meta_id?: string | null;
+  link_criativo?: string | null;
+  termo_busca?: string | null;
+}

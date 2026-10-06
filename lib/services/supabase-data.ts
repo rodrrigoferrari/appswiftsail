@@ -109,14 +109,12 @@ export async function getCsStatus(): Promise<CsStatus[]> {
 export async function getUltimasSyncRodadas() {
   try {
     const { data, error } = await supabaseAdmin
-      .schema('ads')
-      .from('sync_rodadas')
+      .from('painel_sync_rodadas')
       .select('*')
       .order('iniciado_em', { ascending: false })
       .limit(10);
 
     if (error) {
-      // Fallback if ads schema query is restricted
       return [];
     }
     return data || [];
