@@ -106,7 +106,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       // Graceful fallback se a view não estiver disponível
     }
 
+    // Só retorna campanhas que efetivamente rodaram no período (gasto, impressões, cliques ou leads/conversas > 0)
     const campanhas = Array.from(porCampanha.values())
+      .filter(
+        (c) =>
+          Number(c.gasto || 0) > 0 ||
+          Number(c.impressoes || 0) > 0 ||
+          Number(c.cliques || 0) > 0 ||
+          Number(c.leads || 0) > 0 ||
+          Number(c.conversas_iniciadas || 0) > 0
+      )
       .map((c) => {
         const metaStatus = statusMap.get(`${c.cliente_id}:${c.campaign_id}`) || statusMap.get(c.campaign_id);
         const adsList = anunciosPorCampanha.get(c.campaign_id) || [];

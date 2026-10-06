@@ -20,7 +20,8 @@ import {
   BarChart3,
   Layers,
   Flame,
-  Smartphone
+  Smartphone,
+  Globe
 } from 'lucide-react';
 
 export interface CreativeSlide {
@@ -35,7 +36,7 @@ export interface CreativeSlide {
 export interface CreativePreviewItem {
   id: string;
   nome: string;
-  formato: 'carousel' | 'reels' | 'image' | string;
+  formato?: 'carousel' | 'reels' | 'image' | string;
   badge?: string;
   thumbUrl?: string;
   campanha?: string;
@@ -64,6 +65,8 @@ export interface CreativePreviewItem {
   imageDesc?: string;
   preview_link?: string;
   link_permanente?: string;
+  instagram_permalink_url?: string;
+  thumbnail_storage_path?: string;
 }
 
 interface CreativePreviewModalProps {
@@ -81,6 +84,7 @@ export default function CreativePreviewModal({
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [viewMode, setViewMode] = useState<'embed' | 'media'>('embed');
 
   useEffect(() => {
     setCurrentSlide(0);
@@ -88,6 +92,7 @@ export default function CreativePreviewModal({
     setLiked(false);
     setSaved(false);
     setCopied(false);
+    setViewMode('embed');
   }, [creative]);
 
   useEffect(() => {
@@ -109,47 +114,61 @@ export default function CreativePreviewModal({
       ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
       : 'R$ 0,00';
 
+  // URLs oficiais no Meta / Instagram
+  const igUrl =
+    creative.instagram_permalink_url ||
+    (creative.link_permanente?.includes('instagram.com') ? creative.link_permanente : null);
+  const fbUrl = creative.link_permanente?.includes('facebook.com') ? creative.link_permanente : null;
+  const directMetaUrl = creative.preview_link || creative.link_permanente || igUrl || fbUrl;
+
+  // Extrai shortcode para Embed Oficial do Instagram
+  let igEmbedUrl: string | null = null;
+  if (igUrl) {
+    const match = igUrl.match(/instagram\.com\/(?:p|reel|tv)\/([^/?#&]+)/i);
+    if (match && match[1]) {
+      igEmbedUrl = `https://www.instagram.com/p/${match[1]}/embed/`;
+    }
+  }
+
+  // Embed Oficial do Facebook Post Plugin
+  let fbEmbedUrl: string | null = null;
+  if (fbUrl) {
+    fbEmbedUrl = `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(fbUrl)}&show_text=true&width=450`;
+  }
+
+  const hasEmbed = Boolean(igEmbedUrl || fbEmbedUrl);
+
+  // URL da Thumbnail / Imagem Real
+  const realImageUrl =
+    creative.imageUrl ||
+    creative.thumbUrl ||
+    creative.thumbnail_storage_path ||
+    (directMetaUrl ? `/api/meta/thumbnail?url=${encodeURIComponent(directMetaUrl)}` : null) ||
+    'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=80';
+
   // Normalização do formato
   const formatoNorm =
-    creative.formato?.toLowerCase().includes('reels') || creative.formato?.toLowerCase().includes('vídeo')
+    creative.formato?.toLowerCase().includes('reels') ||
+    creative.formato?.toLowerCase().includes('vídeo') ||
+    creative.formato?.toLowerCase().includes('video')
       ? 'reels'
       : creative.formato?.toLowerCase().includes('carrossel') || creative.slides?.length
       ? 'carousel'
       : 'image';
 
-  // Slides padrão caso não informados
+  // Slides padrão
   const slides: CreativeSlide[] = creative.slides || [
     {
       num: 1,
-      bg: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
-      icon: '🏢✨',
-      title: '1. Localização Nobre & Valorização',
-      desc: 'Plantas exclusivas no melhor endereço da região, com fácil acesso e alto potencial de valorização.',
-      imgUrl: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=80',
+      title: creative.headline || '1. Destaques do Anúncio',
+      desc: creative.copy || 'Condições especiais e atendimento exclusivo.',
+      imgUrl: realImageUrl,
     },
     {
       num: 2,
-      bg: 'linear-gradient(135deg, #0f766e, #06b6d4)',
-      icon: '📐🌿',
-      title: '2. Plantas Inteligentes & Acabamento Premium',
-      desc: 'Espaços amplos planejados para o máximo conforto da sua família com acabamento impecável.',
-      imgUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80',
-    },
-    {
-      num: 3,
-      bg: 'linear-gradient(135deg, #581c87, #a855f7)',
-      icon: '🏊‍♂️🏋️',
-      title: '3. Lazer Completo Equipado e Decorado',
-      desc: 'Estrutura completa de lazer, piscinas, espaço gourmet e academia de ponta sem sair de casa.',
-      imgUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&auto=format&fit=crop&q=80',
-    },
-    {
-      num: 4,
-      bg: 'linear-gradient(135deg, #064e3b, #10b981)',
-      icon: '📲🔑',
-      title: '4. Condição Especial de Negociação',
-      desc: 'Valores promocionais de tabela e fluxo de pagamento facilitado direto com a incorporadora.',
-      imgUrl: 'https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?w=600&auto=format&fit=crop&q=80',
+      title: '2. Plantas & Conforto',
+      desc: 'Espaços amplos pensados para sua família.',
+      imgUrl: realImageUrl,
     },
   ];
 
@@ -169,54 +188,62 @@ export default function CreativePreviewModal({
   };
 
   const handleOpenCTA = () => {
-    if (creative.ctaLink) {
+    if (directMetaUrl) {
+      window.open(directMetaUrl, '_blank');
+    } else if (creative.ctaLink) {
       window.open(creative.ctaLink, '_blank');
     } else {
-      window.open('https://wa.me/5511987654321?text=Ol%C3%A1%2C%20vi%20o%20an%C3%BAncio%20e%20gostaria%20de%20mais%20informa%C3%A7%C3%B5es!', '_blank');
+      window.open(
+        `https://wa.me/5541998243310?text=${encodeURIComponent(
+          `Olá, gostaria de mais informações sobre o anúncio ${creative.nome}`
+        )}`,
+        '_blank'
+      );
     }
   };
 
   const accountHandle = creative.accountHandle || 'swiftsail.midia';
-  const accountName = creative.accountName || 'Swiftsail Mídia';
-  const defaultHeadline =
-    creative.headline || 'Oportunidade Exclusiva • Alto Padrão e Localização Nobre';
+  const defaultHeadline = creative.headline || creative.nome || 'Anúncio Meta Ads';
   const defaultCopy =
     creative.copy ||
-    'Descubra plantas inteligentes com acabamento premium e localização privilegiada. Fale direto com a nossa equipe no WhatsApp para receber o material completo e condições especiais de lançamento.';
+    `Campanha publicada no Meta Ads para ${creative.campanha || 'a conta oficial'}. Clique em "Ver no Meta" para conferir a publicação original.`;
   const defaultCta = creative.ctaText || '💬 Enviar Mensagem no WhatsApp';
 
+  const isPaused =
+    creative.status?.toUpperCase().includes('PAUS') || creative.status?.toUpperCase().includes('PAUSED');
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fadeIn overflow-y-auto">
       <div
         className="relative w-full max-w-4xl bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header Bar */}
-        <div className="flex items-center justify-between px-5 py-4 bg-slate-950/80 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <span className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+        <div className="flex items-center justify-between px-5 py-4 bg-slate-950/90 border-b border-slate-800">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
               <Sparkles className="w-4 h-4" />
             </span>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white truncate max-w-md">{creative.nome}</h3>
-                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 uppercase">
-                  {formatoNorm === 'carousel' ? 'Carrossel 1:1' : formatoNorm === 'reels' ? 'Reels 9:16' : 'Estático 1:1'}
+                <h3 className="text-sm font-bold text-white truncate max-w-sm sm:max-w-md">{creative.nome}</h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 uppercase shrink-0">
+                  {formatoNorm === 'carousel' ? 'Carrossel' : formatoNorm === 'reels' ? 'Reels 9:16' : 'Estático 1:1'}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 font-mono">
-                ID Anúncio Meta: <span className="text-slate-300">{creative.id}</span> • Posicionamento: Feed, Stories & Reels
+              <p className="text-xs text-slate-400 font-mono truncate">
+                ID: <span className="text-slate-300">{creative.id}</span> • {creative.campanha || 'Meta Ads'}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {(creative.preview_link || creative.link_permanente) && (
+          <div className="flex items-center gap-2 shrink-0">
+            {directMetaUrl && (
               <a
-                href={creative.preview_link || creative.link_permanente}
+                href={directMetaUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded-lg text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 transition-all flex items-center gap-1.5 border border-blue-500/30 font-semibold"
+                className="px-3.5 py-1.5 rounded-lg text-xs bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-all flex items-center gap-1.5 font-bold shadow-md shadow-blue-600/20"
                 title="Abrir anúncio original publicado no Facebook / Instagram"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -229,7 +256,7 @@ export default function CreativePreviewModal({
               title="Copiar Headline e Legenda"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'Copiado!' : 'Copiar Copy'}</span>
+              <span className="hidden sm:inline">{copied ? 'Copiado!' : 'Copiar Copy'}</span>
             </button>
             <button
               onClick={onClose}
@@ -242,11 +269,64 @@ export default function CreativePreviewModal({
         </div>
 
         {/* Modal Main Content: Split Preview + Metrics */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 max-h-[80vh] overflow-y-auto">
-          {/* Coluna Esquerda: Mockup Realista de Anúncio Meta (Feed / Reels) */}
-          <div className="lg:col-span-7 p-6 bg-slate-950 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-800">
-            {/* CAROUSEL MOCKUP */}
-            {formatoNorm === 'carousel' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 max-h-[82vh] overflow-y-auto">
+          {/* Coluna Esquerda: Preview Real (Embed Oficial ou Mockup com Imagem Real) */}
+          <div className="lg:col-span-7 p-5 bg-slate-950 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-800 min-h-[520px]">
+            {/* Seletor de Modo quando há Embed disponível */}
+            {hasEmbed && (
+              <div className="w-full max-w-[420px] flex items-center justify-between mb-3 bg-slate-900/80 p-1 rounded-xl border border-slate-800 text-xs">
+                <button
+                  onClick={() => setViewMode('embed')}
+                  className={`flex-1 py-1.5 px-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    viewMode === 'embed'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Publicação Oficial (Embed)</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('media')}
+                  className={`flex-1 py-1.5 px-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    viewMode === 'media'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Mídia & Mockup</span>
+                </button>
+              </div>
+            )}
+
+            {/* MODO 1: IFRAME INCORPORADO REAL DO INSTAGRAM / FACEBOOK */}
+            {hasEmbed && viewMode === 'embed' ? (
+              <div className="w-full max-w-[440px] flex flex-col items-center">
+                <iframe
+                  src={igEmbedUrl || fbEmbedUrl!}
+                  className="w-full h-[540px] rounded-2xl border border-slate-800 shadow-2xl bg-black"
+                  frameBorder="0"
+                  scrolling="yes"
+                  allowTransparency={true}
+                  allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                />
+                {directMetaUrl && (
+                  <div className="mt-2.5 text-center">
+                    <a
+                      href={directMetaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-cyan-400 hover:text-cyan-300 hover:underline flex items-center justify-center gap-1 font-semibold"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Abrir publicação diretamente no app do Instagram / Facebook</span>
+                    </a>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* MODO 2: CARD COM IMAGEM REAL E COPY */
               <div className="w-full max-w-[420px] bg-[#121212] border border-white/10 rounded-xl overflow-hidden shadow-2xl text-white font-sans">
                 {/* Header Instagram */}
                 <div className="flex items-center justify-between p-3 border-b border-white/5">
@@ -255,73 +335,33 @@ export default function CreativePreviewModal({
                       {creative.accountAvatar || '🏢'}
                     </div>
                     <div>
-                      <div className="text-xs font-bold leading-tight hover:underline cursor-pointer">{accountHandle}</div>
+                      <div className="text-xs font-bold leading-tight hover:underline cursor-pointer">
+                        {accountHandle}
+                      </div>
                       <div className="text-[10px] text-zinc-400 flex items-center gap-1">
                         Patrocinado • <span>🌐</span>
                       </div>
                     </div>
                   </div>
-                  <span className="text-zinc-400 text-xs font-mono tracking-widest cursor-pointer hover:text-white">•••</span>
+                  <span className="text-zinc-400 text-xs font-mono tracking-widest cursor-pointer hover:text-white">
+                    •••
+                  </span>
                 </div>
 
-                {/* Área da Imagem / Slide do Carrossel */}
-                <div className="relative aspect-square w-full overflow-hidden bg-zinc-900 select-none group">
-                  {/* Slide Atual */}
-                  <div
-                    className="w-full h-full flex flex-col justify-end p-6 text-white relative transition-all duration-300"
-                    style={{
-                      backgroundImage: slides[currentSlide]?.imgUrl
-                        ? `linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.1) 100%), url(${slides[currentSlide].imgUrl})`
-                        : slides[currentSlide]?.bg || 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }}
-                  >
-                    <div className="relative z-10 space-y-2">
-                      <span className="text-4xl filter drop-shadow-md">{slides[currentSlide]?.icon}</span>
-                      <h4 className="text-lg font-black leading-tight text-white drop-shadow-md">
-                        {slides[currentSlide]?.title}
-                      </h4>
-                      <p className="text-xs text-white/90 leading-snug drop-shadow">
-                        {slides[currentSlide]?.desc}
-                      </p>
-                      <div className="pt-2">
-                        <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-black/60 text-white backdrop-blur-md border border-white/20">
-                          Card {slides[currentSlide]?.num || currentSlide + 1} de {slides.length}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Botões de Navegação do Carrossel */}
-                  {currentSlide > 0 && (
-                    <button
-                      onClick={handlePrevSlide}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center backdrop-blur-sm transition-all border border-white/20 shadow-lg"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-                  )}
-                  {currentSlide < slides.length - 1 && (
-                    <button
-                      onClick={handleNextSlide}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center backdrop-blur-sm transition-all border border-white/20 shadow-lg"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  )}
-
-                  {/* Dots de Paginação */}
-                  <div className="absolute top-3 right-3 flex items-center gap-1 bg-black/50 px-2 py-1 rounded-full backdrop-blur-sm">
-                    {slides.map((_, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => setCurrentSlide(idx)}
-                        className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${
-                          idx === currentSlide ? 'bg-blue-400 w-3' : 'bg-white/40'
-                        }`}
-                      />
-                    ))}
+                {/* Área da Imagem Real com Overlay */}
+                <div
+                  className="relative aspect-square w-full overflow-hidden bg-zinc-950 flex flex-col justify-end p-5 select-none bg-cover bg-center"
+                  style={{
+                    backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 60%), url(${realImageUrl})`,
+                  }}
+                >
+                  <div className="space-y-1.5 relative z-10">
+                    <span className="inline-block px-2.5 py-0.5 rounded text-[10px] font-black bg-cyan-500 text-slate-950 shadow">
+                      {creative.badge || 'META ADS'}
+                    </span>
+                    <h4 className="text-base font-black text-white leading-tight drop-shadow-md">
+                      {defaultHeadline}
+                    </h4>
                   </div>
                 </div>
 
@@ -360,203 +400,9 @@ export default function CreativePreviewModal({
                       <Bookmark className="w-5 h-5" fill={saved ? 'currentColor' : 'none'} />
                     </button>
                   </div>
-                  <div className="text-[11px] font-bold text-zinc-200">1.842 curtidas</div>
 
                   {/* Legenda formatada */}
-                  <div className="text-xs text-zinc-300 leading-relaxed">
-                    <span className="font-bold text-white mr-1.5">{accountHandle}</span>
-                    <span>{defaultCopy}</span>
-                  </div>
-                  <div className="text-[10px] text-zinc-500 pt-1 cursor-pointer hover:underline">
-                    Ver todos os 64 comentários
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* REELS 9:16 VERTICAL PHONE MOCKUP */}
-            {formatoNorm === 'reels' && (
-              <div className="w-full max-w-[340px] aspect-[9/16] bg-zinc-950 border-4 border-zinc-800 rounded-[32px] overflow-hidden shadow-2xl relative flex flex-col justify-between p-4 select-none">
-                {/* Notch / Speaker Simulator */}
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-20 h-4 bg-zinc-900 rounded-full z-30" />
-
-                {/* Background Video Poster / Gradient */}
-                <div
-                  className="absolute inset-0 bg-cover bg-center z-0"
-                  style={{
-                    backgroundImage: creative.imageUrl || creative.thumbUrl
-                      ? `linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.85) 100%), url(${creative.imageUrl || creative.thumbUrl})`
-                      : 'linear-gradient(180deg, #1e1b4b 0%, #0f172a 60%, #020617 100%)',
-                  }}
-                >
-                  {/* Central Play/Pause Action */}
-                  <div
-                    onClick={() => setIsPlaying(!isPlaying)}
-                    className="w-full h-full flex flex-col items-center justify-center cursor-pointer group"
-                  >
-                    <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center text-white shadow-2xl group-hover:scale-110 transition-transform">
-                      {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7 ml-1" />}
-                    </div>
-                    <span className="mt-3 px-3 py-1 rounded-full text-[10px] font-bold bg-black/60 text-white backdrop-blur-sm border border-white/20">
-                      {isPlaying ? '▶️ Vídeo em Reprodução' : '▶️ Clique para Reproduzir Vídeo Real'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Top Reels Bar */}
-                <div className="relative z-20 flex items-center justify-between pt-3 text-white">
-                  <span className="text-sm font-bold flex items-center gap-1.5">
-                    <Flame className="w-4 h-4 text-orange-400" /> Reels
-                  </span>
-                  <button
-                    onClick={() => setIsMuted(!isMuted)}
-                    className="p-1.5 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-colors"
-                  >
-                    {isMuted ? <VolumeX className="w-4 h-4 text-zinc-300" /> : <Volume2 className="w-4 h-4 text-cyan-400" />}
-                  </button>
-                </div>
-
-                {/* Sidebar Right Actions */}
-                <div className="absolute right-3 bottom-24 z-20 flex flex-col items-center gap-4 text-white text-xs">
-                  <button
-                    onClick={() => setLiked(!liked)}
-                    className="flex flex-col items-center gap-1 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Heart className={`w-5 h-5 ${liked ? 'text-red-500 fill-red-500' : 'text-white'}`} />
-                    </div>
-                    <span className="text-[10px] font-bold">1.4K</span>
-                  </button>
-
-                  <button className="flex flex-col items-center gap-1 group">
-                    <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <MessageCircle className="w-5 h-5 text-white" />
-                    </div>
-                    <span className="text-[10px] font-bold">84</span>
-                  </button>
-
-                  <button className="flex flex-col items-center gap-1 group">
-                    <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Share2 className="w-5 h-5 text-white" />
-                    </div>
-                    <span className="text-[10px] font-bold">Compart.</span>
-                  </button>
-
-                  <button
-                    onClick={() => setSaved(!saved)}
-                    className="flex flex-col items-center gap-1 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Bookmark className={`w-5 h-5 ${saved ? 'text-amber-400 fill-amber-400' : 'text-white'}`} />
-                    </div>
-                  </button>
-                </div>
-
-                {/* Bottom Overlay Info & CTA */}
-                <div className="relative z-20 space-y-2.5 max-w-[80%]">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-cyan-500 flex items-center justify-center text-xs font-bold text-white shadow">
-                      {creative.accountAvatar || '🏢'}
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-white">{accountHandle}</div>
-                      <span className="text-[10px] text-zinc-300">Patrocinado</span>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-white leading-snug font-medium line-clamp-2 drop-shadow">
-                    {defaultHeadline}
-                  </p>
-
-                  <button
-                    onClick={handleOpenCTA}
-                    className="w-full py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 font-bold text-xs text-slate-950 flex items-center justify-center gap-1.5 shadow-xl transition-all"
-                  >
-                    <span>{defaultCta}</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ESTÁTICO 1:1 IMAGE MOCKUP */}
-            {formatoNorm === 'image' && (
-              <div className="w-full max-w-[420px] bg-[#121212] border border-white/10 rounded-xl overflow-hidden shadow-2xl text-white font-sans">
-                {/* Header Instagram */}
-                <div className="flex items-center justify-between p-3 border-b border-white/5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-sm font-bold shadow">
-                      {creative.accountAvatar || '💎'}
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold leading-tight hover:underline cursor-pointer">{accountHandle}</div>
-                      <div className="text-[10px] text-zinc-400 flex items-center gap-1">
-                        Patrocinado • <span>🌐</span>
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-zinc-400 text-xs font-mono tracking-widest cursor-pointer hover:text-white">•••</span>
-                </div>
-
-                {/* Imagem 1:1 Feed com Overlay de Oferta */}
-                <div
-                  className="relative aspect-square w-full overflow-hidden bg-cover bg-center flex flex-col justify-end p-6 select-none"
-                  style={{
-                    backgroundImage: creative.imageUrl || creative.thumbUrl
-                      ? `linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.1) 60%), url(${creative.imageUrl || creative.thumbUrl})`
-                      : 'linear-gradient(135deg, #065f46, #047857)',
-                  }}
-                >
-                  <div className="space-y-2 relative z-10">
-                    <span className="inline-block px-3 py-1 rounded-lg text-xs font-black bg-emerald-500 text-slate-950 shadow-lg">
-                      {creative.offerBadge || 'CONDIÇÃO ESPECIAL DE LANÇAMENTO'}
-                    </span>
-                    <h4 className="text-xl font-black text-white leading-tight drop-shadow-md">
-                      {creative.imageTitle || defaultHeadline}
-                    </h4>
-                    <p className="text-xs text-white/90 leading-snug drop-shadow">
-                      {creative.imageDesc || 'Condição exclusiva direto com a incorporadora via atendimento digital.'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Botão de Ação CTA Oficial Meta */}
-                <div className="p-3 bg-zinc-900 border-t border-b border-white/5">
-                  <button
-                    onClick={handleOpenCTA}
-                    className="w-full py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98]"
-                  >
-                    <span>{defaultCta}</span>
-                    <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-                  </button>
-                </div>
-
-                {/* Barra de Engajamento */}
-                <div className="p-3 space-y-2">
-                  <div className="flex items-center justify-between text-zinc-300">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => setLiked(!liked)}
-                        className={`transition-colors ${liked ? 'text-red-500' : 'hover:text-red-400'}`}
-                      >
-                        <Heart className="w-5 h-5" fill={liked ? 'currentColor' : 'none'} />
-                      </button>
-                      <button className="hover:text-white transition-colors">
-                        <MessageCircle className="w-5 h-5" />
-                      </button>
-                      <button className="hover:text-white transition-colors">
-                        <Share2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                    <button
-                      onClick={() => setSaved(!saved)}
-                      className={`transition-colors ${saved ? 'text-amber-400' : 'hover:text-white'}`}
-                    >
-                      <Bookmark className="w-5 h-5" fill={saved ? 'currentColor' : 'none'} />
-                    </button>
-                  </div>
-                  <div className="text-[11px] font-bold text-zinc-200">920 curtidas</div>
-                  <div className="text-xs text-zinc-300 leading-relaxed">
+                  <div className="text-xs text-zinc-300 leading-relaxed max-h-24 overflow-y-auto">
                     <span className="font-bold text-white mr-1.5">{accountHandle}</span>
                     <span>{defaultCopy}</span>
                   </div>
@@ -574,9 +420,20 @@ export default function CreativePreviewModal({
                 </span>
                 <h4 className="text-base font-bold text-white mt-0.5">{creative.nome}</h4>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    ● {creative.status || 'Ativo no Meta Ads'}
-                  </span>
+                  {isPaused ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-300 border border-amber-500/40">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      PAUSADO
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-300 border border-emerald-500/40">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                      </span>
+                      ATIVO
+                    </span>
+                  )}
                   <span className="text-xs text-slate-400 font-mono">
                     CTR: <b className="text-white">{creative.ctr || '2.84%'}</b>
                   </span>
@@ -587,24 +444,29 @@ export default function CreativePreviewModal({
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
                   <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <BarChart3 className="w-3 h-3 text-cyan-400" /> Gasto Acumulado
+                    <BarChart3 className="w-3 h-3 text-cyan-400" /> Gasto
                   </span>
-                  <div className="text-sm font-black text-white font-mono">{formatBRL(creative.gasto || 980)}</div>
+                  <div className="text-sm font-black text-white font-mono">{formatBRL(creative.gasto || 0)}</div>
                 </div>
 
                 <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
                   <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <Flame className="w-3 h-3 text-emerald-400" /> Conversas / Leads
+                    <Flame className="w-3 h-3 text-emerald-400" /> Retorno
                   </span>
                   <div className="text-sm font-black text-cyan-300 font-mono">
-                    {creative.leads || creative.conversas || 28} contatos
+                    {creative.leads || creative.conversas || 0} contatos
                   </div>
                 </div>
 
                 <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
-                  <span className="text-[10px] text-slate-400">Custo por Contato</span>
+                  <span className="text-[10px] text-slate-400">Custo por Lead/Conv.</span>
                   <div className="text-sm font-black text-emerald-400 font-mono">
-                    {formatBRL(creative.cpl || (creative.gasto && creative.leads ? creative.gasto / creative.leads : 35.0))}
+                    {formatBRL(
+                      creative.cpl ||
+                        (creative.gasto && (creative.leads || creative.conversas)
+                          ? creative.gasto / (creative.leads || creative.conversas || 1)
+                          : 0)
+                    )}
                   </div>
                 </div>
 
@@ -628,16 +490,12 @@ export default function CreativePreviewModal({
                     {creative.adset || 'Público Segmentado'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-slate-400">
-                  <span>Público Alvo:</span>
-                  <span className="font-semibold text-slate-200">Segmentado (Geo + Interesses)</span>
-                </div>
               </div>
 
-              {/* Headline & Copy Text Box */}
+              {/* Headline Utilizada */}
               <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/80 space-y-1.5">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Headline Utilizada
+                  Headline / Título
                 </div>
                 <div className="text-xs text-slate-200 font-medium italic">"{defaultHeadline}"</div>
               </div>
@@ -645,13 +503,25 @@ export default function CreativePreviewModal({
 
             {/* Ações Inferiores */}
             <div className="pt-4 border-t border-slate-800 space-y-2">
-              <button
-                onClick={handleOpenCTA}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 font-bold text-xs text-slate-950 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 transition-all"
-              >
-                <span>Testar Fluxo no WhatsApp Oficial</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </button>
+              {directMetaUrl ? (
+                <a
+                  href={directMetaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 font-bold text-xs text-white flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Abrir Anúncio Publicado no Meta</span>
+                </a>
+              ) : (
+                <button
+                  onClick={handleOpenCTA}
+                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 font-bold text-xs text-slate-950 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 transition-all"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Abrir Link de Destino</span>
+                </button>
+              )}
 
               <button
                 onClick={onClose}

@@ -86,7 +86,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       porCampanha.set(key, c);
     }
 
+    // Só retorna campanhas que efetivamente rodaram no período (gasto, impressões, cliques ou conversões > 0)
     const campanhas = Array.from(porCampanha.values())
+      .filter(
+        (c) =>
+          Number(c.gasto || 0) > 0 ||
+          Number(c.impressoes || 0) > 0 ||
+          Number(c.cliques || 0) > 0 ||
+          Number(c.conversoes || 0) > 0
+      )
       .map((c) => {
         const googleStatus = statusMap.get(`${c.cliente_id}:${c.campaign_id}`) || statusMap.get(c.campaign_id);
         return {

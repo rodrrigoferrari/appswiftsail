@@ -39,6 +39,7 @@ export default function MidiaPage() {
   const [activePlatformTab, setActivePlatformTab] = useState<'meta' | 'google'>('meta');
   const [metaLevel, setMetaLevel] = useState<'tree' | 'campaigns' | 'adsets' | 'ads'>('tree');
   const [metaObjectiveFilter, setMetaObjectiveFilter] = useState<'all' | 'messages' | 'forms' | 'conversions' | 'reach' | 'traffic'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused'>('all');
   const [googleSubTab, setGoogleSubTab] = useState<'campaigns' | 'search_terms'>('campaigns');
   const [searchTermFilter, setSearchTermFilter] = useState('');
   const [selectedCreativeModal, setSelectedCreativeModal] = useState<CreativePreviewItem | null>(null);
@@ -133,6 +134,41 @@ export default function MidiaPage() {
     });
   };
 
+  // Helper visual para exibição evidente de Status (ATIVO pulsante vs PAUSADO âmbar)
+  const renderStatusBadge = (statusRaw?: string) => {
+    const s = String(statusRaw || '').toUpperCase();
+    const isPaused = s.includes('PAUS') || s.includes('PAUSED');
+    const isArchived = s.includes('ARCHIV') || s.includes('DELETED') || s.includes('REMOVED');
+
+    if (isPaused) {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-300 border border-amber-500/40 shadow-sm shadow-amber-500/10">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+          PAUSADO
+        </span>
+      );
+    }
+
+    if (isArchived) {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-800 text-slate-400 border border-slate-700">
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+          ARQUIVADO
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 shadow-sm shadow-emerald-500/10">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+        </span>
+        ATIVO
+      </span>
+    );
+  };
+
   // Mapeamento dinâmico de objetivo para cada campanha
   const getCampaignObjective = (camp: any): 'messages' | 'forms' | 'conversions' | 'reach' | 'traffic' => {
     const nome = (camp.nome || '').toLowerCase();
@@ -214,11 +250,53 @@ export default function MidiaPage() {
 
   const currentObjConfig = objectiveConfigs[metaObjectiveFilter] || objectiveConfigs.all;
 
-  // Filtragem de campanhas por objetivo selecionado
-  const filteredMetaCampanhas = metaCampanhas.filter((c: any) => {
-    if (metaObjectiveFilter === 'all') return true;
-    return getCampaignObjective(c) === metaObjectiveFilter;
-  });
+  // 1. Filtragem estrita por atividade no período selecionado (só o que rodou na data)
+  const activePeriodMetaCampanhas = useMemo(() => {
+    return metaCampanhas.filter((c: any) => {
+      const g = Number(c.gasto || 0);
+      const imp = Number(c.impressoes || 0);
+      const clk = Number(c.cliques || 0);
+      const l = Number(c.leads || 0);
+      const conv = Number(c.conversas_iniciadas || 0);
+      return g > 0 || imp > 0 || clk > 0 || l > 0 || conv > 0;
+    });
+  }, [metaCampanhas]);
+
+  // 2. Filtragem de campanhas por objetivo e status (Ativo vs Pausado)
+  const filteredMetaCampanhas = useMemo(() => {
+    return activePeriodMetaCampanhas.filter((c: any) => {
+      if (metaObjectiveFilter !== 'all' && getCampaignObjective(c) !== metaObjectiveFilter) {
+        return false;
+      }
+      if (statusFilter !== 'all') {
+        const s = String(c.effective_status || c.status || '').toUpperCase();
+        const isPaused = s.includes('PAUS') || s.includes('PAUSED');
+        if (statusFilter === 'active' && isPaused) return false;
+        if (statusFilter === 'paused' && !isPaused) return false;
+      }
+      return true;
+    });
+  }, [activePeriodMetaCampanhas, metaObjectiveFilter, statusFilter]);
+
+  // Filtragem de campanhas Google (atividade no período + status)
+  const filteredGoogleCampanhas = useMemo(() => {
+    return googleCampanhas.filter((c: any) => {
+      const g = Number(c.gasto || 0);
+      const imp = Number(c.impressoes || 0);
+      const clk = Number(c.cliques || 0);
+      const conv = Number(c.conversoes || 0);
+      const hasActivity = g > 0 || imp > 0 || clk > 0 || conv > 0;
+      if (!hasActivity) return false;
+
+      if (statusFilter !== 'all') {
+        const s = String(c.status || '').toUpperCase();
+        const isPaused = s.includes('PAUS') || s.includes('PAUSED');
+        if (statusFilter === 'active' && isPaused) return false;
+        if (statusFilter === 'paused' && !isPaused) return false;
+      }
+      return true;
+    });
+  }, [googleCampanhas, statusFilter]);
 
   // Geração hierárquica dinâmica 100% conectada às campanhas reais do Supabase
   const hierarchyData = useMemo(() => {
@@ -264,8 +342,13 @@ export default function MidiaPage() {
             status: as.status || status,
             objetivo: getCampaignObjective(c),
             criativos: as.criativos.map((cr: any, crIdx: number) => {
-              const img = cr.thumbnail_storage_path || imgPresets[(cIdx + asIdx + crIdx) % imgPresets.length];
-              const fNorm = cr.criativo_tipo === 'VIDEO' ? 'reels' as const : cr.criativo_tipo === 'SHARE' ? 'carousel' as const : 'image' as const;
+              const targetLink = cr.instagram_permalink_url || cr.link_permanente || cr.preview_link;
+              const realThumb = cr.thumbnail_storage_path
+                ? cr.thumbnail_storage_path
+                : targetLink
+                ? `/api/meta/thumbnail?url=${encodeURIComponent(targetLink)}`
+                : imgPresets[(cIdx + asIdx + crIdx) % imgPresets.length];
+              const fNorm = cr.criativo_tipo === 'VIDEO' ? ('reels' as const) : cr.criativo_tipo === 'SHARE' ? ('carousel' as const) : ('image' as const);
               return {
                 id: cr.id,
                 campaignId: campId,
@@ -273,7 +356,7 @@ export default function MidiaPage() {
                 nome: cr.nome,
                 formato: fNorm,
                 badge: cr.criativo_tipo || (fNorm === 'reels' ? 'REELS 9:16' : fNorm === 'carousel' ? 'CARROSSEL' : '1:1'),
-                thumbUrl: img,
+                thumbUrl: realThumb,
                 adset: as.nome,
                 campanha: campNome,
                 gasto: cr.gasto || 0,
@@ -290,11 +373,12 @@ export default function MidiaPage() {
                 accountAvatar: '🏢',
                 preview_link: cr.preview_link,
                 link_permanente: cr.link_permanente || cr.instagram_permalink_url,
-                imageUrl: img,
+                instagram_permalink_url: cr.instagram_permalink_url,
+                thumbnail_storage_path: cr.thumbnail_storage_path,
+                imageUrl: realThumb,
                 slides: [
-                  { num: 1, title: '1. Projeto & Fachada', desc: cr.criativo_nome || 'Destaques e diferenciais do projeto.', imgUrl: img },
-                  { num: 2, title: '2. Plantas & Conforto', desc: 'Espaços amplos pensados para sua família.', imgUrl: imgPresets[(cIdx + 1) % imgPresets.length] },
-                  { num: 3, title: '3. Condições no Plantão', desc: 'Fale com nossos consultores.', imgUrl: imgPresets[(cIdx + 2) % imgPresets.length] },
+                  { num: 1, title: '1. Projeto & Fachada', desc: cr.criativo_nome || 'Destaques e diferenciais do projeto.', imgUrl: realThumb },
+                  { num: 2, title: '2. Plantas & Conforto', desc: 'Espaços amplos pensados para sua família.', imgUrl: realThumb },
                 ],
               };
             }),
@@ -307,7 +391,8 @@ export default function MidiaPage() {
       const campCtr = campImpressões > 0 ? ((campCliques / campImpressões) * 100).toFixed(2) + '%' : (c.ctr ? `${c.ctr}%` : '0.00%');
       const campCpl = campLeads > 0 ? Number((campGasto / campLeads).toFixed(2)) : 0;
       const fNorm = getCampaignObjective(c) === 'reach' ? ('reels' as const) : ('image' as const);
-      const img = imgPresets[cIdx % imgPresets.length];
+      const targetLink = c.link_permanente || c.preview_link;
+      const realThumb = targetLink ? `/api/meta/thumbnail?url=${encodeURIComponent(targetLink)}` : imgPresets[cIdx % imgPresets.length];
 
       return {
         ...c,
@@ -335,7 +420,7 @@ export default function MidiaPage() {
                 nome: `${campNome} (Anúncio Principal)`,
                 formato: fNorm,
                 badge: 'META ADS',
-                thumbUrl: img,
+                thumbUrl: realThumb,
                 adset: `Público Meta Ads • ${campNome}`,
                 campanha: campNome,
                 gasto: campGasto,
@@ -350,10 +435,12 @@ export default function MidiaPage() {
                 accountHandle: `${brand.toLowerCase().replace(/[^a-z0-9]/g, '')}.oficial`,
                 accountName: brand,
                 accountAvatar: '🏢',
-                imageUrl: img,
+                imageUrl: realThumb,
+                preview_link: c.preview_link,
+                link_permanente: c.link_permanente,
                 slides: [
-                  { num: 1, title: '1. ' + campNome, desc: 'Campanha ativa no Meta Ads.', imgUrl: img },
-                  { num: 2, title: '2. Atendimento Comercial', desc: 'Plantão de atendimento e vendas.', imgUrl: imgPresets[(cIdx + 1) % imgPresets.length] },
+                  { num: 1, title: '1. ' + campNome, desc: 'Campanha ativa no Meta Ads.', imgUrl: realThumb },
+                  { num: 2, title: '2. Atendimento Comercial', desc: 'Plantão de atendimento e vendas.', imgUrl: realThumb },
                 ],
               },
             ],
@@ -527,25 +614,60 @@ export default function MidiaPage() {
               </button>
             </div>
 
-            {/* Filtro de Tipo / Objetivo de Campanha com Adaptação de Métricas */}
-            <div className="flex items-center gap-2.5">
-              <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">
-                Objetivo / Tipo:
-              </span>
-              <select
-                value={metaObjectiveFilter}
-                onChange={(e: any) => setMetaObjectiveFilter(e.target.value)}
-                className="bg-slate-950 border border-slate-700/80 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-medium"
-              >
-                <option value="all">🌐 Todos os Objetivos & Métricas Completas</option>
-                <option value="messages">💬 Mensagens / WhatsApp (Leads)</option>
-                <option value="forms">📋 Formulários Nativos / Cadastros (Lead Ads)</option>
-                <option value="conversions">🎯 Conversões / Vendas no Site (Pixel & ROAS)</option>
-                <option value="reach">📢 Reconhecimento & Alcance (Branding / Vídeo)</option>
-                <option value="traffic">🌐 Tráfego / Cliques & Landing Page Views</option>
-              </select>
+            {/* Filtros: Status & Objetivo / Tipo */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Filtro de Status Ativo vs Pausado */}
+              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                    statusFilter === 'all'
+                      ? 'bg-slate-700 text-white shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Todos ({activePeriodMetaCampanhas.length})
+                </button>
+                <button
+                  onClick={() => setStatusFilter('active')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                    statusFilter === 'active'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm shadow-emerald-500/10'
+                      : 'text-slate-400 hover:text-emerald-400'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Ativos
+                </button>
+                <button
+                  onClick={() => setStatusFilter('paused')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                    statusFilter === 'paused'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm shadow-amber-500/10'
+                      : 'text-slate-400 hover:text-amber-400'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  Pausados
+                </button>
+              </div>
 
-              <div className="hidden sm:block text-xs text-slate-400 font-mono ml-2 border-l border-slate-800 pl-3">
+              <div className="flex items-center gap-2">
+                <select
+                  value={metaObjectiveFilter}
+                  onChange={(e: any) => setMetaObjectiveFilter(e.target.value)}
+                  className="bg-slate-950 border border-slate-700/80 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-medium"
+                >
+                  <option value="all">🌐 Todos os Objetivos</option>
+                  <option value="messages">💬 Mensagens / WhatsApp (Leads)</option>
+                  <option value="forms">📋 Formulários Nativos / Cadastros (Lead Ads)</option>
+                  <option value="conversions">🎯 Conversões / Vendas no Site (Pixel & ROAS)</option>
+                  <option value="reach">📢 Reconhecimento & Alcance (Branding / Vídeo)</option>
+                  <option value="traffic">🌐 Tráfego / Cliques & Landing Page Views</option>
+                </select>
+              </div>
+
+              <div className="hidden sm:block text-xs text-slate-400 font-mono ml-1 border-l border-slate-800 pl-3">
                 Gasto Meta: <b className="text-white">{formatBRL(Number(metaData?.totais?.gasto || 0))}</b>
               </div>
             </div>
@@ -636,9 +758,7 @@ export default function MidiaPage() {
                               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
                                 📂 Nível 1 • Campanha
                               </span>
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                ● {camp.effective_status || camp.status || 'ACTIVE'}
-                              </span>
+                              {renderStatusBadge(camp.effective_status || camp.status)}
                               <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${objCfg.badge}`}>
                                 {objCfg.label}
                               </span>
@@ -829,13 +949,27 @@ export default function MidiaPage() {
                                             <span className="text-slate-500 text-[9px] block font-sans">CTR</span>
                                             <span className="text-slate-300">{criat.ctr}</span>
                                           </div>
-                                          <button
-                                            onClick={() => setSelectedCreativeModal(criat)}
-                                            className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-[10px] font-semibold transition-all flex items-center gap-1"
-                                          >
-                                            <Eye className="w-3 h-3" />
-                                            <span>Ver</span>
-                                          </button>
+                                          <div className="flex items-center gap-1.5">
+                                            <button
+                                              onClick={() => setSelectedCreativeModal(criat)}
+                                              className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-[10px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                                            >
+                                              <Eye className="w-3 h-3" />
+                                              <span>Ver</span>
+                                            </button>
+                                            {(criat.preview_link || criat.link_permanente) && (
+                                              <a
+                                                href={criat.preview_link || criat.link_permanente}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[10px] transition-all"
+                                                title="Abrir diretamente no Meta Ads / Instagram"
+                                              >
+                                                <ExternalLink className="w-3 h-3" />
+                                              </a>
+                                            )}
+                                          </div>
                                         </div>
                                       </div>
                                     ))}
@@ -959,9 +1093,7 @@ export default function MidiaPage() {
                             <tr className="hover:bg-slate-900/40">
                               {/* Status */}
                               <td className="py-3 px-4">
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                  ● {c.effective_status || c.status || 'ACTIVE'}
-                                </span>
+                                {renderStatusBadge(c.effective_status || c.status)}
                               </td>
 
                               {/* Campanha Nome & ID */}
@@ -1242,9 +1374,7 @@ export default function MidiaPage() {
                         <React.Fragment key={as.id}>
                           <tr className="hover:bg-slate-900/40">
                             <td className="py-3 px-4">
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                ● {as.status}
-                              </span>
+                              {renderStatusBadge(as.status)}
                             </td>
                             <td className="py-3 px-4 font-bold text-white">{as.nome}</td>
                             <td className="py-3 px-4">
@@ -1439,21 +1569,32 @@ export default function MidiaPage() {
 
                         {/* STATUS */}
                         <td className="py-3 px-4">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            ● {ad.status || 'Ativo'}
-                          </span>
+                          {renderStatusBadge(ad.status)}
                         </td>
 
                         {/* AÇÃO: VER ANÚNCIO REAL */}
                         <td className="py-3 px-4">
-                          <button
-                            onClick={() => setSelectedCreativeModal(ad)}
-                            className="px-2.5 py-1 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 font-semibold text-[11px] transition-all flex items-center gap-1.5"
-                            title="Abrir prévia interativa do anúncio"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Ver Criativo</span>
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => setSelectedCreativeModal(ad)}
+                              className="px-2.5 py-1 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 font-semibold text-[11px] transition-all flex items-center gap-1.5 cursor-pointer"
+                              title="Abrir prévia interativa do anúncio"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Ver Criativo</span>
+                            </button>
+                            {(ad.preview_link || ad.link_permanente) && (
+                              <a
+                                href={ad.preview_link || ad.link_permanente}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] transition-all"
+                                title="Abrir diretamente no Meta Ads / Instagram"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1504,10 +1645,10 @@ export default function MidiaPage() {
                   <h3 className="text-sm font-bold text-white">Campanhas no Google Ads (Search & PMax)</h3>
                   <p className="text-xs text-slate-400">Gasto em reais, cliques, impressões, CPC e conversões</p>
                 </div>
-                <span className="text-xs font-mono text-cyan-400">{googleCampanhas.length} campanhas</span>
+                <span className="text-xs font-mono text-cyan-400">{filteredGoogleCampanhas.length} campanhas</span>
               </div>
 
-              {googleCampanhas.length === 0 ? (
+              {filteredGoogleCampanhas.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 text-xs">
                   {loading ? 'Carregando campanhas...' : 'Nenhuma campanha Google encontrada para este cliente.'}
                 </div>
@@ -1529,12 +1670,10 @@ export default function MidiaPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
-                      {googleCampanhas.map((c: any) => (
+                      {filteredGoogleCampanhas.map((c: any) => (
                         <tr key={c.campaign_id} className="hover:bg-slate-900/40">
                           <td className="py-3 px-4">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                              ● {c.status || 'ENABLED'}
-                            </span>
+                            {renderStatusBadge(c.status)}
                           </td>
                           <td className="py-3 px-4">
                             <p className="font-bold text-white max-w-xs truncate" title={c.nome}>
