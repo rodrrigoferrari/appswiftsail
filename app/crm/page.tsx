@@ -188,7 +188,7 @@ export default function CRMPage() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-slate-200 flex items-center gap-1.5">
-                <span>📥</span> 1. Leads Capturados (Landing Pages / WhatsApp / Lead Ads)
+                <span>📥</span> 1. Leads Capturados (Total de Entrada no CRM)
               </span>
               <span className="font-mono text-cyan-300 font-bold">
                 {totalLeads} leads <span className="text-slate-500 font-normal">(100% Topo)</span>
@@ -202,61 +202,80 @@ export default function CRMPage() {
             </div>
           </div>
 
-          {/* Estágio 2: Contato Feito */}
+          {/* Estágio 2: Em Aberto / Atendimento */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-slate-200 flex items-center gap-1.5">
-                <span>💬</span> 2. Primeiro Contato Realizado / Em Atendimento SDR
+                <span>💬</span> 2. Leads em Aberto / Em Atendimento Comercial
               </span>
               <span className="font-mono text-cyan-300 font-bold">
-                {Math.round(totalLeads * 0.72)} contatados{' '}
-                <span className="text-emerald-400 font-semibold">(72.0% taxa de contato)</span>
+                {resumoStatus.aberta.total} leads{' '}
+                <span className="text-emerald-400 font-semibold">
+                  ({totalLeads > 0 ? ((resumoStatus.aberta.total / totalLeads) * 100).toFixed(1) : 0}% do total)
+                </span>
+                {resumoStatus.aberta.valor > 0 && (
+                  <span className="text-slate-400 font-normal ml-1">
+                    • {formatBRL(resumoStatus.aberta.valor)}
+                  </span>
+                )}
               </span>
             </div>
             <div className="w-full bg-slate-950 rounded-full h-3 overflow-hidden border border-slate-800">
               <div
                 className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-500"
-                style={{ width: '72%' }}
+                style={{ width: `${totalLeads > 0 ? Math.min(100, Math.round((resumoStatus.aberta.total / totalLeads) * 100)) : 0}%` }}
               />
             </div>
           </div>
 
-          {/* Estágio 3: Agendados / Reunião */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-slate-200 flex items-center gap-1.5">
-                <span>📅</span> 3. Reunião / Avaliação / Visita Agendada
-              </span>
-              <span className="font-mono text-cyan-300 font-bold">
-                {Math.round(totalLeads * 0.34)} agendados{' '}
-                <span className="text-amber-400 font-semibold">(47.2% conv. etapa)</span>
-              </span>
-            </div>
-            <div className="w-full bg-slate-950 rounded-full h-3 overflow-hidden border border-slate-800">
-              <div
-                className="bg-gradient-to-r from-amber-500 to-yellow-400 h-full rounded-full transition-all duration-500"
-                style={{ width: '34%' }}
-              />
-            </div>
-          </div>
-
-          {/* Estágio 4: Vendas Fechadas */}
+          {/* Estágio 3: Vendas Ganhas */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-emerald-400 flex items-center gap-1.5">
-                <span>🏆</span> 4. Vendas Fechadas (Ganhos Confirmados no CRM)
+                <span>🏆</span> 3. Vendas Fechadas (Ganhos Confirmados no CRM)
               </span>
               <span className="font-mono text-emerald-400 font-black">
-                {resumoStatus.ganho.total > 0 ? resumoStatus.ganho.total : Math.round(totalLeads * 0.08)} vendas{' '}
+                {resumoStatus.ganho.total} vendas{' '}
                 <span className="text-emerald-300 font-bold">
-                  ({resumoStatus.ganho.valor > 0 ? formatBRL(resumoStatus.ganho.valor) : formatBRL(valorTotal * 0.28)})
+                  ({totalLeads > 0 ? ((resumoStatus.ganho.total / totalLeads) * 100).toFixed(1) : 0}% conv.)
                 </span>
+                {resumoStatus.ganho.valor > 0 && (
+                  <span className="text-emerald-300 font-bold ml-1">
+                    • {formatBRL(resumoStatus.ganho.valor)}
+                  </span>
+                )}
               </span>
             </div>
             <div className="w-full bg-slate-950 rounded-full h-3 overflow-hidden border border-slate-800">
               <div
                 className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500"
-                style={{ width: totalLeads > 0 ? `${Math.max(8, (resumoStatus.ganho.total / totalLeads) * 100)}%` : '8%' }}
+                style={{ width: `${totalLeads > 0 ? Math.min(100, Math.round((resumoStatus.ganho.total / totalLeads) * 100)) : 0}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Estágio 4: Perdas / Desqualificados */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-rose-400 flex items-center gap-1.5">
+                <span>❌</span> 4. Desqualificados / Negócios Perdidos
+              </span>
+              <span className="font-mono text-rose-400 font-bold">
+                {resumoStatus.perda.total} perdas{' '}
+                <span className="text-rose-300 font-semibold">
+                  ({totalLeads > 0 ? ((resumoStatus.perda.total / totalLeads) * 100).toFixed(1) : 0}% do total)
+                </span>
+                {resumoStatus.perda.valor > 0 && (
+                  <span className="text-slate-400 font-normal ml-1">
+                    • {formatBRL(resumoStatus.perda.valor)}
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="w-full bg-slate-950 rounded-full h-3 overflow-hidden border border-slate-800">
+              <div
+                className="bg-gradient-to-r from-rose-500 to-rose-700 h-full rounded-full transition-all duration-500"
+                style={{ width: `${totalLeads > 0 ? Math.min(100, Math.round((resumoStatus.perda.total / totalLeads) * 100)) : 0}%` }}
               />
             </div>
           </div>
@@ -402,11 +421,11 @@ function AttributionMatrix({
       const cLeads = Number(camp.total || 0);
       const cNome = camp.campanha || camp.nome || `Campanha ${idx + 1}`;
       return {
-        nome: `Público Meta Ads • ${cNome}`,
+        nome: camp.conjunto || cNome,
         campanha: cNome,
-        tipo: 'Qualificado',
+        tipo: 'Geral',
         leads: cLeads,
-        convRate: totalLeads > 0 ? ((cLeads / totalLeads) * 100).toFixed(1) + '%' : '10.0%',
+        convRate: totalLeads > 0 ? ((cLeads / totalLeads) * 100).toFixed(1) + '%' : '—',
       };
     });
   }, [porConjunto, porCampanha, totalLeads]);

@@ -156,18 +156,12 @@ export default function CreativePreviewModal({
       ? 'carousel'
       : 'image';
 
-  // Slides padrão
-  const slides: CreativeSlide[] = creative.slides || [
+  // Slides do anúncio
+  const slides: CreativeSlide[] = creative.slides && creative.slides.length > 0 ? creative.slides : [
     {
       num: 1,
-      title: creative.headline || '1. Destaques do Anúncio',
-      desc: creative.copy || 'Condições especiais e atendimento exclusivo.',
-      imgUrl: realImageUrl,
-    },
-    {
-      num: 2,
-      title: '2. Plantas & Conforto',
-      desc: 'Espaços amplos pensados para sua família.',
+      title: creative.headline || creative.nome || 'Anúncio Publicado',
+      desc: creative.copy || '',
       imgUrl: realImageUrl,
     },
   ];
@@ -435,7 +429,7 @@ export default function CreativePreviewModal({
                     </span>
                   )}
                   <span className="text-xs text-slate-400 font-mono">
-                    CTR: <b className="text-white">{creative.ctr || '2.84%'}</b>
+                    CTR: <b className="text-white">{creative.ctr || '—'}</b>
                   </span>
                 </div>
               </div>
@@ -472,7 +466,7 @@ export default function CreativePreviewModal({
 
                 <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
                   <span className="text-[10px] text-slate-400">Taxa de Cliques (CTR)</span>
-                  <div className="text-sm font-black text-amber-300 font-mono">{creative.ctr || '2.84%'}</div>
+                  <div className="text-sm font-black text-amber-300 font-mono">{creative.ctr || '—'}</div>
                 </div>
               </div>
 

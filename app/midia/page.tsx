@@ -322,7 +322,7 @@ export default function MidiaPage() {
         'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&auto=format&fit=crop&q=80',
       ];
 
-      // Se a campanha já possui conjuntos e anúncios reais carregados do Supabase, utiliza-os diretamente
+      // Se a campanha possui conjuntos e anúncios reais carregados do Supabase, utiliza-os diretamente
       if (c.adsets && c.adsets.length > 0) {
         return {
           ...c,
@@ -331,17 +331,17 @@ export default function MidiaPage() {
             nome: as.nome,
             campanhaId: campId,
             campanhaNome: campNome,
-            segmentacao: as.segmentacao || `Público Meta Ads • ${as.nome}`,
-            orcamento: as.orcamento || (orcDiario ? formatBRL(orcDiario / Math.max(1, c.adsets.length)) + '/dia' : 'Otimização CBO'),
+            segmentacao: as.segmentacao || as.nome,
+            orcamento: as.orcamento || (orcDiario ? formatBRL(orcDiario / Math.max(1, c.adsets.length)) + '/dia' : 'CBO'),
             gasto: as.gasto || 0,
             leads: as.leads || 0,
             conversas: as.conversas || 0,
             cliques: as.cliques || 0,
             impressoes: as.impressoes || 0,
-            ctr: as.ctr ? `${as.ctr}%` : '2.4%',
+            ctr: as.ctr ? `${as.ctr}%` : (as.impressoes > 0 ? ((as.cliques / as.impressoes) * 100).toFixed(2) + '%' : '0.00%'),
             status: as.status || status,
             objetivo: getCampaignObjective(c),
-            criativos: as.criativos.map((cr: any, crIdx: number) => {
+            criativos: (as.criativos || []).map((cr: any, crIdx: number) => {
               const targetLink = cr.instagram_permalink_url || cr.link_permanente || cr.preview_link;
               const realThumb = cr.thumbnail_storage_path
                 ? cr.thumbnail_storage_path
@@ -355,20 +355,20 @@ export default function MidiaPage() {
                 adsetId: as.id,
                 nome: cr.nome,
                 formato: fNorm,
-                badge: cr.criativo_tipo || (fNorm === 'reels' ? 'REELS 9:16' : fNorm === 'carousel' ? 'CARROSSEL' : '1:1'),
+                badge: cr.criativo_tipo || (fNorm === 'reels' ? 'REELS' : fNorm === 'carousel' ? 'CARROSSEL' : '1:1'),
                 thumbUrl: realThumb,
                 adset: as.nome,
                 campanha: campNome,
                 gasto: cr.gasto || 0,
                 leads: cr.leads || 0,
                 conversas: cr.conversas || 0,
-                ctr: cr.ctr ? `${cr.ctr}%` : '2.8%',
+                ctr: cr.ctr ? `${cr.ctr}%` : (cr.impressoes > 0 ? ((cr.cliques / cr.impressoes) * 100).toFixed(2) + '%' : '0.00%'),
                 cpl: cr.cpl || 0,
                 status: cr.status || status,
                 headline: cr.criativo_titulo || cr.nome,
-                copy: cr.criativo_nome || `${cr.nome} • Anúncio publicado para ${campNome}.`,
-                ctaText: '💬 Falar no WhatsApp com Consultor',
-                accountHandle: `${brand.toLowerCase().replace(/[^a-z0-9]/g, '')}.oficial`,
+                copy: cr.criativo_nome || '',
+                ctaText: '💬 Falar no WhatsApp',
+                accountHandle: `${brand.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
                 accountName: brand,
                 accountAvatar: '🏢',
                 preview_link: cr.preview_link,
@@ -376,76 +376,19 @@ export default function MidiaPage() {
                 instagram_permalink_url: cr.instagram_permalink_url,
                 thumbnail_storage_path: cr.thumbnail_storage_path,
                 imageUrl: realThumb,
-                slides: [
-                  { num: 1, title: '1. Projeto & Fachada', desc: cr.criativo_nome || 'Destaques e diferenciais do projeto.', imgUrl: realThumb },
-                  { num: 2, title: '2. Plantas & Conforto', desc: 'Espaços amplos pensados para sua família.', imgUrl: realThumb },
-                ],
+                slides: realThumb
+                  ? [{ num: 1, title: cr.criativo_titulo || cr.nome, desc: cr.criativo_nome || '', imgUrl: realThumb }]
+                  : undefined,
               };
             }),
           })),
         };
       }
 
-      // Fallback para campanhas sem criativos na view: gera conjunto e anúncio fiéis à campanha real
-      const asRealId = `as-${campId}-real`;
-      const campCtr = campImpressões > 0 ? ((campCliques / campImpressões) * 100).toFixed(2) + '%' : (c.ctr ? `${c.ctr}%` : '0.00%');
-      const campCpl = campLeads > 0 ? Number((campGasto / campLeads).toFixed(2)) : 0;
-      const fNorm = getCampaignObjective(c) === 'reach' ? ('reels' as const) : ('image' as const);
-      const targetLink = c.link_permanente || c.preview_link;
-      const realThumb = targetLink ? `/api/meta/thumbnail?url=${encodeURIComponent(targetLink)}` : imgPresets[cIdx % imgPresets.length];
-
+      // Se não há adsets carregados para a campanha no período, retorna lista vazia sem inventar dados
       return {
         ...c,
-        adsets: [
-          {
-            id: asRealId,
-            nome: `Público Meta Ads • ${campNome}`,
-            campanhaId: campId,
-            campanhaNome: campNome,
-            segmentacao: `Otimização CBO Meta Ads • ${campNome}`,
-            orcamento: orcDiario ? `${formatBRL(orcDiario)}/dia` : 'Otimização CBO',
-            gasto: campGasto,
-            leads: campLeads,
-            conversas: campConversas,
-            cliques: campCliques,
-            impressoes: campImpressões,
-            ctr: campCtr,
-            status: status,
-            objetivo: getCampaignObjective(c),
-            criativos: [
-              {
-                id: `ad-${campId}-real`,
-                campaignId: campId,
-                adsetId: asRealId,
-                nome: `${campNome} (Anúncio Principal)`,
-                formato: fNorm,
-                badge: 'META ADS',
-                thumbUrl: realThumb,
-                adset: `Público Meta Ads • ${campNome}`,
-                campanha: campNome,
-                gasto: campGasto,
-                leads: campLeads,
-                conversas: campConversas,
-                ctr: campCtr,
-                cpl: campCpl,
-                status: status,
-                headline: campNome,
-                copy: `Campanha ativa no Meta Ads para ${clientName}. Vínculo direto com ${campNome}.`,
-                ctaText: '💬 Falar no WhatsApp com Consultor',
-                accountHandle: `${brand.toLowerCase().replace(/[^a-z0-9]/g, '')}.oficial`,
-                accountName: brand,
-                accountAvatar: '🏢',
-                imageUrl: realThumb,
-                preview_link: c.preview_link,
-                link_permanente: c.link_permanente,
-                slides: [
-                  { num: 1, title: '1. ' + campNome, desc: 'Campanha ativa no Meta Ads.', imgUrl: realThumb },
-                  { num: 2, title: '2. Atendimento Comercial', desc: 'Plantão de atendimento e vendas.', imgUrl: realThumb },
-                ],
-              },
-            ],
-          },
-        ],
+        adsets: [],
       };
     });
   }, [filteredMetaCampanhas, clientName]);
@@ -938,7 +881,7 @@ export default function MidiaPage() {
                                           <div>
                                             <span className="text-slate-500 text-[9px] block font-sans">Retorno</span>
                                             <button
-                                              onClick={() => openLeadsDrilldown(`${criat.nome} • ${camp.nome}`, 'form', criat.leads || 1, criat.nome)}
+                                              onClick={() => openLeadsDrilldown(`${criat.nome} • ${camp.nome}`, criat.leads > 0 ? 'form' : 'whatsapp', criat.leads || criat.conversas || 0, criat.nome)}
                                               className="text-cyan-300 font-bold hover:underline"
                                               title="Ver contatos capturados"
                                             >
@@ -1017,13 +960,13 @@ export default function MidiaPage() {
                         <th className="py-3 px-4">Orçamento</th>
                         <th className="py-3 px-4">Gasto Total</th>
 
-                        {/* COLUNAS ADAPTATIVAS BASEADAS NO OBJETIVO */}
+                        {/* COLUNAS ADAPTATIVAS BASEADAS NO OBJETIVO (100% DADOS REAIS) */}
                         {metaObjectiveFilter === 'messages' && (
                           <>
-                            <th className="py-3 px-4 text-emerald-400">Conversas WPP</th>
+                            <th className="py-3 px-4 text-emerald-400">Conversas (WPP)</th>
                             <th className="py-3 px-4 text-emerald-400">Custo / Conversa</th>
-                            <th className="py-3 px-4 text-emerald-400">Taxa Início</th>
-                            <th className="py-3 px-4 text-emerald-400">Agendamentos CRM</th>
+                            <th className="py-3 px-4 text-emerald-400">Cliques no Link</th>
+                            <th className="py-3 px-4 text-emerald-400">Taxa Conversa / Clique</th>
                           </>
                         )}
 
@@ -1031,26 +974,26 @@ export default function MidiaPage() {
                           <>
                             <th className="py-3 px-4 text-cyan-400">Formulários (Leads)</th>
                             <th className="py-3 px-4 text-cyan-400">Custo / Lead (CPL)</th>
-                            <th className="py-3 px-4 text-cyan-400">Taxa Form / Clique</th>
-                            <th className="py-3 px-4 text-cyan-400">Qualificados CRM</th>
+                            <th className="py-3 px-4 text-cyan-400">Cliques no Link</th>
+                            <th className="py-3 px-4 text-cyan-400">Taxa Lead / Clique</th>
                           </>
                         )}
 
                         {metaObjectiveFilter === 'conversions' && (
                           <>
-                            <th className="py-3 px-4 text-indigo-400">Compras / Vendas</th>
-                            <th className="py-3 px-4 text-indigo-400">CPA (Custo / Aquisição)</th>
-                            <th className="py-3 px-4 text-indigo-400">Valor de Conversão</th>
-                            <th className="py-3 px-4 text-indigo-400">ROAS</th>
+                            <th className="py-3 px-4 text-indigo-400">Contatos Totais</th>
+                            <th className="py-3 px-4 text-indigo-400">Custo / Contato</th>
+                            <th className="py-3 px-4 text-indigo-400">Cliques</th>
+                            <th className="py-3 px-4 text-indigo-400">CTR</th>
                           </>
                         )}
 
                         {metaObjectiveFilter === 'reach' && (
                           <>
-                            <th className="py-3 px-4 text-amber-400">Alcance Único</th>
-                            <th className="py-3 px-4 text-amber-400">Frequência</th>
-                            <th className="py-3 px-4 text-amber-400">CPM Médio</th>
-                            <th className="py-3 px-4 text-amber-400">ThruPlays (100%)</th>
+                            <th className="py-3 px-4 text-amber-400">Impressões</th>
+                            <th className="py-3 px-4 text-amber-400">CPM (Custo / Mil)</th>
+                            <th className="py-3 px-4 text-amber-400">Cliques</th>
+                            <th className="py-3 px-4 text-amber-400">CTR</th>
                           </>
                         )}
 
@@ -1059,7 +1002,7 @@ export default function MidiaPage() {
                             <th className="py-3 px-4 text-teal-400">Cliques no Link</th>
                             <th className="py-3 px-4 text-teal-400">CTR Link</th>
                             <th className="py-3 px-4 text-teal-400">CPC Médio</th>
-                            <th className="py-3 px-4 text-teal-400">Páginas Vistas (LPV)</th>
+                            <th className="py-3 px-4 text-teal-400">Impressões</th>
                           </>
                         )}
 
@@ -1082,7 +1025,7 @@ export default function MidiaPage() {
                         const objCfg = objectiveConfigs[obj];
                         const conversas = Number(c.conversas_iniciadas || 0);
                         const leads = Number(c.leads || 0);
-                        const cliques = Number(c.cliques || 1);
+                        const cliques = Number(c.cliques || 0);
                         const gasto = Number(c.gasto || 0);
                         const cpMsg = conversas > 0 ? gasto / conversas : 0;
                         const cpl = leads > 0 ? gasto / leads : 0;
@@ -1119,7 +1062,7 @@ export default function MidiaPage() {
                               {/* Gasto Total */}
                               <td className="py-3 px-4 font-mono font-bold text-white">{formatBRL(gasto)}</td>
 
-                              {/* DADOS ADAPTATIVOS DA LINHA */}
+                              {/* DADOS ADAPTATIVOS DA LINHA (100% REAIS) */}
                               {metaObjectiveFilter === 'messages' && (
                                 <>
                                   <td className="py-3 px-4 font-mono font-bold text-emerald-400">
@@ -1136,10 +1079,10 @@ export default function MidiaPage() {
                                     {cpMsg > 0 ? formatBRL(cpMsg) : '—'}
                                   </td>
                                   <td className="py-3 px-4 font-mono text-slate-300">
-                                    {cliques > 0 ? ((conversas / cliques) * 100).toFixed(1) + '%' : '—'}
+                                    {cliques}
                                   </td>
-                                  <td className="py-3 px-4 font-mono text-cyan-300">
-                                    {Math.round(conversas * 0.35)} agendados (35%)
+                                  <td className="py-3 px-4 font-mono text-emerald-300">
+                                    {cliques > 0 ? ((conversas / cliques) * 100).toFixed(1) + '%' : '—'}
                                   </td>
                                 </>
                               )}
@@ -1160,10 +1103,10 @@ export default function MidiaPage() {
                                     {cpl > 0 ? formatBRL(cpl) : '—'}
                                   </td>
                                   <td className="py-3 px-4 font-mono text-slate-300">
-                                    {cliques > 0 ? ((leads / cliques) * 100).toFixed(1) + '%' : '—'}
+                                    {cliques}
                                   </td>
-                                  <td className="py-3 px-4 font-mono text-emerald-400">
-                                    {Math.round(leads * 0.42)} qualificados (42%)
+                                  <td className="py-3 px-4 font-mono text-cyan-300">
+                                    {cliques > 0 ? ((leads / cliques) * 100).toFixed(1) + '%' : '—'}
                                   </td>
                                 </>
                               )}
@@ -1171,16 +1114,16 @@ export default function MidiaPage() {
                               {metaObjectiveFilter === 'conversions' && (
                                 <>
                                   <td className="py-3 px-4 font-mono font-bold text-indigo-300">
-                                    🎯 {Math.max(1, Math.round(leads * 0.4))} vendas
+                                    {leads + conversas > 0 ? `${leads + conversas} contatos` : '0 contatos'}
                                   </td>
                                   <td className="py-3 px-4 font-mono font-bold text-slate-200">
-                                    {formatBRL(gasto / Math.max(1, Math.round(leads * 0.4)))}
+                                    {(leads + conversas) > 0 ? formatBRL(gasto / (leads + conversas)) : '—'}
                                   </td>
                                   <td className="py-3 px-4 font-mono text-slate-200">
-                                    {formatBRL(gasto * 4.2)}
+                                    {cliques}
                                   </td>
-                                  <td className="py-3 px-4 font-mono font-bold text-emerald-400">
-                                    4.20x ROAS
+                                  <td className="py-3 px-4 font-mono font-bold text-indigo-300">
+                                    {c.ctr ? `${c.ctr}%` : '—'}
                                   </td>
                                 </>
                               )}
@@ -1188,14 +1131,16 @@ export default function MidiaPage() {
                               {metaObjectiveFilter === 'reach' && (
                                 <>
                                   <td className="py-3 px-4 font-mono font-bold text-amber-300">
-                                    {Number(Math.round(Number(c.impressoes || 1000) * 0.72)).toLocaleString('pt-BR')} pessoas
+                                    {Number(c.impressoes || 0).toLocaleString('pt-BR')}
                                   </td>
-                                  <td className="py-3 px-4 font-mono text-slate-300">1.38x freq.</td>
                                   <td className="py-3 px-4 font-mono text-slate-300">
-                                    {c.impressoes ? formatBRL((gasto / Number(c.impressoes)) * 1000) : 'R$ 18,50'}
+                                    {Number(c.impressoes || 0) > 0 ? formatBRL((gasto / Number(c.impressoes)) * 1000) : '—'}
                                   </td>
-                                  <td className="py-3 px-4 font-mono text-cyan-300">
-                                    {Number(Math.round(Number(c.impressoes || 1000) * 0.28)).toLocaleString('pt-BR')}
+                                  <td className="py-3 px-4 font-mono text-slate-300">
+                                    {cliques}
+                                  </td>
+                                  <td className="py-3 px-4 font-mono text-amber-300">
+                                    {c.ctr ? `${c.ctr}%` : '—'}
                                   </td>
                                 </>
                               )}
@@ -1205,12 +1150,12 @@ export default function MidiaPage() {
                                   <td className="py-3 px-4 font-mono font-bold text-teal-300">
                                     {cliques} cliques
                                   </td>
-                                  <td className="py-3 px-4 font-mono text-slate-300">{c.ctr}%</td>
+                                  <td className="py-3 px-4 font-mono text-slate-300">{c.ctr ? `${c.ctr}%` : '—'}</td>
                                   <td className="py-3 px-4 font-mono text-slate-300">
                                     {cliques > 0 ? formatBRL(gasto / cliques) : '—'}
                                   </td>
-                                  <td className="py-3 px-4 font-mono text-emerald-400">
-                                    {Math.round(cliques * 0.82)} LPV (82%)
+                                  <td className="py-3 px-4 font-mono text-teal-300">
+                                    {Number(c.impressoes || 0).toLocaleString('pt-BR')}
                                   </td>
                                 </>
                               )}
@@ -1386,7 +1331,7 @@ export default function MidiaPage() {
                             <td className="py-3 px-4 font-mono font-bold text-white">{formatBRL(as.gasto)}</td>
                             <td className="py-3 px-4 font-mono font-bold text-cyan-300">
                               <button
-                                onClick={() => openLeadsDrilldown(`${as.nome} • ${as.campanhaNome}`, 'form', as.leads || 1, as.nome)}
+                                onClick={() => openLeadsDrilldown(`${as.nome} • ${as.campanhaNome}`, as.leads > 0 ? 'form' : 'whatsapp', as.leads || as.conversas || 0, as.nome)}
                                 className="hover:underline hover:text-cyan-200 transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
                                 title="Clique para ver os nomes e contatos capturados neste público"
                               >
@@ -1553,7 +1498,7 @@ export default function MidiaPage() {
                         {/* RETORNO ADAPTATIVO POR OBJETIVO */}
                         <td className="py-3 px-4 font-mono font-bold text-cyan-300">
                           <button
-                            onClick={() => openLeadsDrilldown(`${ad.nome} • ${ad.adset}`, 'form', ad.leads || 20, ad.nome)}
+                            onClick={() => openLeadsDrilldown(`${ad.nome} • ${ad.adset}`, ad.leads > 0 ? 'form' : 'whatsapp', ad.leads || ad.conversas || 0, ad.nome)}
                             className="hover:underline hover:text-cyan-200 transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
                             title="Clique para ver os nomes e contatos capturados neste criativo"
                           >
