@@ -19,13 +19,13 @@ export default async function RootLayout({
   const initialClients = await getClientes();
 
   return (
-    <html lang="pt-BR" className="dark">
-      <body className="bg-[#07090E] text-slate-100 min-h-screen antialiased flex overflow-hidden">
+    <html lang="pt-BR" className="light">
+      <body className="bg-[#F8FAFC] text-[#0F172A] min-h-screen antialiased flex overflow-hidden font-sans">
         <TenantProvider initialClients={initialClients}>
           <Sidebar />
-          <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+          <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-[#F8FAFC]">
             <Header />
-            <main className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+            <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-6">
               {children}
             </main>
           </div>

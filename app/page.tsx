@@ -118,65 +118,64 @@ export default function DashboardPage() {
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner / Welcome */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-cyan-950/30 border border-slate-800 p-6 rounded-2xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-full bg-radial from-cyan-500/10 via-transparent to-transparent pointer-events-none" />
-        <div className="space-y-1.5 z-10">
+    <div className="space-y-6 font-sans select-none">
+      {/* Top Banner / Welcome (Estilo Asaas: Branco Puro, Borda Fina, Destaque Limpo) */}
+      <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <span
-              className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider flex items-center gap-1.5 ${
                 isAggregated
-                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
-                  : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
+                  ? 'bg-[#EFF4FF] text-[#0050FF] border-[#BFDBFE]'
+                  : 'bg-[#EFF4FF] text-[#0050FF] border-[#BFDBFE]'
               }`}
             >
-              {isAggregated ? <Crown className="w-3.5 h-3.5 text-amber-400" /> : <Sparkles className="w-3.5 h-3.5 text-cyan-400" />}
+              {isAggregated ? <Crown className="w-3.5 h-3.5 text-[#0050FF]" /> : <Sparkles className="w-3.5 h-3.5 text-[#0050FF]" />}
               {isAggregated ? 'Governança & Gestão Global' : 'Inteligência de Tráfego & IA'}
             </span>
-            <span className="text-xs text-slate-400 font-mono">| Período: {dateRange.label}</span>
+            <span className="text-xs text-[#64748B] font-medium">| Período: {dateRange.label}</span>
           </div>
-          <h2 className="text-2xl font-extrabold text-white tracking-tight">{clientName}</h2>
-          <p className="text-xs text-slate-400 max-w-xl">
+          <h2 className="text-xl sm:text-2xl font-bold text-[#0F172A] tracking-tight">{clientName}</h2>
+          <p className="text-xs text-[#64748B] max-w-xl leading-relaxed">
             {isAggregated
               ? 'Consolidado global da carteira ativa. Gestão unificada de contas Meta Ads, Google Ads, CRM e CS.'
               : `Visão operacional em tempo real de ${clientName}. Contas conectadas, saúde de atendimento e ingestão Sinapse.`}
           </p>
         </div>
 
-        <div className="flex items-center gap-3 z-10">
+        <div className="flex items-center gap-3">
           {isAggregated ? (
             <div className="flex items-center gap-2">
               <Link
                 href="/admin/usuarios"
-                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 flex items-center gap-1.5 transition-all"
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#EFF4FF] hover:bg-[#E0EAFF] text-[#0050FF] border border-[#BFDBFE] flex items-center gap-1.5 transition-all shadow-xs"
               >
                 <UserPlus className="w-3.5 h-3.5" />
                 <span>Convidar Usuário</span>
               </Link>
               <Link
                 href="/admin/clientes"
-                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white border border-slate-700 flex items-center gap-1.5 transition-all"
+                className="px-5 py-2 rounded-full text-xs font-semibold bg-[#0050FF] hover:bg-[#0040D6] text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
               >
                 <Building className="w-3.5 h-3.5" />
                 <span>Ver Carteira</span>
               </Link>
             </div>
           ) : (
-            <div className="bg-slate-950/90 border border-slate-800 p-3.5 rounded-xl text-right max-w-md">
+            <div className="bg-[#F8FAFC] border border-[#E2E8F0] p-3.5 rounded-xl text-right max-w-md shadow-xs">
               <div className="flex items-center justify-between gap-4 mb-1">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#64748B]">
                   Saúde CS (Agente @CS)
                 </span>
                 <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
                     activeClientCsStatus?.nivel === 'saudavel'
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       : activeClientCsStatus?.nivel === 'atencao'
-                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
                       : activeClientCsStatus?.nivel === 'em_risco'
-                      ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                      : 'bg-slate-800 text-slate-400 border-slate-700'
+                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                      : 'bg-slate-100 text-[#64748B] border-slate-200'
                   }`}
                 >
                   {activeClientCsStatus?.nivel === 'saudavel'
@@ -188,7 +187,7 @@ export default function DashboardPage() {
                     : '⚪ Sem dados'}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-300 leading-snug line-clamp-2 text-left">
+              <p className="text-[11px] text-[#334155] leading-snug line-clamp-2 text-left">
                 {activeClientCsStatus?.sinais?.nota || 'Diagnóstico operacional normalizado sem alertas abertos.'}
               </p>
             </div>
@@ -197,99 +196,99 @@ export default function DashboardPage() {
       </div>
 
       {unavailable && (
-        <div className="p-4 rounded-xl text-xs font-semibold flex items-start gap-2 border bg-amber-500/10 text-amber-300 border-amber-500/30">
-          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+        <div className="p-4 rounded-xl text-xs font-semibold flex items-start gap-2 border bg-amber-50 text-amber-800 border-amber-200">
+          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <span>
             Investimento, leads e CPA indisponíveis: não foi possível ler os dados de tráfego do Cleide. {unavailable}
           </span>
         </div>
       )}
 
-      {/* KPI Metric Cards — 100% Dynamic Real Data */}
+      {/* KPI Metric Cards — 100% Dynamic Real Data (Estilo Asaas) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Investimento Real */}
-        <div className="glass-card p-5 glass-card-hover relative space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
+        <div className="bg-white border border-[#E2E8F0] p-5 rounded-2xl shadow-xs relative space-y-2 hover:border-[#CBD5E1] transition-all">
+          <div className="flex items-center justify-between text-[#64748B]">
             <span className="text-xs font-semibold uppercase tracking-wider">Investimento em Anúncios</span>
-            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <div className="p-2 rounded-xl bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-white">
-            {loading ? <RefreshCw className="w-5 h-5 animate-spin text-cyan-400 inline" /> : unavailable ? '—' : formatBRL(totalSpend)}
+          <p className="text-2xl font-bold text-[#0F172A] tracking-tight">
+            {loading ? <RefreshCw className="w-5 h-5 animate-spin text-[#0050FF] inline" /> : unavailable ? '—' : formatBRL(totalSpend)}
           </p>
-          <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/80">
+          <div className="text-[11px] text-[#64748B] flex items-center justify-between pt-2 border-t border-[#F1F5F9]">
             <span>Meta: {formatBRL(metaSpend)}</span>
             <span>Google: {formatBRL(googleSpend)}</span>
           </div>
         </div>
 
         {/* Leads & Conversões Reais */}
-        <div className="glass-card p-5 glass-card-hover relative space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
+        <div className="bg-white border border-[#E2E8F0] p-5 rounded-2xl shadow-xs relative space-y-2 hover:border-[#CBD5E1] transition-all">
+          <div className="flex items-center justify-between text-[#64748B]">
             <span className="text-xs font-semibold uppercase tracking-wider">Leads & Conversões</span>
-            <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+            <div className="p-2 rounded-xl bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]">
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-white">
-            {loading ? <RefreshCw className="w-5 h-5 animate-spin text-cyan-400 inline" /> : unavailable ? '—' : totalOportunidades.toLocaleString('pt-BR')}
+          <p className="text-2xl font-bold text-[#0F172A] tracking-tight">
+            {loading ? <RefreshCw className="w-5 h-5 animate-spin text-[#0050FF] inline" /> : unavailable ? '—' : totalOportunidades.toLocaleString('pt-BR')}
           </p>
-          <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/80">
+          <div className="text-[11px] text-[#64748B] flex items-center justify-between pt-2 border-t border-[#F1F5F9]">
             <span>Meta: {metaCadastros} leads · {metaConversas} conv.</span>
             <span>Google: {googleConversions} conv.</span>
           </div>
         </div>
 
         {/* CPA Real */}
-        <div className="glass-card p-5 glass-card-hover relative space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
+        <div className="bg-white border border-[#E2E8F0] p-5 rounded-2xl shadow-xs relative space-y-2 hover:border-[#CBD5E1] transition-all">
+          <div className="flex items-center justify-between text-[#64748B]">
             <span className="text-xs font-semibold uppercase tracking-wider">CPA Médio</span>
-            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200">
               <Target className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-white">
+          <p className="text-2xl font-bold text-[#0F172A] tracking-tight">
             {unavailable ? '—' : totalOportunidades > 0 ? formatBRL(cpaReal) : '—'}
           </p>
-          <div className="text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
+          <div className="text-[11px] text-[#64748B] pt-2 border-t border-[#F1F5F9]">
             <span>Custo por lead/conversa gerada</span>
           </div>
         </div>
 
         {/* Contas Ativas em Operação */}
-        <div className="glass-card p-5 glass-card-hover relative space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
+        <div className="bg-white border border-[#E2E8F0] p-5 rounded-2xl shadow-xs relative space-y-2 hover:border-[#CBD5E1] transition-all">
+          <div className="flex items-center justify-between text-[#64748B]">
             <span className="text-xs font-semibold uppercase tracking-wider">Contas Conectadas</span>
-            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <div className="p-2 rounded-xl bg-purple-50 text-purple-600 border border-purple-200">
               <Zap className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-white">
-            {activeClientAdAccounts.length} <span className="text-xs font-normal text-slate-400">contas</span>
+          <p className="text-2xl font-bold text-[#0F172A] tracking-tight">
+            {activeClientAdAccounts.length} <span className="text-xs font-normal text-[#64748B]">contas</span>
           </p>
-          <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/80">
-            <span className="text-blue-400 font-bold">{metaAccounts.length} Meta</span>
-            <span className="text-cyan-400 font-bold">{googleAccounts.length} Google</span>
+          <div className="text-[11px] text-[#64748B] flex items-center justify-between pt-2 border-t border-[#F1F5F9]">
+            <span className="text-[#0050FF] font-semibold">{metaAccounts.length} Meta</span>
+            <span className="text-sky-600 font-semibold">{googleAccounts.length} Google</span>
           </div>
         </div>
       </div>
 
       {/* ASAAS FINTECH OVERVIEW BANNER — Design System Integrado */}
-      <div className="bg-gradient-to-r from-blue-900/30 via-slate-900/80 to-slate-900/90 border border-blue-500/30 p-4 sm:p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+      <div className="bg-white border border-[#E2E8F0] p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
         <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-[#0050FF]/20 border border-[#0050FF]/40 text-[#38BDF8] flex items-center justify-center shrink-0">
-            <CreditCard className="w-5 h-5 text-blue-400" />
+          <div className="w-10 h-10 rounded-xl bg-[#EFF4FF] border border-[#BFDBFE] text-[#0050FF] flex items-center justify-center shrink-0">
+            <CreditCard className="w-5 h-5 text-[#0050FF]" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#0050FF] bg-[#EFF4FF] px-2.5 py-0.5 rounded-full border border-[#BFDBFE]">
                 Asaas Gateway Fintech
               </span>
-              <span className="text-xs text-slate-400 font-mono">Outubro 2026</span>
+              <span className="text-xs text-[#64748B] font-mono">Outubro 2026</span>
             </div>
-            <h3 className="text-sm sm:text-base font-bold text-white mt-0.5">
-              R$ 27.809,65 Recebidos líquido <span className="text-xs font-normal text-slate-400">(14 cobranças · 12 clientes)</span>
+            <h3 className="text-sm sm:text-base font-bold text-[#0F172A] mt-0.5">
+              R$ 27.809,65 Recebidos líquido <span className="text-xs font-normal text-[#64748B]">(14 cobranças · 12 clientes)</span>
             </h3>
           </div>
         </div>
@@ -297,7 +296,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/financeiro"
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#0050FF] hover:bg-[#0040D6] text-white flex items-center gap-1.5 transition-all shadow-sm"
+            className="px-5 py-2.5 rounded-full text-xs font-semibold bg-[#0050FF] hover:bg-[#0040D6] text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
           >
             <span>Ver Visualização Asaas</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -307,21 +306,21 @@ export default function DashboardPage() {
 
       {/* ADMIN EXCLUSIVE SECTION: Multi-tenant Clients Quick Matrix */}
       {isAggregated && (
-        <div className="glass-card p-6 space-y-4 border-cyan-500/20">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+        <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F1F5F9] pb-3">
             <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Building className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                <Building className="w-4 h-4 text-[#0050FF]" />
                 Carteira de Clientes Ativos ({clients.filter((c) => c.status === 'ativo').length})
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-[#64748B]">
                 Selecione qualquer cliente para entrar diretamente no seu workspace individual
               </p>
             </div>
 
             <Link
               href="/admin/clientes"
-              className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+              className="text-xs font-bold text-[#0050FF] hover:underline flex items-center gap-1"
             >
               <span>Gerenciar todos os clientes</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -335,21 +334,21 @@ export default function DashboardPage() {
                 <div
                   key={client.cliente_id}
                   onClick={() => selectClientAndSwitchToWorkspace(client.cliente_id)}
-                  className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 hover:bg-slate-900/90 cursor-pointer transition-all group flex items-center justify-between"
+                  className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#0050FF] hover:bg-[#EFF4FF]/30 cursor-pointer transition-all group flex items-center justify-between"
                 >
                   <div className="space-y-1 min-w-0 pr-2">
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                      <h4 className="font-bold text-white text-xs truncate group-hover:text-cyan-300 transition-colors">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <h4 className="font-bold text-[#0F172A] text-xs truncate group-hover:text-[#0050FF] transition-colors">
                         {client.nome === 'EMOVERE' ? 'Emovere' : client.nome}
                       </h4>
                     </div>
-                    <p className="text-[11px] text-slate-400 font-mono truncate">
+                    <p className="text-[11px] text-[#64748B] font-mono truncate">
                       {client.grupo_whatsapp_id ? '📱 WhatsApp Vinculado' : 'Sem grupo'} • {clientUsersCount} usuários
                     </p>
                   </div>
 
-                  <div className="p-2 rounded-lg bg-slate-800 text-slate-400 group-hover:text-cyan-400 group-hover:bg-cyan-500/10 transition-colors">
+                  <div className="p-2 rounded-lg bg-white border border-[#E2E8F0] text-[#64748B] group-hover:text-[#0050FF] group-hover:border-[#BFDBFE] transition-colors shadow-xs">
                     <ExternalLink className="w-3.5 h-3.5" />
                   </div>
                 </div>
@@ -363,18 +362,18 @@ export default function DashboardPage() {
       {!isAggregated && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Ad Accounts List */}
-          <div className="lg:col-span-2 glass-card p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="lg:col-span-2 bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
               <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-cyan-400" />
+                <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-[#0050FF]" />
                   Contas de Tráfego Conectadas ({activeClientAdAccounts.length})
                 </h3>
-                <p className="text-xs text-slate-400">Ativos cadastrados no BM Parceiro e Google MCC</p>
+                <p className="text-xs text-[#64748B]">Ativos cadastrados no BM Parceiro e Google MCC</p>
               </div>
               <Link
                 href="/midia"
-                className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+                className="text-xs font-bold text-[#0050FF] hover:underline flex items-center gap-1"
               >
                 <span>Ver Mídia</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -382,10 +381,10 @@ export default function DashboardPage() {
             </div>
 
             {activeClientAdAccounts.length === 0 ? (
-              <div className="p-8 text-center space-y-2 border border-dashed border-slate-800 rounded-xl">
-                <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto" />
-                <p className="text-xs font-bold text-white">Nenhuma conta vinculada a este cliente</p>
-                <p className="text-[11px] text-slate-400">
+              <div className="p-8 text-center space-y-2 border border-dashed border-[#CBD5E1] rounded-xl bg-[#F8FAFC]">
+                <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto" />
+                <p className="text-xs font-bold text-[#0F172A]">Nenhuma conta vinculada a este cliente</p>
+                <p className="text-[11px] text-[#64748B]">
                   Cadastre o grupo de WhatsApp ou vincule o account_id em <code>group_ad_accounts</code>.
                 </p>
               </div>
@@ -394,23 +393,23 @@ export default function DashboardPage() {
                 {activeClientAdAccounts.map((acc) => (
                   <div
                     key={acc.id}
-                    className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-start justify-between gap-3"
+                    className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-start justify-between gap-3 shadow-xs"
                   >
                     <div className="space-y-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span
                           className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase ${
                             acc.plataforma === 'meta'
-                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                              : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : 'bg-sky-50 text-sky-700 border border-sky-200'
                           }`}
                         >
                           {acc.plataforma}
                         </span>
-                        <span className="text-[10px] text-emerald-400 font-bold">🟢 ATIVA</span>
+                        <span className="text-[10px] text-emerald-600 font-bold">🟢 ATIVA</span>
                       </div>
-                      <h4 className="text-xs font-bold text-white truncate">{acc.account_name}</h4>
-                      <p className="text-[10px] font-mono text-slate-400 truncate">{acc.account_id}</p>
+                      <h4 className="text-xs font-bold text-[#0F172A] truncate">{acc.account_name}</h4>
+                      <p className="text-[10px] font-mono text-[#64748B] truncate">{acc.account_id}</p>
                     </div>
                   </div>
                 ))}
@@ -419,55 +418,55 @@ export default function DashboardPage() {
           </div>
 
           {/* Operational Health & Communication */}
-          <div className="glass-card p-6 space-y-4">
-            <div className="border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs space-y-4">
+            <div className="border-b border-[#F1F5F9] pb-3">
+              <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
                 Saúde & Comunicação
               </h3>
-              <p className="text-xs text-slate-400">Status dos canais e integrações</p>
+              <p className="text-xs text-[#64748B]">Status dos canais e integrações</p>
             </div>
 
             <div className="space-y-3 pt-1 text-xs">
-              <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <MessageSquare className="w-4 h-4 text-emerald-400" />
+                  <MessageSquare className="w-4 h-4 text-emerald-600" />
                   <div>
-                    <p className="font-bold text-white">Grupo WhatsApp</p>
-                    <p className="text-[10px] font-mono text-slate-400 truncate max-w-[140px]">
+                    <p className="font-bold text-[#0F172A]">Grupo WhatsApp</p>
+                    <p className="text-[10px] font-mono text-[#64748B] truncate max-w-[140px]">
                       {activeClient?.grupo_whatsapp_id || 'Sem grupo'}
                     </p>
                   </div>
                 </div>
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                  activeClient?.grupo_whatsapp_id ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-400'
+                  activeClient?.grupo_whatsapp_id ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-[#64748B]'
                 }`}>
                   {activeClient?.grupo_whatsapp_id ? 'Conectado' : 'Pendente'}
                 </span>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <Zap className="w-4 h-4 text-blue-400" />
+                  <Zap className="w-4 h-4 text-[#0050FF]" />
                   <div>
-                    <p className="font-bold text-white">Meta Graph API</p>
-                    <p className="text-[10px] text-slate-400">BM 791208745012339</p>
+                    <p className="font-bold text-[#0F172A]">Meta Graph API</p>
+                    <p className="text-[10px] text-[#64748B]">BM 791208745012339</p>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   {metaAccounts.length > 0 ? 'Cadastrada' : 'Sem contas'}
                 </span>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <Search className="w-4 h-4 text-cyan-400" />
+                  <Search className="w-4 h-4 text-sky-600" />
                   <div>
-                    <p className="font-bold text-white">Google Ads API</p>
-                    <p className="text-[10px] text-slate-400">MCC 262-638-1700</p>
+                    <p className="font-bold text-[#0F172A]">Google Ads API</p>
+                    <p className="text-[10px] text-[#64748B]">MCC 262-638-1700</p>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   {googleAccounts.length > 0 ? 'Cadastrada' : 'Sem contas'}
                 </span>
               </div>
