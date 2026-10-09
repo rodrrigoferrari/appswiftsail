@@ -196,20 +196,20 @@ export default function AdminUsuariosPage() {
   });
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="glass-card p-6 border-cyan-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-cyan-950/20">
-        <div className="space-y-1">
+    <div className="space-y-6 font-sans select-none">
+      {/* Top Banner (Estilo Asaas) */}
+      <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 uppercase tracking-wider">
+            <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
               Governança & Controle de Acessos
             </span>
           </div>
-          <h2 className="text-xl font-black text-white flex items-center gap-2">
-            <Users className="w-5 h-5 text-cyan-400" />
+          <h1 className="text-xl sm:text-2xl font-bold text-[#0F172A] flex items-center gap-2.5">
+            <Users className="w-6 h-6 text-[#0050FF]" />
             Gestão de Usuários & Convites dos Clientes
-          </h2>
-          <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
+          </h1>
+          <p className="text-xs text-[#64748B] max-w-2xl leading-relaxed">
             Convide usuários da sua agência e membros para cada cliente individual (com acesso isolado aos seus respectivos dashboards e permissões modulares).
           </p>
         </div>
@@ -219,54 +219,54 @@ export default function AdminUsuariosPage() {
             setInviteSuccessData(null);
             setShowInviteModal(true);
           }}
-          className="px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20 flex items-center gap-2 transition-all self-start md:self-auto"
+          className="bg-[#0050FF] hover:bg-[#0040D6] text-white px-5 py-2.5 rounded-full font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer self-start md:self-auto"
         >
           <UserPlus className="w-4 h-4" />
-          Convidar Novo Usuário
+          <span>Convidar Novo Usuário</span>
         </button>
       </div>
 
-      {/* KPI Stats Cards */}
+      {/* KPI Stats Cards (Estilo Asaas) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass-card p-4">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total de Usuários</p>
-          <p className="text-2xl font-black text-white mt-1">{users.length}</p>
-          <p className="text-[10px] text-emerald-400 mt-0.5">Ativos na plataforma</p>
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
+          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Total de Usuários</p>
+          <p className="text-2xl sm:text-3xl font-bold text-[#0F172A] mt-1">{users.length}</p>
+          <p className="text-[11px] text-emerald-600 font-medium mt-0.5">Ativos na plataforma</p>
         </div>
 
-        <div className="glass-card p-4">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Convites Pendentes</p>
-          <p className="text-2xl font-black text-amber-400 mt-1">{invites.length}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Aguardando ativação</p>
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
+          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Convites Pendentes</p>
+          <p className="text-2xl sm:text-3xl font-bold text-amber-600 mt-1">{invites.length}</p>
+          <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Aguardando ativação</p>
         </div>
 
-        <div className="glass-card p-4">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Usuários de Clientes</p>
-          <p className="text-2xl font-black text-cyan-400 mt-1">
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
+          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Usuários de Clientes</p>
+          <p className="text-2xl sm:text-3xl font-bold text-[#0050FF] mt-1">
             {users.filter((u) => !!u.cliente_id).length}
           </p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Isolados por workspace</p>
+          <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Isolados por workspace</p>
         </div>
 
-        <div className="glass-card p-4">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Equipe Swiftsail (HQ)</p>
-          <p className="text-2xl font-black text-purple-400 mt-1">
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
+          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Equipe Swiftsail (HQ)</p>
+          <p className="text-2xl sm:text-3xl font-bold text-purple-600 mt-1">
             {users.filter((u) => !u.cliente_id).length}
           </p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Admins, Gestores e CS</p>
+          <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Admins, Gestores e CS</p>
         </div>
       </div>
 
       {/* Filters & Tabs Bar */}
-      <div className="glass-card p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+      <div className="bg-white border border-[#E2E8F0] rounded-2xl p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         {/* Tabs */}
-        <div className="flex items-center gap-2 border-b md:border-b-0 border-slate-800 pb-2 md:pb-0">
+        <div className="flex items-center gap-2 p-1 bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl w-fit">
           <button
             onClick={() => setActiveTab('users')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'users'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                : 'text-[#64748B] hover:text-[#0F172A]'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -275,10 +275,10 @@ export default function AdminUsuariosPage() {
 
           <button
             onClick={() => setActiveTab('invites')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'invites'
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                : 'text-[#64748B] hover:text-[#0F172A]'
             }`}
           >
             <Mail className="w-3.5 h-3.5" />

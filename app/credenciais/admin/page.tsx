@@ -104,20 +104,20 @@ export default function AdminCredentialsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="glass-card p-6 border-cyan-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-cyan-950/20">
-        <div className="space-y-1">
+    <div className="space-y-6 font-sans select-none">
+      {/* Top Banner (Estilo Asaas: Branco Limpo, Borda Fina, Destaque Limpo) */}
+      <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 uppercase tracking-wider">
+            <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
               Nível Administrador Global
             </span>
           </div>
-          <h2 className="text-xl font-black text-white flex items-center gap-2">
-            <Server className="w-5 h-5 text-cyan-400" />
+          <h1 className="text-xl sm:text-2xl font-bold text-[#0F172A] flex items-center gap-2.5">
+            <Server className="w-6 h-6 text-[#0050FF]" />
             Credenciais Master Admin (Swiftsail)
-          </h2>
-          <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
+          </h1>
+          <p className="text-xs text-[#64748B] max-w-2xl leading-relaxed">
             Chaves mestras da agência para provisionar instâncias, gerenciar as 36 contas de anúncios via BM/MCC e executar automações. O cliente não possui acesso a estas chaves.
           </p>
         </div>
@@ -125,10 +125,10 @@ export default function AdminCredentialsPage() {
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20 flex items-center gap-2 transition-all self-start md:self-auto"
+          className="bg-[#0050FF] hover:bg-[#0040D6] text-white px-5 py-2.5 rounded-full font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50 self-start md:self-auto"
         >
           {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Salvar Chaves Master no Supabase
+          <span>Salvar Chaves Master</span>
         </button>
       </div>
 
@@ -136,11 +136,11 @@ export default function AdminCredentialsPage() {
         <div
           className={`p-4 rounded-xl text-xs font-semibold flex items-center gap-2 border ${
             feedback.type === 'success'
-              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-              : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              : 'bg-rose-50 text-rose-700 border-rose-200'
           }`}
         >
-          {feedback.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-rose-400" />}
+          {feedback.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-rose-600" />}
           <span>{feedback.text}</span>
         </div>
       )}
@@ -149,80 +149,80 @@ export default function AdminCredentialsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Side Tabs */}
         <div className="lg:col-span-4 space-y-1">
-          <div className="glass-card p-2 space-y-1">
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-2 shadow-xs space-y-1">
             <button
               onClick={() => setActiveAdminTab('uazapi')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === 'uazapi'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                  ? 'bg-[#EFF4FF] text-[#0050FF] font-bold border border-[#BFDBFE] shadow-xs'
+                  : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Radio className="w-4 h-4 text-emerald-400" />
+                <Radio className="w-4 h-4 text-[#0050FF]" />
                 <span>1. Uazapi Server & Admin Token</span>
               </div>
-              {adminCreds.uazapi_token && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+              {adminCreds.uazapi_token && <Check className="w-3.5 h-3.5 text-emerald-600" />}
             </button>
 
             <button
               onClick={() => setActiveAdminTab('meta')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === 'meta'
-                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                  ? 'bg-[#EFF4FF] text-[#0050FF] font-bold border border-[#BFDBFE] shadow-xs'
+                  : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Zap className="w-4 h-4 text-blue-400" />
+                <Zap className="w-4 h-4 text-blue-600" />
                 <span>2. Meta Ads BM Parceiro (Global)</span>
               </div>
-              {adminCreds.meta_access_token && <Check className="w-3.5 h-3.5 text-blue-400" />}
+              {adminCreds.meta_access_token && <Check className="w-3.5 h-3.5 text-blue-600" />}
             </button>
 
             <button
               onClick={() => setActiveAdminTab('google')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === 'google'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                  ? 'bg-[#EFF4FF] text-[#0050FF] font-bold border border-[#BFDBFE] shadow-xs'
+                  : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Search className="w-4 h-4 text-cyan-400" />
+                <Search className="w-4 h-4 text-sky-600" />
                 <span>3. Google Ads MCC Gerenciador</span>
               </div>
-              {adminCreds.google_developer_token && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+              {adminCreds.google_developer_token && <Check className="w-3.5 h-3.5 text-sky-600" />}
             </button>
 
             <button
               onClick={() => setActiveAdminTab('asaas')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === 'asaas'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                  ? 'bg-[#EFF4FF] text-[#0050FF] font-bold border border-[#BFDBFE] shadow-xs'
+                  : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <CreditCard className="w-4 h-4 text-emerald-400" />
+                <CreditCard className="w-4 h-4 text-emerald-600" />
                 <span>4. Asaas Financeiro (Swiftsail)</span>
               </div>
-              {adminCreds.asaas_api_key && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+              {adminCreds.asaas_api_key && <Check className="w-3.5 h-3.5 text-emerald-600" />}
             </button>
 
             <button
               onClick={() => setActiveAdminTab('ai')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === 'ai'
-                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                  ? 'bg-[#EFF4FF] text-[#0050FF] font-bold border border-[#BFDBFE] shadow-xs'
+                  : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Bot className="w-4 h-4 text-purple-400" />
+                <Bot className="w-4 h-4 text-purple-600" />
                 <span>5. IA (OpenRouter / Grok)</span>
               </div>
-              {adminCreds.openrouter_api_key && <Check className="w-3.5 h-3.5 text-purple-400" />}
+              {adminCreds.openrouter_api_key && <Check className="w-3.5 h-3.5 text-purple-600" />}
             </button>
           </div>
         </div>
@@ -231,21 +231,21 @@ export default function AdminCredentialsPage() {
         <div className="lg:col-span-8">
           {/* UAZAPI TAB */}
           {activeTab === 'uazapi' && (
-            <div className="glass-card p-6 space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
                 <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Radio className="w-4 h-4 text-emerald-400" />
+                  <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                    <Radio className="w-4 h-4 text-[#0050FF]" />
                     Uazapi Server URL & Admin Token
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-[#64748B]">
                     O <b>admintoken</b> é o precursor que cria e gerencia instâncias de cada cliente automaticamente
                   </p>
                 </div>
                 <button
                   onClick={() => handleTestConnection('uazapi')}
                   disabled={testingService === 'uazapi'}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 transition-colors"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#EFF4FF] hover:bg-[#E0EAFF] text-[#0050FF] border border-[#BFDBFE] flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
                 >
                   {testingService === 'uazapi' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
                   Testar Uazapi
