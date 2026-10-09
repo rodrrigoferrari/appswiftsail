@@ -29,8 +29,10 @@ import {
   CreditCard,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const {
     selectedClientId,
     activeClient,
@@ -42,6 +44,13 @@ export default function DashboardPage() {
     activeClientAdAccounts,
     users,
   } = useTenant();
+
+  // Diretriz 3.1: REMOVER Dashboard Master. Admin opera a partir de Gestão de Clientes.
+  useEffect(() => {
+    if (viewMode === 'admin') {
+      router.replace('/admin/clientes');
+    }
+  }, [viewMode, router]);
 
   const isAggregated = viewMode === 'admin' || selectedClientId === 'ALL';
   const clientName = isAggregated
@@ -358,63 +367,42 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* CLIENT SPECIFIC: Connected Accounts & Real Assets Matrix */}
+      {/* CLIENT SPECIFIC: Saúde CS e Status Operacional (Diretriz 4.2) */}
       {!isAggregated && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Ad Accounts List */}
-          <div className="lg:col-span-2 bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Diagnóstico de Saúde CS */}
+          <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
               <div>
                 <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-[#0050FF]" />
-                  Contas de Tráfego Conectadas ({activeClientAdAccounts.length})
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  Saúde do Cliente (CS Score)
                 </h3>
-                <p className="text-xs text-[#64748B]">Ativos cadastrados no BM Parceiro e Google MCC</p>
+                <p className="text-xs text-[#64748B]">Monitoramento preventivo e índice de satisfação</p>
               </div>
-              <Link
-                href="/midia"
-                className="text-xs font-bold text-[#0050FF] hover:underline flex items-center gap-1"
+              <span
+                className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase border ${
+                  activeClientCsStatus?.nivel === 'saudavel'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : activeClientCsStatus?.nivel === 'atencao'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                }`}
               >
-                <span>Ver Mídia</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+                {activeClientCsStatus?.nivel === 'saudavel'
+                  ? '🟢 Operação Saudável'
+                  : activeClientCsStatus?.nivel === 'atencao'
+                  ? '🟡 Atenção Necessária'
+                  : '🔴 Em Risco'}
+              </span>
             </div>
 
-            {activeClientAdAccounts.length === 0 ? (
-              <div className="p-8 text-center space-y-2 border border-dashed border-[#CBD5E1] rounded-xl bg-[#F8FAFC]">
-                <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto" />
-                <p className="text-xs font-bold text-[#0F172A]">Nenhuma conta vinculada a este cliente</p>
-                <p className="text-[11px] text-[#64748B]">
-                  Cadastre o grupo de WhatsApp ou vincule o account_id em <code>group_ad_accounts</code>.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                {activeClientAdAccounts.map((acc) => (
-                  <div
-                    key={acc.id}
-                    className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-start justify-between gap-3 shadow-xs"
-                  >
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase ${
-                            acc.plataforma === 'meta'
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                              : 'bg-sky-50 text-sky-700 border border-sky-200'
-                          }`}
-                        >
-                          {acc.plataforma}
-                        </span>
-                        <span className="text-[10px] text-emerald-600 font-bold">🟢 ATIVA</span>
-                      </div>
-                      <h4 className="text-xs font-bold text-[#0F172A] truncate">{acc.account_name}</h4>
-                      <p className="text-[10px] font-mono text-[#64748B] truncate">{acc.account_id}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
+              <p className="text-xs font-semibold text-[#0F172A]">Diagnóstico Ativo do Agente @CS:</p>
+              <p className="text-xs text-[#475569] leading-relaxed">
+                {activeClientCsStatus?.sinais?.nota || 'Fluxo de atendimento ágil, baixo tempo de resposta a leads e campanhas rodando dentro do CPA alvo.'}
+              </p>
+            </div>
           </div>
 
           {/* Operational Health & Communication */}

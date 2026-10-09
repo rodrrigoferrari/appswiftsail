@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import {
   Megaphone,
@@ -31,10 +31,12 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import CreativePreviewModal, { CreativePreviewItem } from '@/components/CreativePreviewModal';
 import LeadsDrilldownModal from '@/components/LeadsDrilldownModal';
 
-export default function MidiaPage() {
+function MidiaContent() {
+  const searchParams = useSearchParams();
   const { selectedClientId, activeClient, activeClientAdAccounts, dateRange, viewMode } = useTenant();
   const [activePlatformTab, setActivePlatformTab] = useState<'meta' | 'google'>('meta');
   const [metaLevel, setMetaLevel] = useState<'tree' | 'campaigns' | 'adsets' | 'ads'>('tree');
@@ -43,6 +45,17 @@ export default function MidiaPage() {
   const [googleSubTab, setGoogleSubTab] = useState<'campaigns' | 'search_terms'>('campaigns');
   const [searchTermFilter, setSearchTermFilter] = useState('');
   const [selectedCreativeModal, setSelectedCreativeModal] = useState<CreativePreviewItem | null>(null);
+
+  useEffect(() => {
+    const plat = searchParams?.get('plataforma');
+    const tab = searchParams?.get('tab');
+    if (plat === 'meta' || plat === 'google') {
+      setActivePlatformTab(plat);
+    }
+    if (tab === 'termos') {
+      setGoogleSubTab('search_terms');
+    }
+  }, [searchParams]);
   const [leadsDrilldown, setLeadsDrilldown] = useState<{
     isOpen: boolean;
     title: string;
@@ -461,57 +474,49 @@ export default function MidiaPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header Bar */}
-      <div className="glass-card p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-cyan-500/30 bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-cyan-950/20">
+      {/* Header Bar (Estilo Asaas: Branco, Bordas #E2E8F0, Sombra Suave) */}
+      <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 uppercase tracking-wider">
-              Tráfego Pago & Gestão de Mídia
+            <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
+              Tráfego & Anúncios • Submenu de Plataformas
             </span>
-            <span className="text-xs text-slate-400 font-mono">| {dateRange.label}</span>
+            <span className="text-xs text-[#64748B] font-medium">• {dateRange.label}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Building className="w-5 h-5 text-cyan-400" />
-            <h2 className="text-xl font-black text-white">{clientName}</h2>
+            <Building className="w-5 h-5 text-[#0050FF]" />
+            <h2 className="text-xl font-bold text-[#0F172A]">{clientName}</h2>
           </div>
-          <p className="text-xs text-slate-400">
-            Desempenho hierárquico de campanhas, conjuntos de anúncios, criativos e relatório de termos de busca.
+          <p className="text-xs text-[#64748B]">
+            Desempenho de campanhas, conjuntos de anúncios, criativos e relatório de termos de busca.
           </p>
         </div>
 
         {/* Platform Tabs */}
-        <div className="flex bg-slate-900/90 border border-slate-800 rounded-xl p-1 text-xs">
+        <div className="flex bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs">
           <button
             onClick={() => setActivePlatformTab('meta')}
-            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activePlatformTab === 'meta'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                : 'text-[#64748B] hover:text-[#0F172A]'
             }`}
           >
-            <Zap className="w-3.5 h-3.5" />
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
             <span>Meta Ads (Facebook & Instagram)</span>
           </button>
           <button
             onClick={() => setActivePlatformTab('google')}
-            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activePlatformTab === 'google'
-                ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/20'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                : 'text-[#64748B] hover:text-[#0F172A]'
             }`}
           >
-            <Search className="w-3.5 h-3.5" />
+            <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
             <span>Google Ads (Search & PMax)</span>
           </button>
         </div>
-
-        <Link
-          href="/credenciais/admin"
-          className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-semibold text-[11px] border border-cyan-500/20 flex items-center gap-1.5 self-start sm:self-auto"
-        >
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span>Credenciais BM / MCC</span>
-        </Link>
       </div>
 
       {/* ========================================================================= */}
@@ -520,37 +525,37 @@ export default function MidiaPage() {
       {activePlatformTab === 'meta' && (
         <div className="space-y-4">
           {/* Barra de Níveis Hierárquicos & Filtro de Objetivo Adaptativo */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-3">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-3">
             {/* Níveis da Estrutura Meta */}
-            <div className="flex flex-wrap bg-slate-950 border border-slate-800 rounded-xl p-1 text-xs gap-1">
+            <div className="flex flex-wrap bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs gap-1">
               <button
                 onClick={() => setMetaLevel('tree')}
-                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 ${
-                  metaLevel === 'tree' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25 ring-1 ring-blue-400' : 'text-slate-400 hover:text-white'
+                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  metaLevel === 'tree' ? 'bg-white text-[#0050FF] shadow-xs border border-[#BFDBFE]' : 'text-[#64748B] hover:text-[#0F172A]'
                 }`}
               >
                 <span>🌳</span> Visão Unificada (Campanha ➔ AdSet ➔ Criativo)
               </button>
               <button
                 onClick={() => setMetaLevel('campaigns')}
-                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 ${
-                  metaLevel === 'campaigns' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  metaLevel === 'campaigns' ? 'bg-white text-[#0050FF] shadow-xs border border-[#BFDBFE]' : 'text-[#64748B] hover:text-[#0F172A]'
                 }`}
               >
                 <span>📂</span> 1. Campanhas ({hierarchyData.length})
               </button>
               <button
                 onClick={() => setMetaLevel('adsets')}
-                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 ${
-                  metaLevel === 'adsets' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  metaLevel === 'adsets' ? 'bg-white text-[#0050FF] shadow-xs border border-[#BFDBFE]' : 'text-[#64748B] hover:text-[#0F172A]'
                 }`}
               >
                 <span>👥</span> 2. Conjuntos ({adsetsData.length})
               </button>
               <button
                 onClick={() => setMetaLevel('ads')}
-                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 ${
-                  metaLevel === 'ads' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  metaLevel === 'ads' ? 'bg-white text-[#0050FF] shadow-xs border border-[#BFDBFE]' : 'text-[#64748B] hover:text-[#0F172A]'
                 }`}
               >
                 <span>🎨</span> 3. Criativos ({adsData.length})
@@ -560,37 +565,37 @@ export default function MidiaPage() {
             {/* Filtros: Status & Objetivo / Tipo */}
             <div className="flex flex-wrap items-center gap-2.5">
               {/* Filtro de Status Ativo vs Pausado */}
-              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+              <div className="flex items-center gap-1 bg-[#F1F5F9] p-1 rounded-xl border border-[#E2E8F0] text-xs">
                 <button
                   onClick={() => setStatusFilter('all')}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                     statusFilter === 'all'
-                      ? 'bg-slate-700 text-white shadow'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-white text-[#0F172A] shadow-xs border border-[#E2E8F0]'
+                      : 'text-[#64748B] hover:text-[#0F172A]'
                   }`}
                 >
                   Todos ({activePeriodMetaCampanhas.length})
                 </button>
                 <button
                   onClick={() => setStatusFilter('active')}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     statusFilter === 'active'
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm shadow-emerald-500/10'
-                      : 'text-slate-400 hover:text-emerald-400'
+                      ? 'bg-white text-emerald-700 shadow-xs border border-emerald-200'
+                      : 'text-[#64748B] hover:text-emerald-600'
                   }`}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   Ativos
                 </button>
                 <button
                   onClick={() => setStatusFilter('paused')}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     statusFilter === 'paused'
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm shadow-amber-500/10'
-                      : 'text-slate-400 hover:text-amber-400'
+                      ? 'bg-white text-amber-700 shadow-xs border border-amber-200'
+                      : 'text-[#64748B] hover:text-amber-600'
                   }`}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                   Pausados
                 </button>
               </div>
@@ -599,7 +604,7 @@ export default function MidiaPage() {
                 <select
                   value={metaObjectiveFilter}
                   onChange={(e: any) => setMetaObjectiveFilter(e.target.value)}
-                  className="bg-slate-950 border border-slate-700/80 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-medium"
+                  className="bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg px-3 py-1.5 text-xs text-[#0F172A] focus:outline-none focus:border-[#0050FF] font-semibold cursor-pointer shadow-xs"
                 >
                   <option value="all">🌐 Todos os Objetivos</option>
                   <option value="messages">💬 Mensagens / WhatsApp (Leads)</option>
@@ -610,27 +615,27 @@ export default function MidiaPage() {
                 </select>
               </div>
 
-              <div className="hidden sm:block text-xs text-slate-400 font-mono ml-1 border-l border-slate-800 pl-3">
-                Gasto Meta: <b className="text-white">{formatBRL(Number(metaData?.totais?.gasto || 0))}</b>
+              <div className="hidden sm:block text-xs text-[#64748B] font-medium ml-1 border-l border-[#E2E8F0] pl-3">
+                Gasto Meta: <b className="text-[#0F172A] font-bold">{formatBRL(Number(metaData?.totais?.gasto || 0))}</b>
               </div>
             </div>
           </div>
 
           {/* Banner Informativo de Métricas Adaptadas ao Objetivo */}
-          <div className={`glass-card p-3.5 rounded-xl border-l-4 ${currentObjConfig.border} flex items-center justify-between gap-4 bg-slate-950/60`}>
+          <div className={`bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs border-l-4 ${currentObjConfig.border} flex items-center justify-between gap-4`}>
             <div className="flex items-center gap-3">
               <span className="text-2xl">{currentObjConfig.icon}</span>
               <div>
                 <strong className={`text-xs sm:text-sm font-bold ${currentObjConfig.color}`}>
                   {currentObjConfig.title}
                 </strong>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-[#64748B]">
                   {currentObjConfig.desc}
                 </p>
               </div>
             </div>
             <div className="hidden sm:flex items-center gap-2">
-              <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-slate-900 border border-slate-700 text-slate-300">
+              <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-[#EFF4FF] border border-[#BFDBFE] text-[#0050FF]">
                 KPIs Dinâmicos Ativos
               </span>
             </div>
@@ -642,15 +647,15 @@ export default function MidiaPage() {
           {metaLevel === 'tree' && (
             <div className="space-y-4">
               {/* Header com ações de expandir/recolher tudo */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 glass-card p-4 border border-blue-500/20 bg-gradient-to-r from-blue-950/30 via-slate-900/60 to-slate-900/80">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs">
                 <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
                     <span>🌳 Árvore Hierárquica Completa</span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]">
                       Campanha ➔ Conjunto ➔ Criativo
                     </span>
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-[#64748B] mt-0.5">
                     Visualize todos os níveis de mídia integrados com dados reais do Supabase, alocação de orçamento e prévias de criativos
                   </p>
                 </div>
@@ -658,13 +663,13 @@ export default function MidiaPage() {
                 <div className="flex items-center gap-2 self-start sm:self-auto">
                   <button
                     onClick={() => toggleAll(true)}
-                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold border border-slate-700 transition-colors"
+                    className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-[#0F172A] text-xs font-semibold border border-[#CBD5E1] shadow-xs transition-colors cursor-pointer"
                   >
                     Expandir Todos
                   </button>
                   <button
                     onClick={() => toggleAll(false)}
-                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold border border-slate-700 transition-colors"
+                    className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-[#0F172A] text-xs font-semibold border border-[#CBD5E1] shadow-xs transition-colors cursor-pointer"
                   >
                     Recolher Todos
                   </button>
@@ -673,7 +678,7 @@ export default function MidiaPage() {
 
               {/* Lista das Campanhas com nós filhos */}
               {hierarchyData.length === 0 ? (
-                <div className="glass-card p-12 text-center text-slate-400 text-xs">
+                <div className="bg-white border border-[#E2E8F0] p-12 rounded-2xl text-center text-[#64748B] text-xs shadow-xs">
                   {loading ? 'Carregando dados das campanhas...' : 'Nenhuma campanha encontrada no período selecionado.'}
                 </div>
               ) : (
@@ -683,22 +688,22 @@ export default function MidiaPage() {
                   const totalAdsInCamp = camp.adsets.reduce((acc: number, as: any) => acc + as.criativos.length, 0);
 
                   return (
-                    <div key={camp.campaign_id} className="glass-card overflow-hidden border border-slate-800 transition-all">
+                    <div key={camp.campaign_id} className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden transition-all">
                       {/* Linha Cabeçalho da Campanha (Nível 1) */}
                       <div
                         onClick={() => toggleCampaign(camp.campaign_id)}
-                        className="p-4 bg-slate-950/80 hover:bg-slate-900/60 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors border-b border-slate-800/80"
+                        className="p-4 bg-[#F8FAFC] hover:bg-slate-100/70 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors border-b border-[#E2E8F0]"
                       >
                         <div className="flex items-center gap-3">
                           <button
                             type="button"
-                            className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300 hover:text-white shrink-0"
+                            className="w-7 h-7 rounded-lg bg-white border border-[#CBD5E1] shadow-xs flex items-center justify-center text-[#475569] hover:text-[#0F172A] shrink-0"
                           >
                             {isCampExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                           </button>
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]">
                                 📂 Nível 1 • Campanha
                               </span>
                               {renderStatusBadge(camp.effective_status || camp.status)}
@@ -706,27 +711,27 @@ export default function MidiaPage() {
                                 {objCfg.label}
                               </span>
                             </div>
-                            <h4 className="text-sm font-bold text-white mt-1 hover:text-cyan-300 transition-colors">
+                            <h4 className="text-sm font-bold text-[#0F172A] mt-1 hover:text-[#0050FF] transition-colors">
                               {camp.nome}
                             </h4>
-                            <span className="text-[10px] text-slate-500 font-mono">ID: {camp.campaign_id}</span>
+                            <span className="text-[10px] text-[#64748B] font-mono">ID: {camp.campaign_id}</span>
                           </div>
                         </div>
 
                         {/* Métricas Principais da Campanha */}
                         <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
                           <div className="text-right">
-                            <span className="text-[10px] text-slate-500 block uppercase font-sans">Orçamento</span>
-                            <span className="text-slate-300 font-bold">
+                            <span className="text-[10px] text-[#64748B] block uppercase font-sans font-semibold">Orçamento</span>
+                            <span className="text-[#0F172A] font-bold">
                               {camp.orcamento_diario ? formatBRL(camp.orcamento_diario) + '/dia' : 'CBO'}
                             </span>
                           </div>
-                          <div className="text-right border-l border-slate-800 pl-4">
-                            <span className="text-[10px] text-slate-500 block uppercase font-sans">Gasto Total</span>
-                            <span className="text-white font-bold">{formatBRL(camp.gasto)}</span>
+                          <div className="text-right border-l border-[#E2E8F0] pl-4">
+                            <span className="text-[10px] text-[#64748B] block uppercase font-sans font-semibold">Gasto Total</span>
+                            <span className="text-[#0F172A] font-bold">{formatBRL(camp.gasto)}</span>
                           </div>
-                          <div className="text-right border-l border-slate-800 pl-4">
-                            <span className="text-[10px] text-slate-500 block uppercase font-sans">Leads / WPP</span>
+                          <div className="text-right border-l border-[#E2E8F0] pl-4">
+                            <span className="text-[10px] text-[#64748B] block uppercase font-sans font-semibold">Leads / WPP</span>
                             <div className="flex items-center gap-2">
                               {camp.leads > 0 && (
                                 <button
@@ -734,7 +739,7 @@ export default function MidiaPage() {
                                     e.stopPropagation();
                                     openLeadsDrilldown(camp.nome, 'form', camp.leads, camp.nome);
                                   }}
-                                  className="text-cyan-300 font-bold hover:underline"
+                                  className="text-[#0050FF] font-bold hover:underline cursor-pointer"
                                   title="Ver leads capturados no formulário"
                                 >
                                   📋 {camp.leads}
@@ -746,23 +751,23 @@ export default function MidiaPage() {
                                     e.stopPropagation();
                                     openLeadsDrilldown(camp.nome, 'whatsapp', camp.conversas_iniciadas, camp.nome);
                                   }}
-                                  className="text-emerald-400 font-bold hover:underline"
+                                  className="text-emerald-600 font-bold hover:underline cursor-pointer"
                                   title="Ver conversas iniciadas no WhatsApp"
                                 >
                                   💬 {camp.conversas_iniciadas}
                                 </button>
                               )}
                               {camp.leads === 0 && camp.conversas_iniciadas === 0 && (
-                                <span className="text-slate-500">0 contatos</span>
+                                <span className="text-[#64748B]">0 contatos</span>
                               )}
                             </div>
                           </div>
-                          <div className="text-right border-l border-slate-800 pl-4">
-                            <span className="text-[10px] text-slate-500 block uppercase font-sans">CTR Médio</span>
-                            <span className="text-slate-300">{camp.ctr}%</span>
+                          <div className="text-right border-l border-[#E2E8F0] pl-4">
+                            <span className="text-[10px] text-[#64748B] block uppercase font-sans font-semibold">CTR Médio</span>
+                            <span className="text-[#475569]">{camp.ctr}%</span>
                           </div>
-                          <div className="border-l border-slate-800 pl-4">
-                            <span className="px-2 py-1 rounded bg-slate-900 border border-slate-700/80 text-[10px] text-slate-300 font-sans font-semibold">
+                          <div className="border-l border-[#E2E8F0] pl-4">
+                            <span className="px-2 py-1 rounded bg-[#F1F5F9] border border-[#E2E8F0] text-[10px] text-[#475569] font-sans font-semibold">
                               {camp.adsets.length} AdSets • {totalAdsInCamp} Criativos
                             </span>
                           </div>
@@ -771,47 +776,47 @@ export default function MidiaPage() {
 
                       {/* Conteúdo Aninhado: Conjuntos e Criativos */}
                       {isCampExpanded && (
-                        <div className="p-4 sm:p-5 bg-slate-950/40 space-y-4">
+                        <div className="p-4 sm:p-5 bg-[#F8FAFC] space-y-4">
                           {camp.adsets.map((adset: any, asIdx: number) => {
                             const isAdSetExpanded = expandedAdSets[adset.id] ?? true;
                             return (
-                              <div key={adset.id} className="rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden">
+                              <div key={adset.id} className="rounded-xl border border-[#E2E8F0] bg-white overflow-hidden shadow-xs">
                                 {/* Barra do Conjunto (Nível 2) */}
                                 <div
                                   onClick={() => toggleAdSet(adset.id)}
-                                  className="p-3.5 bg-slate-900/80 hover:bg-slate-850 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/60 transition-colors"
+                                  className="p-3.5 bg-white hover:bg-slate-50 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2E8F0] transition-colors"
                                 >
                                   <div className="flex items-center gap-2.5">
                                     <button
                                       type="button"
-                                      className="w-5 h-5 rounded bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white shrink-0 text-xs"
+                                      className="w-5 h-5 rounded bg-slate-100 border border-[#CBD5E1] flex items-center justify-center text-[#475569] hover:text-[#0F172A] shrink-0 text-xs"
                                     >
                                       {isAdSetExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                                     </button>
                                     <div>
                                       <div className="flex items-center gap-2">
-                                        <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                        <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                                           👥 Nível 2 • Conjunto {asIdx + 1}
                                         </span>
-                                        <h5 className="text-xs font-bold text-white hover:text-cyan-300 transition-colors">
+                                        <h5 className="text-xs font-bold text-[#0F172A] hover:text-[#0050FF] transition-colors">
                                           {adset.nome}
                                         </h5>
                                       </div>
-                                      <p className="text-[10px] text-slate-400 mt-0.5">
-                                        🎯 Segmentação: <span className="text-slate-300 font-mono">{adset.segmentacao}</span>
+                                      <p className="text-[10px] text-[#64748B] mt-0.5">
+                                        🎯 Segmentação: <span className="text-[#0F172A] font-mono">{adset.segmentacao}</span>
                                       </p>
                                     </div>
                                   </div>
 
                                   <div className="flex items-center gap-3 text-xs font-mono">
-                                    <span className="text-slate-400">Gasto: <b className="text-white">{formatBRL(adset.gasto)}</b></span>
-                                    <span className="text-slate-400 border-l border-slate-800 pl-3">
-                                      Retorno: <b className="text-cyan-300">{adset.leads > 0 ? `${adset.leads} leads` : `${adset.conversas} conversas`}</b>
+                                    <span className="text-[#64748B]">Gasto: <b className="text-[#0F172A]">{formatBRL(adset.gasto)}</b></span>
+                                    <span className="text-[#64748B] border-l border-[#E2E8F0] pl-3">
+                                      Retorno: <b className="text-[#0050FF]">{adset.leads > 0 ? `${adset.leads} leads` : `${adset.conversas} conversas`}</b>
                                     </span>
-                                    <span className="text-slate-400 border-l border-slate-800 pl-3">
-                                      CTR: <b className="text-slate-200">{adset.ctr}</b>
+                                    <span className="text-[#64748B] border-l border-[#E2E8F0] pl-3">
+                                      CTR: <b className="text-[#0F172A]">{adset.ctr}</b>
                                     </span>
-                                    <span className="px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 font-sans border border-slate-700/60 ml-1">
+                                    <span className="px-2 py-0.5 rounded bg-[#F1F5F9] text-[10px] text-[#475569] font-sans border border-[#E2E8F0] ml-1">
                                       {adset.criativos.length} Criativos
                                     </span>
                                   </div>
@@ -819,17 +824,17 @@ export default function MidiaPage() {
 
                                 {/* Grade de Criativos do Conjunto (Nível 3) */}
                                 {isAdSetExpanded && (
-                                  <div className="p-3.5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 bg-slate-950/30">
+                                  <div className="p-3.5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 bg-[#F8FAFC]">
                                     {adset.criativos.map((criat: any) => (
                                       <div
                                         key={criat.id}
-                                        className="p-3 bg-slate-900/70 rounded-xl border border-slate-800/80 hover:border-cyan-500/50 hover:bg-slate-900 transition-all flex flex-col justify-between space-y-2.5 group"
+                                        className="p-3 bg-white rounded-xl border border-[#E2E8F0] hover:border-[#BFDBFE] hover:shadow-xs transition-all flex flex-col justify-between space-y-2.5 group shadow-xs"
                                       >
                                         <div className="flex gap-3">
                                           {/* Thumbnail */}
                                           <div
                                             onClick={() => setSelectedCreativeModal(criat)}
-                                            className="relative w-14 h-14 rounded-lg overflow-hidden cursor-pointer border border-white/20 shadow group-hover:scale-105 shrink-0 transition-transform"
+                                            className="relative w-14 h-14 rounded-lg overflow-hidden cursor-pointer border border-[#E2E8F0] shadow-xs group-hover:scale-105 shrink-0 transition-transform"
                                             style={{
                                               backgroundImage: `url(${criat.thumbUrl})`,
                                               backgroundSize: 'cover',
@@ -837,9 +842,9 @@ export default function MidiaPage() {
                                             }}
                                             title="Clique para ver o anúncio real"
                                           >
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent group-hover:bg-cyan-900/30 transition-colors flex items-center justify-center">
+                                            <div className="absolute inset-0 bg-black/20 group-hover:bg-[#0050FF]/20 transition-colors flex items-center justify-center">
                                               {criat.formato === 'reels' && (
-                                                <div className="w-5 h-5 rounded-full bg-white/90 text-slate-900 flex items-center justify-center text-[10px] shadow">
+                                                <div className="w-5 h-5 rounded-full bg-white/90 text-[#0F172A] flex items-center justify-center text-[10px] shadow">
                                                   ▶
                                                 </div>
                                               )}
@@ -852,50 +857,50 @@ export default function MidiaPage() {
                                           {/* Infos do Criativo */}
                                           <div className="space-y-1 min-w-0">
                                             <div className="flex items-center gap-1.5 flex-wrap">
-                                              <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                                              <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                                                 🎨 Nível 3
                                               </span>
-                                              <span className="text-[9px] font-bold text-cyan-400">
+                                              <span className="text-[9px] font-bold text-[#0050FF]">
                                                 {criat.formato === 'carousel' ? 'Carrossel' : criat.formato === 'reels' ? 'Reels 9:16' : 'Estático'}
                                               </span>
                                             </div>
                                             <h6
                                               onClick={() => setSelectedCreativeModal(criat)}
-                                              className="text-xs font-bold text-white hover:text-cyan-300 cursor-pointer truncate transition-colors"
+                                              className="text-xs font-bold text-[#0F172A] hover:text-[#0050FF] cursor-pointer truncate transition-colors"
                                               title={criat.nome}
                                             >
                                               {criat.nome}
                                             </h6>
-                                            <p className="text-[10px] text-slate-400 line-clamp-1">
+                                            <p className="text-[10px] text-[#64748B] line-clamp-1">
                                               {criat.headline}
                                             </p>
                                           </div>
                                         </div>
 
                                         {/* Métricas e Botão de Ação */}
-                                        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono">
+                                        <div className="pt-2 border-t border-[#E2E8F0] flex items-center justify-between text-[11px] font-mono">
                                           <div>
-                                            <span className="text-slate-500 text-[9px] block font-sans">Gasto</span>
-                                            <span className="text-white font-bold">{formatBRL(criat.gasto || 0)}</span>
+                                            <span className="text-[#64748B] text-[9px] block font-sans">Gasto</span>
+                                            <span className="text-[#0F172A] font-bold">{formatBRL(criat.gasto || 0)}</span>
                                           </div>
                                           <div>
-                                            <span className="text-slate-500 text-[9px] block font-sans">Retorno</span>
+                                            <span className="text-[#64748B] text-[9px] block font-sans">Retorno</span>
                                             <button
                                               onClick={() => openLeadsDrilldown(`${criat.nome} • ${camp.nome}`, criat.leads > 0 ? 'form' : 'whatsapp', criat.leads || criat.conversas || 0, criat.nome)}
-                                              className="text-cyan-300 font-bold hover:underline"
+                                              className="text-[#0050FF] font-bold hover:underline cursor-pointer"
                                               title="Ver contatos capturados"
                                             >
                                               {criat.leads > 0 ? `${criat.leads} leads` : `${criat.conversas} conv.`}
                                             </button>
                                           </div>
                                           <div>
-                                            <span className="text-slate-500 text-[9px] block font-sans">CTR</span>
-                                            <span className="text-slate-300">{criat.ctr}</span>
+                                            <span className="text-[#64748B] text-[9px] block font-sans">CTR</span>
+                                            <span className="text-[#475569]">{criat.ctr}</span>
                                           </div>
                                           <div className="flex items-center gap-1.5">
                                             <button
                                               onClick={() => setSelectedCreativeModal(criat)}
-                                              className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-[10px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                                              className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] hover:bg-[#DBEAFE] text-[#0050FF] border border-[#BFDBFE] text-[10px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
                                             >
                                               <Eye className="w-3 h-3" />
                                               <span>Ver</span>
@@ -906,7 +911,7 @@ export default function MidiaPage() {
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 onClick={(e) => e.stopPropagation()}
-                                                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[10px] transition-all"
+                                                className="p-1.5 rounded-lg bg-[#F1F5F9] hover:bg-slate-200 text-[#475569] hover:text-[#0F172A] border border-[#E2E8F0] text-[10px] transition-all"
                                                 title="Abrir diretamente no Meta Ads / Instagram"
                                               >
                                                 <ExternalLink className="w-3 h-3" />
@@ -934,26 +939,28 @@ export default function MidiaPage() {
           {/* NÍVEL 1: TABELA DE CAMPANHAS META (MÉTRICAS ADAPTATIVAS & ACORDEÃO) */}
           {/* ========================================================================= */}
           {metaLevel === 'campaigns' && (
-            <div className="glass-card overflow-hidden">
-              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-white">Campanhas no Meta Ads (Nível 1)</h3>
-                  <p className="text-xs text-slate-400">
+                  <h3 className="text-sm font-bold text-[#0F172A]">Campanhas no Meta Ads (Nível 1)</h3>
+                  <p className="text-xs text-[#64748B]">
                     Isolamento por conta de anúncio • Métricas ajustadas de acordo com o objetivo selecionado
                   </p>
                 </div>
-                <span className="text-xs font-mono text-cyan-400">{hierarchyData.length} campanhas</span>
+                <span className="text-xs font-mono text-[#0050FF] font-bold bg-[#EFF4FF] px-2.5 py-0.5 rounded-full border border-[#BFDBFE]">
+                  {hierarchyData.length} campanhas
+                </span>
               </div>
 
               {hierarchyData.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 text-xs">
+                <div className="p-8 text-center text-[#64748B] text-xs">
                   {loading ? 'Carregando campanhas...' : 'Nenhuma campanha Meta encontrada para este objetivo no período.'}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs text-left">
                     <thead>
-                      <tr className="border-b border-slate-800 text-slate-400 bg-slate-950/60">
+                      <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
                         <th className="py-3 px-4">Status</th>
                         <th className="py-3 px-4">Campanha</th>
                         <th className="py-3 px-4">Objetivo / Tipo</th>
@@ -1019,7 +1026,7 @@ export default function MidiaPage() {
                         <th className="py-3 px-4">Hierarquia</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60">
+                    <tbody className="divide-y divide-[#E2E8F0] bg-white">
                       {hierarchyData.map((c: any) => {
                         const obj = getCampaignObjective(c);
                         const objCfg = objectiveConfigs[obj];
@@ -1033,7 +1040,7 @@ export default function MidiaPage() {
 
                         return (
                           <React.Fragment key={c.campaign_id}>
-                            <tr className="hover:bg-slate-900/40">
+                            <tr className="hover:bg-[#F8FAFC] transition-colors">
                               {/* Status */}
                               <td className="py-3 px-4">
                                 {renderStatusBadge(c.effective_status || c.status)}
@@ -1041,10 +1048,10 @@ export default function MidiaPage() {
 
                               {/* Campanha Nome & ID */}
                               <td className="py-3 px-4">
-                                <p className="font-bold text-white max-w-xs truncate" title={c.nome}>
+                                <p className="font-bold text-[#0F172A] max-w-xs truncate" title={c.nome}>
                                   {c.nome}
                                 </p>
-                                <span className="text-[10px] text-slate-500 font-mono">ID: {c.campaign_id}</span>
+                                <span className="text-[10px] text-[#64748B] font-mono">ID: {c.campaign_id}</span>
                               </td>
 
                               {/* Tag de Objetivo */}
@@ -1055,12 +1062,12 @@ export default function MidiaPage() {
                               </td>
 
                               {/* Orçamento */}
-                              <td className="py-3 px-4 font-mono text-slate-300">
+                              <td className="py-3 px-4 font-mono text-[#0F172A] font-semibold">
                                 {c.orcamento_diario ? formatBRL(c.orcamento_diario) + '/dia' : 'CBO'}
                               </td>
 
                               {/* Gasto Total */}
-                              <td className="py-3 px-4 font-mono font-bold text-white">{formatBRL(gasto)}</td>
+                              <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{formatBRL(gasto)}</td>
 
                               {/* DADOS ADAPTATIVOS DA LINHA (100% REAIS) */}
                               {metaObjectiveFilter === 'messages' && (
@@ -1198,10 +1205,10 @@ export default function MidiaPage() {
                               <td className="py-3 px-4">
                                 <button
                                   onClick={() => toggleCampaign(c.campaign_id)}
-                                  className={`px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 border ${
+                                  className={`px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 border cursor-pointer ${
                                     isExpanded
-                                      ? 'bg-blue-600 text-white border-blue-500'
-                                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                                      ? 'bg-[#0050FF] text-white border-[#0050FF] shadow-xs'
+                                      : 'bg-white hover:bg-slate-50 text-[#475569] border-[#CBD5E1]'
                                   }`}
                                   title="Expandir AdSets e Criativos deste anúncio"
                                 >
@@ -1213,20 +1220,20 @@ export default function MidiaPage() {
 
                             {/* Acordeão Inline: AdSets e Criativos da Campanha */}
                             {isExpanded && (
-                              <tr className="bg-slate-950/60">
+                              <tr className="bg-[#F8FAFC]">
                                 <td colSpan={metaObjectiveFilter === 'all' ? 11 : 10} className="p-4">
-                                  <div className="rounded-xl border border-blue-500/30 bg-slate-900/60 p-4 space-y-3">
+                                  <div className="rounded-xl border border-[#BFDBFE] bg-white p-4 space-y-3 shadow-xs">
                                     <div className="flex items-center justify-between">
-                                      <h5 className="text-xs font-bold text-white flex items-center gap-2">
-                                        <span className="text-blue-400">📂 {c.nome}</span>
-                                        <span className="text-slate-500">•</span>
-                                        <span className="text-slate-400 font-normal">
+                                      <h5 className="text-xs font-bold text-[#0F172A] flex items-center gap-2">
+                                        <span className="text-[#0050FF]">📂 {c.nome}</span>
+                                        <span className="text-[#CBD5E1]">•</span>
+                                        <span className="text-[#64748B] font-normal">
                                           {c.adsets.length} Conjuntos de Anúncios vinculados
                                         </span>
                                       </h5>
                                       <button
                                         onClick={() => setMetaLevel('tree')}
-                                        className="text-[11px] text-cyan-400 hover:underline font-semibold"
+                                        className="text-[11px] text-[#0050FF] hover:underline font-semibold cursor-pointer"
                                       >
                                         Abrir na Árvore Completa ➔
                                       </button>
@@ -1234,23 +1241,23 @@ export default function MidiaPage() {
 
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                       {c.adsets.map((as: any) => (
-                                        <div key={as.id} className="p-3 bg-slate-950/80 rounded-lg border border-slate-800 space-y-2">
-                                          <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+                                        <div key={as.id} className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-2">
+                                          <div className="flex items-center justify-between text-xs font-bold text-[#0F172A]">
                                             <span className="truncate">{as.nome}</span>
-                                            <span className="text-cyan-300 font-mono text-[11px]">{formatBRL(as.gasto)}</span>
+                                            <span className="text-[#0050FF] font-mono text-[11px]">{formatBRL(as.gasto)}</span>
                                           </div>
                                           <div className="space-y-1">
                                             {as.criativos.map((cr: any) => (
                                               <div
                                                 key={cr.id}
                                                 onClick={() => setSelectedCreativeModal(cr)}
-                                                className="p-1.5 rounded bg-slate-900 hover:bg-slate-800 cursor-pointer flex items-center justify-between text-[11px] transition-colors border border-slate-800/60"
+                                                className="p-1.5 rounded bg-white hover:bg-slate-50 cursor-pointer flex items-center justify-between text-[11px] transition-colors border border-[#E2E8F0]"
                                               >
                                                 <div className="flex items-center gap-2 truncate">
                                                   <span className="text-[10px]">🎨</span>
-                                                  <span className="text-slate-300 hover:text-white truncate">{cr.nome}</span>
+                                                  <span className="text-[#0F172A] hover:text-[#0050FF] truncate font-medium">{cr.nome}</span>
                                                 </div>
-                                                <span className="text-cyan-400 text-[10px] font-mono shrink-0">
+                                                <span className="text-[#0050FF] text-[10px] font-mono font-bold shrink-0">
                                                   {cr.leads > 0 ? `${cr.leads} leads` : `${cr.conversas} conv.`}
                                                 </span>
                                               </div>
@@ -1277,15 +1284,15 @@ export default function MidiaPage() {
           {/* NÍVEL 2: TABELA DE CONJUNTOS DE ANÚNCIOS (ADSETS COM CAMPANHA EXPLICITA) */}
           {/* ========================================================================= */}
           {metaLevel === 'adsets' && (
-            <div className="glass-card overflow-hidden">
-              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-white">Conjuntos de Anúncios / Públicos Segmentados (Nível 2)</h3>
-                  <p className="text-xs text-slate-400">Públicos, estratégias de lance e alocação de orçamento com vínculo de campanha</p>
+                  <h3 className="text-sm font-bold text-[#0F172A]">Conjuntos de Anúncios / Públicos Segmentados (Nível 2)</h3>
+                  <p className="text-xs text-[#64748B]">Públicos, estratégias de lance e alocação de orçamento com vínculo de campanha</p>
                 </div>
                 <button
                   onClick={() => setMetaLevel('ads')}
-                  className="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 font-semibold text-xs transition-all flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-lg bg-[#EFF4FF] hover:bg-[#DBEAFE] text-[#0050FF] border border-[#BFDBFE] font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <span>Ver Anúncios & Criativos ➔</span>
                 </button>
@@ -1293,7 +1300,7 @@ export default function MidiaPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
                   <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 bg-slate-950/60">
+                    <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
                       <th className="py-3 px-4">Status</th>
                       <th className="py-3 px-4">Conjunto (AdSet)</th>
                       <th className="py-3 px-4">Campanha (Nível 1)</th>
@@ -1312,41 +1319,41 @@ export default function MidiaPage() {
                       <th className="py-3 px-4">Criativos</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60">
+                  <tbody className="divide-y divide-[#E2E8F0] bg-white">
                     {adsetsData.map((as: any) => {
                       const isAdSetExp = expandedAdSets[as.id] ?? false;
                       return (
                         <React.Fragment key={as.id}>
-                          <tr className="hover:bg-slate-900/40">
+                          <tr className="hover:bg-[#F8FAFC] transition-colors">
                             <td className="py-3 px-4">
                               {renderStatusBadge(as.status)}
                             </td>
-                            <td className="py-3 px-4 font-bold text-white">{as.nome}</td>
+                            <td className="py-3 px-4 font-bold text-[#0F172A]">{as.nome}</td>
                             <td className="py-3 px-4">
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]">
                                 📂 {as.campanhaNome}
                               </span>
                             </td>
-                            <td className="py-3 px-4 font-mono text-slate-300">{as.orcamento}</td>
-                            <td className="py-3 px-4 font-mono font-bold text-white">{formatBRL(as.gasto)}</td>
-                            <td className="py-3 px-4 font-mono font-bold text-cyan-300">
+                            <td className="py-3 px-4 font-mono text-[#475569]">{as.orcamento}</td>
+                            <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{formatBRL(as.gasto)}</td>
+                            <td className="py-3 px-4 font-mono font-bold text-[#0050FF]">
                               <button
                                 onClick={() => openLeadsDrilldown(`${as.nome} • ${as.campanhaNome}`, as.leads > 0 ? 'form' : 'whatsapp', as.leads || as.conversas || 0, as.nome)}
-                                className="hover:underline hover:text-cyan-200 transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
+                                className="hover:underline transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
                                 title="Clique para ver os nomes e contatos capturados neste público"
                               >
                                 <span>{as.leads > 0 ? `${as.leads} leads` : `${as.conversas} conversas`}</span>
-                                <span className="text-[9px] text-cyan-400">👁️</span>
+                                <span className="text-[9px]">👁️</span>
                               </button>
                             </td>
-                            <td className="py-3 px-4 font-mono text-slate-300">{as.ctr}</td>
+                            <td className="py-3 px-4 font-mono text-[#475569]">{as.ctr}</td>
                             <td className="py-3 px-4">
                               <button
                                 onClick={() => toggleAdSet(as.id)}
-                                className={`px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1 border ${
+                                className={`px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1 border cursor-pointer ${
                                   isAdSetExp
-                                    ? 'bg-blue-600 text-white border-blue-500'
-                                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                                    ? 'bg-[#0050FF] text-white border-[#0050FF]'
+                                    : 'bg-white hover:bg-slate-50 text-[#475569] border-[#CBD5E1]'
                                 }`}
                               >
                                 {isAdSetExp ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -1357,22 +1364,22 @@ export default function MidiaPage() {
 
                           {/* Acordeão Inline de Criativos do AdSet */}
                           {isAdSetExp && (
-                            <tr className="bg-slate-950/60">
+                            <tr className="bg-[#F8FAFC]">
                               <td colSpan={8} className="p-4">
-                                <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                <div className="p-3 bg-white rounded-xl border border-[#E2E8F0] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 shadow-xs">
                                   {as.criativos.map((cr: any) => (
                                     <div
                                       key={cr.id}
                                       onClick={() => setSelectedCreativeModal(cr)}
-                                      className="p-3 bg-slate-950/80 rounded-lg border border-slate-800 hover:border-cyan-500/50 cursor-pointer flex items-center gap-3 transition-all"
+                                      className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] hover:border-[#BFDBFE] cursor-pointer flex items-center gap-3 transition-all"
                                     >
                                       <div
-                                        className="w-12 h-12 rounded-lg bg-cover bg-center shrink-0 border border-white/20"
+                                        className="w-12 h-12 rounded-lg bg-cover bg-center shrink-0 border border-[#E2E8F0]"
                                         style={{ backgroundImage: `url(${cr.thumbUrl})` }}
                                       />
                                       <div className="min-w-0">
-                                        <p className="text-xs font-bold text-white truncate">{cr.nome}</p>
-                                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                        <p className="text-xs font-bold text-[#0F172A] truncate">{cr.nome}</p>
+                                        <p className="text-[10px] text-[#64748B] font-mono mt-0.5">
                                           Gasto: {formatBRL(cr.gasto)} • Retorno: {cr.leads > 0 ? `${cr.leads} leads` : `${cr.conversas} conv.`}
                                         </p>
                                       </div>
@@ -1395,25 +1402,27 @@ export default function MidiaPage() {
           {/* NÍVEL 3: TABELA DE ANÚNCIOS & CRIATIVOS (CAMPANHA + CONJUNTO EXPLICITOS) */}
           {/* ========================================================================= */}
           {metaLevel === 'ads' && (
-            <div className="glass-card overflow-hidden">
-              <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-[#E2E8F0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
                     <span>Anúncios & Formatos de Criativos (Nível 3)</span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]">
                       Prévia Real Interativa
                     </span>
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-[#64748B]">
                     Hierarquia completa exibida: Campanha ➔ Conjunto ➔ Criativo. Clique na miniatura para abrir a prévia real.
                   </p>
                 </div>
-                <span className="text-xs font-mono text-cyan-400">{adsData.length} criativos ativos</span>
+                <span className="text-xs font-mono text-[#0050FF] font-bold bg-[#EFF4FF] px-2.5 py-0.5 rounded-full border border-[#BFDBFE]">
+                  {adsData.length} criativos ativos
+                </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
                   <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 bg-slate-950/60">
+                    <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
                       <th className="py-3 px-4">Thumbnail</th>
                       <th className="py-3 px-4">Criativo / Anúncio</th>
                       <th className="py-3 px-4">Campanha (Nível 1)</th>
@@ -1433,14 +1442,14 @@ export default function MidiaPage() {
                       <th className="py-3 px-4">Ação</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60">
+                  <tbody className="divide-y divide-[#E2E8F0] bg-white">
                     {adsData.map((ad: any) => (
-                      <tr key={ad.id} className="hover:bg-slate-900/40">
+                      <tr key={ad.id} className="hover:bg-[#F8FAFC] transition-colors">
                         {/* THUMBNAIL REAL COM BADGE E EFEITO HOVER */}
                         <td className="py-3 px-4">
                           <div
                             onClick={() => setSelectedCreativeModal(ad)}
-                            className="relative w-14 h-14 rounded-lg overflow-hidden cursor-pointer border border-white/20 shadow-md group shrink-0 transition-all hover:scale-105 hover:border-cyan-400 hover:shadow-cyan-500/20"
+                            className="relative w-14 h-14 rounded-lg overflow-hidden cursor-pointer border border-[#E2E8F0] shadow-xs group shrink-0 transition-all hover:scale-105 hover:border-[#0050FF]"
                             title="Clique para abrir e interagir com o anúncio real"
                             style={{
                               backgroundImage: `url(${ad.thumbUrl})`,
@@ -1448,9 +1457,9 @@ export default function MidiaPage() {
                               backgroundPosition: 'center',
                             }}
                           >
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent group-hover:bg-cyan-900/30 transition-colors flex items-center justify-center">
+                            <div className="absolute inset-0 bg-black/20 group-hover:bg-[#0050FF]/20 transition-colors flex items-center justify-center">
                               {ad.formato === 'reels' && (
-                                <div className="w-5 h-5 rounded-full bg-white/90 text-slate-900 flex items-center justify-center text-[10px] shadow group-hover:scale-110 transition-transform">
+                                <div className="w-5 h-5 rounded-full bg-white/90 text-[#0F172A] flex items-center justify-center text-[10px] shadow group-hover:scale-110 transition-transform">
                                   ▶
                                 </div>
                               )}
@@ -1465,14 +1474,14 @@ export default function MidiaPage() {
                         <td className="py-3 px-4">
                           <p
                             onClick={() => setSelectedCreativeModal(ad)}
-                            className="font-bold text-white hover:text-cyan-300 cursor-pointer transition-colors max-w-xs truncate"
+                            className="font-bold text-[#0F172A] hover:text-[#0050FF] cursor-pointer transition-colors max-w-xs truncate"
                             title="Clique para ver prévia completa"
                           >
                             {ad.nome}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] text-slate-500 font-mono">ID: {ad.id}</span>
-                            <span className="text-[10px] text-cyan-400 font-medium">
+                            <span className="text-[10px] text-[#64748B] font-mono">ID: {ad.id}</span>
+                            <span className="text-[10px] text-[#0050FF] font-medium">
                               • {ad.formato === 'carousel' ? 'Carrossel' : ad.formato === 'reels' ? 'Reels' : 'Estático'}
                             </span>
                           </div>
@@ -1480,37 +1489,37 @@ export default function MidiaPage() {
 
                         {/* CAMPANHA */}
                         <td className="py-3 px-4">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 truncate max-w-[150px] inline-block" title={ad.campanha}>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] truncate max-w-[150px] inline-block" title={ad.campanha}>
                             📂 {ad.campanha}
                           </span>
                         </td>
 
                         {/* CONJUNTO */}
                         <td className="py-3 px-4">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 truncate max-w-[150px] inline-block" title={ad.adset}>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 truncate max-w-[150px] inline-block" title={ad.adset}>
                             👥 {ad.adset}
                           </span>
                         </td>
 
                         {/* GASTO */}
-                        <td className="py-3 px-4 font-mono font-bold text-white">{formatBRL(ad.gasto || 0)}</td>
+                        <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{formatBRL(ad.gasto || 0)}</td>
 
                         {/* RETORNO ADAPTATIVO POR OBJETIVO */}
-                        <td className="py-3 px-4 font-mono font-bold text-cyan-300">
+                        <td className="py-3 px-4 font-mono font-bold text-[#0050FF]">
                           <button
                             onClick={() => openLeadsDrilldown(`${ad.nome} • ${ad.adset}`, ad.leads > 0 ? 'form' : 'whatsapp', ad.leads || ad.conversas || 0, ad.nome)}
-                            className="hover:underline hover:text-cyan-200 transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
+                            className="hover:underline transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
                             title="Clique para ver os nomes e contatos capturados neste criativo"
                           >
                             <span>
                               {ad.leads > 0 ? `${ad.leads} leads` : `${ad.conversas} conv.`}
                             </span>
-                            <span className="text-[9px] text-cyan-400">👁️</span>
+                            <span className="text-[9px]">👁️</span>
                           </button>
                         </td>
 
                         {/* CTR */}
-                        <td className="py-3 px-4 font-mono text-slate-300">{ad.ctr}</td>
+                        <td className="py-3 px-4 font-mono text-[#475569]">{ad.ctr}</td>
 
                         {/* STATUS */}
                         <td className="py-3 px-4">
@@ -1522,7 +1531,7 @@ export default function MidiaPage() {
                           <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => setSelectedCreativeModal(ad)}
-                              className="px-2.5 py-1 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 font-semibold text-[11px] transition-all flex items-center gap-1.5 cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] hover:bg-[#DBEAFE] text-[#0050FF] border border-[#BFDBFE] font-semibold text-[11px] transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                               title="Abrir prévia interativa do anúncio"
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -1533,7 +1542,7 @@ export default function MidiaPage() {
                                 href={ad.preview_link || ad.link_permanente}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] transition-all"
+                                className="p-1.5 rounded-lg bg-[#F1F5F9] hover:bg-slate-200 text-[#475569] hover:text-[#0F172A] border border-[#E2E8F0] text-[11px] transition-all"
                                 title="Abrir diretamente no Meta Ads / Instagram"
                               >
                                 <ExternalLink className="w-3.5 h-3.5" />
@@ -1557,51 +1566,57 @@ export default function MidiaPage() {
       {activePlatformTab === 'google' && (
         <div className="space-y-4">
           {/* Subtabs Google: Campanhas vs Termos de Busca */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-            <div className="flex bg-slate-950 border border-slate-800 rounded-xl p-1 text-xs gap-1">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-3">
+            <div className="flex bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs gap-1">
               <button
                 onClick={() => setGoogleSubTab('campaigns')}
-                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 ${
-                  googleSubTab === 'campaigns' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  googleSubTab === 'campaigns'
+                    ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
+                    : 'text-[#64748B] hover:text-[#0F172A]'
                 }`}
               >
                 <span>📂</span> Campanhas Google ({googleCampanhas.length})
               </button>
               <button
                 onClick={() => setGoogleSubTab('search_terms')}
-                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 ${
-                  googleSubTab === 'search_terms' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  googleSubTab === 'search_terms'
+                    ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
+                    : 'text-[#64748B] hover:text-[#0F172A]'
                 }`}
               >
                 <span>🔍</span> Relatório de Termos de Busca ({filteredSearchTerms.length})
               </button>
             </div>
 
-            <div className="text-xs text-slate-400 font-mono">
-              Gasto Total Google: <b className="text-white">{formatBRL(Number(googleData?.totais?.gasto || 0))}</b>
+            <div className="text-xs text-[#64748B] font-mono">
+              Gasto Total Google: <b className="text-[#0F172A]">{formatBRL(Number(googleData?.totais?.gasto || 0))}</b>
             </div>
           </div>
 
           {/* Subtab 1: Campanhas Google */}
           {googleSubTab === 'campaigns' && (
-            <div className="glass-card overflow-hidden">
-              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-white">Campanhas no Google Ads (Search & PMax)</h3>
-                  <p className="text-xs text-slate-400">Gasto em reais, cliques, impressões, CPC e conversões</p>
+                  <h3 className="text-sm font-bold text-[#0F172A]">Campanhas no Google Ads (Search & PMax)</h3>
+                  <p className="text-xs text-[#64748B]">Gasto em reais, cliques, impressões, CPC e conversões</p>
                 </div>
-                <span className="text-xs font-mono text-cyan-400">{filteredGoogleCampanhas.length} campanhas</span>
+                <span className="text-xs font-mono text-[#0050FF] font-bold bg-[#EFF4FF] px-2.5 py-0.5 rounded-full border border-[#BFDBFE]">
+                  {filteredGoogleCampanhas.length} campanhas
+                </span>
               </div>
 
               {filteredGoogleCampanhas.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 text-xs">
+                <div className="p-8 text-center text-[#64748B] text-xs">
                   {loading ? 'Carregando campanhas...' : 'Nenhuma campanha Google encontrada para este cliente.'}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs text-left">
                     <thead>
-                      <tr className="border-b border-slate-800 text-slate-400 bg-slate-950/60">
+                      <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
                         <th className="py-3 px-4">Status</th>
                         <th className="py-3 px-4">Campanha</th>
                         <th className="py-3 px-4">Orçamento Diário</th>
@@ -1614,28 +1629,28 @@ export default function MidiaPage() {
                         <th className="py-3 px-4">Custo / Conv.</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60">
+                    <tbody className="divide-y divide-[#E2E8F0] bg-white">
                       {filteredGoogleCampanhas.map((c: any) => (
-                        <tr key={c.campaign_id} className="hover:bg-slate-900/40">
+                        <tr key={c.campaign_id} className="hover:bg-[#F8FAFC] transition-colors">
                           <td className="py-3 px-4">
                             {renderStatusBadge(c.status)}
                           </td>
                           <td className="py-3 px-4">
-                            <p className="font-bold text-white max-w-xs truncate" title={c.nome}>
+                            <p className="font-bold text-[#0F172A] max-w-xs truncate" title={c.nome}>
                               {c.nome}
                             </p>
-                            <span className="text-[10px] text-slate-500 font-mono">ID: {c.campaign_id}</span>
+                            <span className="text-[10px] text-[#64748B] font-mono">ID: {c.campaign_id}</span>
                           </td>
-                          <td className="py-3 px-4 font-mono text-slate-300">
+                          <td className="py-3 px-4 font-mono text-[#475569]">
                             {c.orcamento_diario ? formatBRL(c.orcamento_diario) + '/dia' : '—'}
                           </td>
-                          <td className="py-3 px-4 font-mono font-bold text-white">{formatBRL(c.gasto)}</td>
-                          <td className="py-3 px-4 font-mono text-slate-300">{c.cliques}</td>
-                          <td className="py-3 px-4 font-mono text-slate-300">{Number(c.impressoes).toLocaleString('pt-BR')}</td>
-                          <td className="py-3 px-4 font-mono text-slate-300">{c.ctr}%</td>
-                          <td className="py-3 px-4 font-mono text-slate-300">{formatBRL(c.cpc)}</td>
-                          <td className="py-3 px-4 font-mono font-bold text-emerald-400">{c.conversoes}</td>
-                          <td className="py-3 px-4 font-mono text-slate-200">
+                          <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{formatBRL(c.gasto)}</td>
+                          <td className="py-3 px-4 font-mono text-[#475569]">{c.cliques}</td>
+                          <td className="py-3 px-4 font-mono text-[#475569]">{Number(c.impressoes).toLocaleString('pt-BR')}</td>
+                          <td className="py-3 px-4 font-mono text-[#475569]">{c.ctr}%</td>
+                          <td className="py-3 px-4 font-mono text-[#475569]">{formatBRL(c.cpc)}</td>
+                          <td className="py-3 px-4 font-mono font-bold text-emerald-600">{c.conversoes}</td>
+                          <td className="py-3 px-4 font-mono text-[#0F172A]">
                             {c.custo_por_conversao > 0 ? formatBRL(c.custo_por_conversao) : '—'}
                           </td>
                         </tr>
@@ -1652,66 +1667,66 @@ export default function MidiaPage() {
             <div className="space-y-4">
               {/* KPI Cards dos Termos de Busca */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="glass-card p-4 space-y-1">
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Termos Analisados</span>
-                  <p className="text-2xl font-black text-white">{filteredSearchTerms.length}</p>
-                  <p className="text-[10px] text-emerald-400">↑ 100% termos auditados</p>
+                <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs space-y-1">
+                  <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Termos Analisados</span>
+                  <p className="text-2xl font-black text-[#0F172A]">{filteredSearchTerms.length}</p>
+                  <p className="text-[10px] text-emerald-600 font-semibold">↑ 100% termos auditados</p>
                 </div>
 
-                <div className="glass-card p-4 space-y-1">
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Custo em Pesquisa</span>
-                  <p className="text-2xl font-black text-white">
+                <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs space-y-1">
+                  <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Custo em Pesquisa</span>
+                  <p className="text-2xl font-black text-[#0F172A]">
                     {formatBRL(
                       searchTermsSource.reduce((acc: number, t: any) => acc + (t.custo || 0), 0) ||
                       Number(googleData?.totais?.gasto || 0)
                     )}
                   </p>
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-[10px] text-[#64748B]">
                     CPC Médio: {formatBRL(Number(googleData?.totais?.cpc || 3.45))}
                   </p>
                 </div>
 
-                <div className="glass-card p-4 space-y-1">
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Conversões / Leads</span>
-                  <p className="text-2xl font-black text-emerald-400">
+                <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs space-y-1">
+                  <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Conversões / Leads</span>
+                  <p className="text-2xl font-black text-emerald-600">
                     {(
                       searchTermsSource.reduce((acc: number, t: any) => acc + (t.conversoes || 0), 0) ||
                       Number(googleData?.totais?.conversoes || 0)
                     ).toLocaleString('pt-BR')} leads
                   </p>
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-[10px] text-[#64748B]">
                     Taxa Conv: {googleData?.totais?.ctr ? `${googleData.totais.ctr}%` : '—'}
                   </p>
                 </div>
 
-                <div className="glass-card p-4 space-y-1">
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Termos Negativados</span>
-                  <p className="text-2xl font-black text-rose-400">
+                <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs space-y-1">
+                  <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Termos Negativados</span>
+                  <p className="text-2xl font-black text-rose-600">
                     {Object.values(negativados).filter(Boolean).length}
                   </p>
-                  <p className="text-[10px] text-rose-300">Economia estimada em cliques irrelevantes</p>
+                  <p className="text-[10px] text-rose-600 font-medium">Economia estimada em cliques irrelevantes</p>
                 </div>
               </div>
 
               {/* Tabela dos Termos Reais */}
-              <div className="glass-card overflow-hidden">
-                <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
+                <div className="p-4 border-b border-[#E2E8F0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-bold text-white">Relatório de Termos de Busca Reais (Search Terms)</h3>
-                    <p className="text-xs text-slate-400">
+                    <h3 className="text-sm font-bold text-[#0F172A]">Relatório de Termos de Busca Reais (Search Terms)</h3>
+                    <p className="text-xs text-[#64748B]">
                       O que os usuários realmente digitaram no Google antes de clicar no anúncio
                     </p>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <div className="relative">
-                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                      <Search className="w-3.5 h-3.5 text-[#64748B] absolute left-3 top-2.5" />
                       <input
                         type="text"
                         placeholder="Filtrar termo digitado..."
                         value={searchTermFilter}
                         onChange={(e) => setSearchTermFilter(e.target.value)}
-                        className="bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 w-56 focus:outline-none focus:border-cyan-500"
+                        className="bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg pl-8 pr-3 py-1.5 text-xs text-[#0F172A] placeholder-[#94A3B8] w-56 focus:outline-none focus:border-[#0050FF]"
                       />
                     </div>
                   </div>
@@ -1720,7 +1735,7 @@ export default function MidiaPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs text-left">
                     <thead>
-                      <tr className="border-b border-slate-800 text-slate-400 bg-slate-950/60">
+                      <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
                         <th className="py-3 px-4">Termo Real Digitado pelo Usuário</th>
                         <th className="py-3 px-4">Palavra-Chave Acionada</th>
                         <th className="py-3 px-4">Match</th>
@@ -1733,42 +1748,42 @@ export default function MidiaPage() {
                         <th className="py-3 px-4">Ação</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60">
+                    <tbody className="divide-y divide-[#E2E8F0] bg-white">
                       {filteredSearchTerms.map((t: any) => {
                         const isNeg = negativados[t.id];
                         return (
-                          <tr key={t.id} className={`hover:bg-slate-900/40 ${isNeg ? 'bg-rose-950/15' : ''}`}>
-                            <td className="py-3 px-4 font-semibold text-white">
+                          <tr key={t.id} className={`hover:bg-[#F8FAFC] transition-colors ${isNeg ? 'bg-rose-50/50' : ''}`}>
+                            <td className="py-3 px-4 font-semibold text-[#0F172A]">
                               "{t.termo}"
-                              {isNeg && <span className="ml-2 text-[10px] text-rose-400 font-bold">(Negativado)</span>}
+                              {isNeg && <span className="ml-2 text-[10px] text-rose-600 font-bold">(Negativado)</span>}
                             </td>
-                            <td className="py-3 px-4 font-mono text-slate-300">{t.kw}</td>
+                            <td className="py-3 px-4 font-mono text-[#475569]">{t.kw}</td>
                             <td className="py-3 px-4">
                               <span
                                 className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                                   t.match === 'Exata'
-                                    ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                    ? 'bg-[#EFF4FF] text-[#0050FF] border-[#BFDBFE]'
                                     : t.match === 'Frase'
-                                    ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
-                                    : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : 'bg-amber-50 text-amber-700 border-amber-200'
                                 }`}
                               >
                                 {t.match}
                               </span>
                             </td>
-                            <td className="py-3 px-4 font-mono text-slate-300">{t.impressoes}</td>
-                            <td className="py-3 px-4 font-mono text-slate-300">{t.cliques}</td>
-                            <td className="py-3 px-4 font-mono text-slate-300">{t.ctr}</td>
-                            <td className="py-3 px-4 font-mono text-slate-300">{t.cpc}</td>
-                            <td className="py-3 px-4 font-mono font-bold text-white">{formatBRL(t.custo)}</td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-400">{t.conversoes}</td>
+                            <td className="py-3 px-4 font-mono text-[#475569]">{t.impressoes}</td>
+                            <td className="py-3 px-4 font-mono text-[#475569]">{t.cliques}</td>
+                            <td className="py-3 px-4 font-mono text-[#475569]">{t.ctr}</td>
+                            <td className="py-3 px-4 font-mono text-[#475569]">{t.cpc}</td>
+                            <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{formatBRL(t.custo)}</td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-600">{t.conversoes}</td>
                             <td className="py-3 px-4">
                               <button
                                 onClick={() => handleNegativeTerm(t.id)}
-                                className={`px-2.5 py-1 rounded text-[11px] font-bold border flex items-center gap-1 transition-all ${
+                                className={`px-2.5 py-1 rounded text-[11px] font-bold border flex items-center gap-1 transition-all cursor-pointer ${
                                   isNeg
-                                    ? 'bg-rose-600 text-white border-rose-500 shadow-sm'
-                                    : 'bg-slate-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border-slate-700'
+                                    ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                                    : 'bg-white hover:bg-rose-50 text-[#475569] hover:text-rose-600 border-[#CBD5E1]'
                                 }`}
                                 title={isNeg ? 'Termo negativado no leilão' : 'Negativar termo irrelevante'}
                               >
@@ -1806,5 +1821,19 @@ export default function MidiaPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function MidiaPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs font-semibold text-[#64748B]">
+          Carregando Tráfego & Mídia...
+        </div>
+      }
+    >
+      <MidiaContent />
+    </Suspense>
   );
 }

@@ -1,9 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Calendar, RefreshCw, Crown, Building, ArrowLeftRight, Check } from 'lucide-react';
+import { Calendar, RefreshCw, Crown, Building, ArrowLeftRight, Check, X } from 'lucide-react';
 import { useTenant } from './TenantProvider';
-import { hojeBRT, diasAtrasBRT } from '@/lib/date';
+import {
+  hojeBRT,
+  ontemBRT,
+  semanaPassadaBRT,
+  semanaAtualBRT,
+  mesPassadoBRT,
+  mesAtualBRT,
+} from '@/lib/date';
 
 export default function Header() {
   const {
@@ -12,7 +19,6 @@ export default function Header() {
     activeClient,
     selectedClientId,
     viewMode,
-    setViewMode,
     switchToAdminHQ,
   } = useTenant();
 
@@ -45,7 +51,7 @@ export default function Header() {
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#EFF4FF] border border-[#BFDBFE] text-[#0050FF]">
             <Crown className="w-4 h-4 text-[#0050FF]" />
             <span className="text-xs font-bold uppercase tracking-wider">
-              Modo Master Admin — Swiftsail HQ
+              Painel Master Admin — Swiftsail
             </span>
           </div>
         ) : (
@@ -60,7 +66,7 @@ export default function Header() {
             <button
               onClick={switchToAdminHQ}
               className="px-2.5 py-1 rounded-lg bg-white border border-[#E2E8F0] text-[11px] font-semibold text-[#64748B] hover:text-[#0050FF] hover:border-[#BFDBFE] transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
-              title="Retornar para o painel de governança da agência"
+              title="Retornar para a gestão de clientes do Admin"
             >
               <Crown className="w-3 h-3 text-[#0050FF]" />
               <span>Voltar ao Admin</span>
@@ -71,68 +77,94 @@ export default function Header() {
 
       {/* Date Range & Controls */}
       <div className="flex items-center gap-3">
-        {/* Date Filter Quick Selector */}
-        <div className="flex items-center bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs">
-          <button
-            onClick={() =>
-              setDateRange({
-                start: hojeBRT(),
-                end: hojeBRT(),
-                label: 'Hoje',
-              })
-            }
-            className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-              dateRange.label === 'Hoje'
-                ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            Hoje
-          </button>
-          <button
-            onClick={() =>
-              setDateRange({
-                start: diasAtrasBRT(6),
-                end: hojeBRT(),
-                label: 'Últimos 7 Dias',
-              })
-            }
-            className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-              dateRange.label === 'Últimos 7 Dias'
-                ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            7D
-          </button>
-          <button
-            onClick={() =>
-              setDateRange({
-                start: diasAtrasBRT(29),
-                end: hojeBRT(),
-                label: 'Últimos 30 Dias',
-              })
-            }
-            className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-              dateRange.label === 'Últimos 30 Dias'
-                ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            30D
-          </button>
-          <button
-            onClick={() => setShowCustomModal(true)}
-            className={`px-3 py-1 rounded-lg font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-              dateRange.label.startsWith('Personalizado')
-                ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>{dateRange.label.startsWith('Personalizado') ? 'Custom' : 'Personalizar'}</span>
-          </button>
-        </div>
+        {/* Seletor de Datas: Visível no Modo Cliente conforme Seção 4.2 das Diretrizes:
+            (Ontem, Semana passada, Semana atual, Mês passado, Mês atual, Personalizar período)
+            Removido no Modo Admin conforme Seção 3.2 das Diretrizes. */}
+        {viewMode === 'client' && (
+          <div className="flex items-center bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs overflow-x-auto">
+            <button
+              onClick={() => {
+                const ont = ontemBRT();
+                setDateRange({ start: ont, end: ont, label: 'Ontem' });
+              }}
+              className={`px-2.5 py-1 rounded-lg font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                dateRange.label === 'Ontem'
+                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              Ontem
+            </button>
+
+            <button
+              onClick={() => {
+                const sp = semanaPassadaBRT();
+                setDateRange({ start: sp.start, end: sp.end, label: 'Semana passada' });
+              }}
+              className={`px-2.5 py-1 rounded-lg font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                dateRange.label === 'Semana passada'
+                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              Semana passada
+            </button>
+
+            <button
+              onClick={() => {
+                const sa = semanaAtualBRT();
+                setDateRange({ start: sa.start, end: sa.end, label: 'Semana atual' });
+              }}
+              className={`px-2.5 py-1 rounded-lg font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                dateRange.label === 'Semana atual'
+                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              Semana atual
+            </button>
+
+            <button
+              onClick={() => {
+                const mp = mesPassadoBRT();
+                setDateRange({ start: mp.start, end: mp.end, label: 'Mês passado' });
+              }}
+              className={`px-2.5 py-1 rounded-lg font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                dateRange.label === 'Mês passado'
+                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              Mês passado
+            </button>
+
+            <button
+              onClick={() => {
+                const ma = mesAtualBRT();
+                setDateRange({ start: ma.start, end: ma.end, label: 'Mês atual' });
+              }}
+              className={`px-2.5 py-1 rounded-lg font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                dateRange.label === 'Mês atual'
+                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              Mês atual
+            </button>
+
+            <button
+              onClick={() => setShowCustomModal(true)}
+              className={`px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition-all whitespace-nowrap cursor-pointer ${
+                dateRange.label.startsWith('Personalizado')
+                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Personalizar</span>
+            </button>
+          </div>
+        )}
 
         {/* Sync / Refresh Button */}
         <button
@@ -148,63 +180,70 @@ export default function Header() {
           <div className="w-8 h-8 rounded-full bg-[#EFF4FF] border border-[#BFDBFE] flex items-center justify-center text-[#0050FF] font-bold text-xs shadow-xs">
             RF
           </div>
-          <div className="hidden lg:block text-left">
+          <div className="hidden sm:block text-left">
             <p className="text-xs font-bold text-[#0F172A] leading-tight">Rodrigo Ferrari</p>
-            <p className="text-[10px] text-[#0050FF] font-semibold">Master Admin</p>
+            <p className="text-[10px] text-[#64748B]">
+              {viewMode === 'admin' ? 'Master Admin' : 'Gestão'}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Custom Date Modal */}
+      {/* Modal de Personalização de Período */}
       {showCustomModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
-              <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+              <h3 className="font-bold text-[#0F172A] text-sm flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-[#0050FF]" />
-                Definir Período Personalizado
+                Personalizar Período
               </h3>
               <button
                 onClick={() => setShowCustomModal(false)}
-                className="text-[#94A3B8] hover:text-[#0F172A] text-sm cursor-pointer"
+                className="text-[#64748B] hover:text-[#0F172A] p-1 rounded-lg"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-[#475569] mb-1">De (Data Início)</label>
+                <label className="block text-xs font-semibold text-[#64748B] mb-1">
+                  Data Inicial
+                </label>
                 <input
                   type="date"
                   value={customStart}
                   onChange={(e) => setCustomStart(e.target.value)}
-                  className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3 py-2 text-xs text-[#0F172A] focus:outline-none focus:border-[#0050FF]"
+                  className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#0050FF]"
                 />
               </div>
+
               <div>
-                <label className="block text-xs font-semibold text-[#475569] mb-1">Até (Data Fim)</label>
+                <label className="block text-xs font-semibold text-[#64748B] mb-1">
+                  Data Final
+                </label>
                 <input
                   type="date"
                   value={customEnd}
                   onChange={(e) => setCustomEnd(e.target.value)}
-                  className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3 py-2 text-xs text-[#0F172A] focus:outline-none focus:border-[#0050FF]"
+                  className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#0050FF]"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#F1F5F9]">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
               <button
                 onClick={() => setShowCustomModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#64748B] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#64748B] hover:bg-[#F1F5F9]"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleApplyCustomDate}
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#0050FF] hover:bg-[#0040D6] text-white shadow-xs transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white shadow-xs"
               >
-                Aplicar Filtro
+                Aplicar Período
               </button>
             </div>
           </div>
@@ -213,4 +252,3 @@ export default function Header() {
     </header>
   );
 }
-

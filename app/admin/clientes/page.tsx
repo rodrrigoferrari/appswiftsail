@@ -153,14 +153,6 @@ export default function AdminClientesPage() {
             Painel mestre de governança dos clientes da agência. Cada cliente opera com isolamento de dados, contas de anúncios próprias e CRM integrado.
           </p>
         </div>
-
-        <button
-          onClick={() => setShowNewModal(true)}
-          className="bg-[#0050FF] hover:bg-[#0040D6] text-white px-5 py-2.5 rounded-full font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer self-start md:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Novo Cliente / Workspace</span>
-        </button>
       </div>
 
       {feedback && (
@@ -333,97 +325,6 @@ export default function AdminClientesPage() {
         })}
       </div>
 
-      {/* New Client Modal */}
-      {showNewModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
-              <h3 className="text-base font-bold text-[#0F172A] flex items-center gap-2">
-                <Building className="w-4 h-4 text-[#0050FF]" />
-                Criar Novo Workspace / Cliente
-              </h3>
-              <button
-                onClick={() => setShowNewModal(false)}
-                className="text-[#94A3B8] hover:text-[#0F172A] text-sm cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateClient} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-[#475569] mb-1">Nome da Empresa / Cliente *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ex: Construtora Alfa"
-                  value={novoNome}
-                  onChange={(e) => handleNomeChange(e.target.value)}
-                  className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3 py-2 text-[#0F172A] focus:outline-none focus:border-[#0050FF]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#475569] mb-1">
-                  Identificador Único (Slug ID) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ex: construtora_alfa"
-                  value={novoSlug}
-                  onChange={(e) => setNovoSlug(e.target.value)}
-                  className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3 py-2 text-[#0F172A] font-mono focus:outline-none focus:border-[#0050FF]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#475569] mb-1">
-                  Grupo de WhatsApp JID (Uazapi)
-                </label>
-                <input
-                  type="text"
-                  placeholder="ex: 120363385277868846@g.us"
-                  value={novoGrupoWhats}
-                  onChange={(e) => setNovoGrupoWhats(e.target.value)}
-                  className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3 py-2 text-[#0F172A] font-mono focus:outline-none focus:border-[#0050FF]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#475569] mb-1">
-                  Google Drive Folder ID (Opcional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="ex: 1A2b3C4d5E6F..."
-                  value={novoDrive}
-                  onChange={(e) => setNovoDrive(e.target.value)}
-                  className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3 py-2 text-[#0F172A] font-mono focus:outline-none focus:border-[#0050FF]"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#F1F5F9]">
-                <button
-                  type="button"
-                  onClick={() => setShowNewModal(false)}
-                  className="px-4 py-2 rounded-xl text-[#64748B] hover:text-[#0F172A] hover:bg-slate-100 cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="px-5 py-2.5 rounded-full font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white shadow-xs flex items-center gap-2 cursor-pointer"
-                >
-                  {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  <span>Salvar Cliente</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

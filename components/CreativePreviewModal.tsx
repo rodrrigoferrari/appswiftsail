@@ -207,26 +207,26 @@ export default function CreativePreviewModal({
     creative.status?.toUpperCase().includes('PAUS') || creative.status?.toUpperCase().includes('PAUSED');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fadeIn overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/40 backdrop-blur-xs animate-fadeIn overflow-y-auto">
       <div
-        className="relative w-full max-w-4xl bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden my-auto"
+        className="relative w-full max-w-4xl bg-white border border-[#E2E8F0] rounded-2xl shadow-2xl overflow-hidden my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header Bar */}
-        <div className="flex items-center justify-between px-5 py-4 bg-slate-950/90 border-b border-slate-800">
+        <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-[#E2E8F0]">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
+            <span className="p-2 rounded-xl bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] shrink-0">
               <Sparkles className="w-4 h-4" />
             </span>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white truncate max-w-sm sm:max-w-md">{creative.nome}</h3>
-                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 uppercase shrink-0">
+                <h3 className="text-sm font-bold text-[#0F172A] truncate max-w-sm sm:max-w-md">{creative.nome}</h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase shrink-0">
                   {formatoNorm === 'carousel' ? 'Carrossel' : formatoNorm === 'reels' ? 'Reels 9:16' : 'Estático 1:1'}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 font-mono truncate">
-                ID: <span className="text-slate-300">{creative.id}</span> • {creative.campanha || 'Meta Ads'}
+              <p className="text-xs text-[#64748B] font-mono truncate">
+                ID: <span className="text-[#0F172A]">{creative.id}</span> • {creative.campanha || 'Meta Ads'}
               </p>
             </div>
           </div>
@@ -237,7 +237,7 @@ export default function CreativePreviewModal({
                 href={directMetaUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3.5 py-1.5 rounded-lg text-xs bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-all flex items-center gap-1.5 font-bold shadow-md shadow-blue-600/20"
+                className="px-3.5 py-1.5 rounded-xl text-xs bg-[#0050FF] hover:bg-[#0040D6] text-white transition-all flex items-center gap-1.5 font-bold shadow-xs cursor-pointer"
                 title="Abrir anúncio original publicado no Facebook / Instagram"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -246,15 +246,15 @@ export default function CreativePreviewModal({
             )}
             <button
               onClick={handleCopyText}
-              className="px-3 py-1.5 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all flex items-center gap-1.5 border border-slate-700"
+              className="px-3 py-1.5 rounded-xl text-xs bg-white hover:bg-[#F8FAFC] text-[#0F172A] transition-all flex items-center gap-1.5 border border-[#CBD5E1] shadow-xs cursor-pointer"
               title="Copiar Headline e Legenda"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-[#64748B]" />}
               <span className="hidden sm:inline">{copied ? 'Copiado!' : 'Copiar Copy'}</span>
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-xl text-[#64748B] hover:text-[#0F172A] hover:bg-[#F1F5F9] transition-colors cursor-pointer"
               title="Fechar (Esc)"
             >
               <X className="w-5 h-5" />
@@ -265,16 +265,16 @@ export default function CreativePreviewModal({
         {/* Modal Main Content: Split Preview + Metrics */}
         <div className="grid grid-cols-1 lg:grid-cols-12 max-h-[82vh] overflow-y-auto">
           {/* Coluna Esquerda: Preview Real (Embed Oficial ou Mockup com Imagem Real) */}
-          <div className="lg:col-span-7 p-5 bg-slate-950 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-800 min-h-[520px]">
+          <div className="lg:col-span-7 p-5 bg-[#F8FAFC] flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-[#E2E8F0] min-h-[520px]">
             {/* Seletor de Modo quando há Embed disponível */}
             {hasEmbed && (
-              <div className="w-full max-w-[420px] flex items-center justify-between mb-3 bg-slate-900/80 p-1 rounded-xl border border-slate-800 text-xs">
+              <div className="w-full max-w-[420px] flex items-center justify-between mb-3 bg-[#F1F5F9] p-1 rounded-xl border border-[#E2E8F0] text-xs">
                 <button
                   onClick={() => setViewMode('embed')}
-                  className={`flex-1 py-1.5 px-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 py-1.5 px-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     viewMode === 'embed'
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-white text-[#0050FF] shadow-xs border border-[#BFDBFE]'
+                      : 'text-[#64748B] hover:text-[#0F172A]'
                   }`}
                 >
                   <Globe className="w-3.5 h-3.5" />
@@ -282,10 +282,10 @@ export default function CreativePreviewModal({
                 </button>
                 <button
                   onClick={() => setViewMode('media')}
-                  className={`flex-1 py-1.5 px-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 py-1.5 px-3 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     viewMode === 'media'
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-white text-[#0050FF] shadow-xs border border-[#BFDBFE]'
+                      : 'text-[#64748B] hover:text-[#0F172A]'
                   }`}
                 >
                   <Smartphone className="w-3.5 h-3.5" />
@@ -406,55 +406,55 @@ export default function CreativePreviewModal({
           </div>
 
           {/* Coluna Direita: Métricas de Performance & Diagnóstico de Tráfego */}
-          <div className="lg:col-span-5 p-6 space-y-5 bg-slate-900 flex flex-col justify-between">
+          <div className="lg:col-span-5 p-6 space-y-5 bg-white flex flex-col justify-between">
             <div className="space-y-4">
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-400 font-mono">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#0050FF]">
                   DIAGNÓSTICO DO CRIATIVO
                 </span>
-                <h4 className="text-base font-bold text-white mt-0.5">{creative.nome}</h4>
+                <h4 className="text-base font-bold text-[#0F172A] mt-0.5">{creative.nome}</h4>
                 <div className="flex items-center gap-2 mt-1">
                   {isPaused ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-300 border border-amber-500/40">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                       PAUSADO
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-300 border border-emerald-500/40">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       <span className="relative flex h-2 w-2">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                       </span>
                       ATIVO
                     </span>
                   )}
-                  <span className="text-xs text-slate-400 font-mono">
-                    CTR: <b className="text-white">{creative.ctr || '—'}</b>
+                  <span className="text-xs text-[#64748B] font-mono">
+                    CTR: <b className="text-[#0F172A]">{creative.ctr || '—'}</b>
                   </span>
                 </div>
               </div>
 
-              {/* Grid de KPIs do Criativo */}
+              {/* Grid de KPIs do Criativo (Asaas Light) */}
               <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
-                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <BarChart3 className="w-3 h-3 text-cyan-400" /> Gasto
+                <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                  <span className="text-[10px] text-[#64748B] flex items-center gap-1 font-semibold uppercase">
+                    <BarChart3 className="w-3 h-3 text-[#0050FF]" /> Gasto
                   </span>
-                  <div className="text-sm font-black text-white font-mono">{formatBRL(creative.gasto || 0)}</div>
+                  <div className="text-sm font-bold text-[#0F172A] font-mono">{formatBRL(creative.gasto || 0)}</div>
                 </div>
 
-                <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
-                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <Flame className="w-3 h-3 text-emerald-400" /> Retorno
+                <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                  <span className="text-[10px] text-[#64748B] flex items-center gap-1 font-semibold uppercase">
+                    <Flame className="w-3 h-3 text-emerald-600" /> Retorno
                   </span>
-                  <div className="text-sm font-black text-cyan-300 font-mono">
+                  <div className="text-sm font-bold text-emerald-600 font-mono">
                     {creative.leads || creative.conversas || 0} contatos
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
-                  <span className="text-[10px] text-slate-400">Custo por Lead/Conv.</span>
-                  <div className="text-sm font-black text-emerald-400 font-mono">
+                <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                  <span className="text-[10px] text-[#64748B] font-semibold uppercase">Custo por Lead</span>
+                  <div className="text-sm font-bold text-emerald-600 font-mono">
                     {formatBRL(
                       creative.cpl ||
                         (creative.gasto && (creative.leads || creative.conversas)
@@ -464,45 +464,45 @@ export default function CreativePreviewModal({
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
-                  <span className="text-[10px] text-slate-400">Taxa de Cliques (CTR)</span>
-                  <div className="text-sm font-black text-amber-300 font-mono">{creative.ctr || '—'}</div>
+                <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                  <span className="text-[10px] text-[#64748B] font-semibold uppercase">CTR</span>
+                  <div className="text-sm font-bold text-[#0F172A] font-mono">{creative.ctr || '—'}</div>
                 </div>
               </div>
 
               {/* Estrutura de Origem */}
-              <div className="p-3.5 bg-slate-950/50 rounded-xl border border-slate-800 space-y-2 text-xs">
-                <div className="flex items-center justify-between text-slate-400">
+              <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-2 text-xs">
+                <div className="flex items-center justify-between text-[#64748B]">
                   <span>Campanha:</span>
-                  <span className="font-semibold text-slate-200 truncate max-w-[200px]" title={creative.campanha}>
+                  <span className="font-semibold text-[#0F172A] truncate max-w-[200px]" title={creative.campanha}>
                     {creative.campanha || 'Campanha Principal Meta'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-slate-400">
+                <div className="flex items-center justify-between text-[#64748B]">
                   <span>Conjunto (AdSet):</span>
-                  <span className="font-semibold text-slate-200 truncate max-w-[200px]" title={creative.adset}>
+                  <span className="font-semibold text-[#0F172A] truncate max-w-[200px]" title={creative.adset}>
                     {creative.adset || 'Público Segmentado'}
                   </span>
                 </div>
               </div>
 
               {/* Headline Utilizada */}
-              <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/80 space-y-1.5">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                <div className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider">
                   Headline / Título
                 </div>
-                <div className="text-xs text-slate-200 font-medium italic">"{defaultHeadline}"</div>
+                <div className="text-xs text-[#0F172A] font-medium italic">"{defaultHeadline}"</div>
               </div>
             </div>
 
             {/* Ações Inferiores */}
-            <div className="pt-4 border-t border-slate-800 space-y-2">
+            <div className="pt-4 border-t border-[#E2E8F0] space-y-2">
               {directMetaUrl ? (
                 <a
                   href={directMetaUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 font-bold text-xs text-white flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all"
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#0050FF] hover:bg-[#0040D6] font-bold text-xs text-white flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>Abrir Anúncio Publicado no Meta</span>
@@ -510,7 +510,7 @@ export default function CreativePreviewModal({
               ) : (
                 <button
                   onClick={handleOpenCTA}
-                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 font-bold text-xs text-slate-950 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 transition-all"
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#0050FF] hover:bg-[#0040D6] font-bold text-xs text-white flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>Abrir Link de Destino</span>
@@ -519,7 +519,7 @@ export default function CreativePreviewModal({
 
               <button
                 onClick={onClose}
-                className="w-full py-2 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold text-xs text-slate-300 transition-colors"
+                className="w-full py-2 px-4 rounded-xl bg-white border border-[#CBD5E1] hover:bg-[#F8FAFC] font-semibold text-xs text-[#0F172A] transition-colors shadow-xs cursor-pointer"
               >
                 Fechar Visualização
               </button>

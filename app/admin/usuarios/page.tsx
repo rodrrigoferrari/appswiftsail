@@ -6,7 +6,6 @@ import {
   Users,
   UserPlus,
   Mail,
-  ShieldCheck,
   Building,
   CheckCircle2,
   AlertCircle,
@@ -17,40 +16,26 @@ import {
   Lock,
   Unlock,
   Search,
-  Filter,
-  KeyRound,
   ExternalLink,
-  ChevronRight,
-  Sparkles,
   Send,
 } from 'lucide-react';
 import { UserRole, UserModulePermission } from '@/types/database';
 
-const ROLE_CONFIG: Record<UserRole, { label: string; badgeClass: string; desc: string }> = {
+const ROLE_CONFIG: Record<string, { label: string; badgeClass: string; desc: string }> = {
   master_admin: {
-    label: '👑 Master Admin (HQ)',
-    badgeClass: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+    label: '👑 Admin (Agência)',
+    badgeClass: 'bg-[#EFF4FF] text-[#0050FF] border-[#BFDBFE]',
     desc: 'Acesso total irrestrito à Swiftsail, credenciais master e todas as contas',
   },
-  gestor_trafego: {
-    label: '🚀 Gestor de Tráfego',
-    badgeClass: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-    desc: 'Gestão de campanhas Meta, Google e análise de criativos',
-  },
-  cs_account: {
-    label: '🛡️ CS / Atendimento',
-    badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-    desc: 'Monitoramento de grupos WhatsApp, CRM e saúde dos clientes',
-  },
   cliente_admin: {
-    label: '🏢 Administrador do Cliente',
-    badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    label: '🏢 Cliente (Workspace)',
+    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     desc: 'Gestor da empresa cliente com acesso ao seu próprio workspace',
   },
   cliente_membro: {
-    label: '👤 Membro / Vendedor do Cliente',
-    badgeClass: 'bg-slate-700/60 text-slate-300 border-slate-600',
-    desc: 'Equipe comercial ou operacional com acesso a módulos específicos do cliente',
+    label: '👤 Cliente (Membro de Equipe)',
+    badgeClass: 'bg-slate-100 text-[#475569] border-[#E2E8F0]',
+    desc: 'Equipe comercial ou operacional com acesso aos dados do cliente',
   },
 };
 
@@ -63,7 +48,7 @@ const ALL_MODULES: { id: UserModulePermission; label: string; icon: string }[] =
 ];
 
 export default function AdminUsuariosPage() {
-  const { clients, users, setUsers, invites, setInvites, refreshUsers, selectClientAndSwitchToWorkspace } = useTenant();
+  const { clients, users, invites, refreshUsers, selectClientAndSwitchToWorkspace } = useTenant();
 
   const [activeTab, setActiveTab] = useState<'users' | 'invites'>('users');
   const [searchTerm, setSearchTerm] = useState('');
@@ -210,7 +195,7 @@ export default function AdminUsuariosPage() {
             Gestão de Usuários & Convites dos Clientes
           </h1>
           <p className="text-xs text-[#64748B] max-w-2xl leading-relaxed">
-            Convide usuários da sua agência e membros para cada cliente individual (com acesso isolado aos seus respectivos dashboards e permissões modulares).
+            Convide usuários e membros para cada cliente individual (com acesso isolado aos seus respectivos dashboards e permissões modulares).
           </p>
         </div>
 
@@ -222,7 +207,7 @@ export default function AdminUsuariosPage() {
           className="bg-[#0050FF] hover:bg-[#0040D6] text-white px-5 py-2.5 rounded-full font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer self-start md:self-auto"
         >
           <UserPlus className="w-4 h-4" />
-          <span>Convidar Novo Usuário</span>
+          <span>Convidar Novo Membro</span>
         </button>
       </div>
 
@@ -249,11 +234,11 @@ export default function AdminUsuariosPage() {
         </div>
 
         <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
-          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Equipe Swiftsail (HQ)</p>
+          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Administradores</p>
           <p className="text-2xl sm:text-3xl font-bold text-purple-600 mt-1">
-            {users.filter((u) => !u.cliente_id).length}
+            {users.filter((u) => !u.cliente_id || u.role === 'master_admin').length}
           </p>
-          <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Admins, Gestores e CS</p>
+          <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Gestores com visão Admin</p>
         </div>
       </div>
 
@@ -289,23 +274,23 @@ export default function AdminUsuariosPage() {
         {/* Search & Selectors */}
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative flex-1 sm:w-64">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#94A3B8]" />
             <input
               type="text"
               placeholder="Buscar por nome, email ou empresa..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+              className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl pl-8 pr-3 py-1.5 text-xs text-[#0F172A] focus:outline-none focus:border-[#0050FF] focus:bg-white transition-colors"
             />
           </div>
 
           <select
             value={clientFilter}
             onChange={(e) => setClientFilter(e.target.value)}
-            className="bg-slate-950/80 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-300 focus:outline-none focus:border-cyan-500"
+            className="bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-2.5 py-1.5 text-xs font-medium text-[#0F172A] focus:outline-none focus:border-[#0050FF] cursor-pointer"
           >
             <option value="ALL">🏢 Todos os Clientes</option>
-            <option value="AGENCY">👑 Apenas Equipe HQ (Agência)</option>
+            <option value="AGENCY">👑 Apenas Admin (Agência)</option>
             {clients.map((c) => (
               <option key={c.cliente_id} value={c.cliente_id}>
                 {c.nome}
@@ -317,14 +302,11 @@ export default function AdminUsuariosPage() {
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="bg-slate-950/80 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-300 focus:outline-none focus:border-cyan-500"
+              className="bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-2.5 py-1.5 text-xs font-medium text-[#0F172A] focus:outline-none focus:border-[#0050FF] cursor-pointer"
             >
-              <option value="ALL">Todos os Cargos</option>
-              <option value="master_admin">Master Admin</option>
-              <option value="gestor_trafego">Gestor de Tráfego</option>
-              <option value="cs_account">CS / Atendimento</option>
-              <option value="cliente_admin">Admin do Cliente</option>
-              <option value="cliente_membro">Membro do Cliente</option>
+              <option value="ALL">Todas as Hierarquias</option>
+              <option value="master_admin">Admin</option>
+              <option value="cliente_admin">Cliente</option>
             </select>
           )}
         </div>
@@ -332,13 +314,13 @@ export default function AdminUsuariosPage() {
 
       {/* Content Tab: Users Table */}
       {activeTab === 'users' && (
-        <div className="glass-card overflow-hidden">
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-900/80 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-800">
+              <thead className="bg-[#F8FAFC] text-[#64748B] font-bold uppercase tracking-wider text-[10px] border-b border-[#E2E8F0]">
                 <tr>
                   <th className="p-4">Usuário</th>
-                  <th className="p-4">Perfil & Cargo</th>
+                  <th className="p-4">Hierarquia</th>
                   <th className="p-4">Workspace / Cliente</th>
                   <th className="p-4">Módulos Liberados</th>
                   <th className="p-4">Último Acesso</th>
@@ -346,30 +328,30 @@ export default function AdminUsuariosPage() {
                   <th className="p-4 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-[#F1F5F9]">
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-500">
+                    <td colSpan={7} className="p-8 text-center text-[#64748B]">
                       Nenhum usuário encontrado com os filtros selecionados.
                     </td>
                   </tr>
                 ) : (
                   filteredUsers.map((user) => {
                     const roleInfo = ROLE_CONFIG[user.role] || {
-                      label: user.role,
-                      badgeClass: 'bg-slate-800 text-slate-300 border-slate-700',
+                      label: user.role === 'master_admin' ? '👑 Admin' : '🏢 Cliente',
+                      badgeClass: user.role === 'master_admin' ? 'bg-[#EFF4FF] text-[#0050FF] border-[#BFDBFE]' : 'bg-emerald-50 text-emerald-700 border-emerald-200',
                     };
 
                     return (
-                      <tr key={user.id} className="hover:bg-slate-800/30 transition-colors">
+                      <tr key={user.id} className="hover:bg-[#F8FAFC] transition-colors">
                         <td className="p-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500/20 to-blue-500/30 border border-cyan-500/40 flex items-center justify-center font-bold text-cyan-300 text-xs">
+                            <div className="w-8 h-8 rounded-full bg-[#EFF4FF] border border-[#BFDBFE] flex items-center justify-center font-bold text-[#0050FF] text-xs">
                               {user.nome.substring(0, 2).toUpperCase()}
                             </div>
                             <div>
-                              <p className="font-bold text-white">{user.nome}</p>
-                              <p className="text-[11px] text-slate-400 font-mono">{user.email}</p>
+                              <p className="font-bold text-[#0F172A]">{user.nome}</p>
+                              <p className="text-[11px] text-[#64748B] font-mono">{user.email}</p>
                             </div>
                           </div>
                         </td>
@@ -384,8 +366,8 @@ export default function AdminUsuariosPage() {
 
                         <td className="p-4">
                           <div className="flex items-center gap-1.5">
-                            <Building className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="font-medium text-slate-200">
+                            <Building className="w-3.5 h-3.5 text-[#64748B]" />
+                            <span className="font-medium text-[#0F172A]">
                               {user.cliente_nome || 'Swiftsail HQ (Global)'}
                             </span>
                           </div>
@@ -396,7 +378,7 @@ export default function AdminUsuariosPage() {
                             {user.modulos.map((m) => (
                               <span
                                 key={m}
-                                className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] font-mono text-cyan-300 capitalize"
+                                className="px-2 py-0.5 rounded bg-[#F8FAFC] border border-[#E2E8F0] text-[10px] font-semibold text-[#475569] capitalize"
                               >
                                 {m}
                               </span>
@@ -404,21 +386,21 @@ export default function AdminUsuariosPage() {
                           </div>
                         </td>
 
-                        <td className="p-4 font-mono text-[11px] text-slate-400">
+                        <td className="p-4 font-mono text-[11px] text-[#64748B]">
                           {user.ultimo_acesso || 'Nunca acessou'}
                         </td>
 
                         <td className="p-4">
                           <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold border ${
                               user.status === 'ativo'
-                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-rose-50 text-rose-700 border-rose-200'
                             }`}
                           >
                             <span
                               className={`w-1.5 h-1.5 rounded-full ${
-                                user.status === 'ativo' ? 'bg-emerald-400' : 'bg-rose-400'
+                                user.status === 'ativo' ? 'bg-emerald-500' : 'bg-rose-500'
                               }`}
                             />
                             {user.status === 'ativo' ? 'Ativo' : 'Bloqueado'}
@@ -430,7 +412,7 @@ export default function AdminUsuariosPage() {
                             {user.cliente_id && (
                               <button
                                 onClick={() => selectClientAndSwitchToWorkspace(user.cliente_id!)}
-                                className="p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-cyan-400 hover:border-cyan-500/40 transition-colors"
+                                className="p-1.5 rounded-lg bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0050FF] hover:border-[#BFDBFE] transition-colors cursor-pointer shadow-xs"
                                 title="Acessar workspace deste cliente"
                               >
                                 <ExternalLink className="w-3.5 h-3.5" />
@@ -439,13 +421,13 @@ export default function AdminUsuariosPage() {
 
                             <button
                               onClick={() => handleToggleUserStatus(user.id)}
-                              className="p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-400 hover:text-white transition-colors"
+                              className="p-1.5 rounded-lg bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer shadow-xs"
                               title={user.status === 'ativo' ? 'Bloquear Usuário' : 'Ativar Usuário'}
                             >
                               {user.status === 'ativo' ? (
-                                <Lock className="w-3.5 h-3.5 text-amber-400" />
+                                <Lock className="w-3.5 h-3.5 text-amber-500" />
                               ) : (
-                                <Unlock className="w-3.5 h-3.5 text-emerald-400" />
+                                <Unlock className="w-3.5 h-3.5 text-emerald-600" />
                               )}
                             </button>
                           </div>
@@ -462,13 +444,13 @@ export default function AdminUsuariosPage() {
 
       {/* Content Tab: Invites Table */}
       {activeTab === 'invites' && (
-        <div className="glass-card overflow-hidden">
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-900/80 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-800">
+              <thead className="bg-[#F8FAFC] text-[#64748B] font-bold uppercase tracking-wider text-[10px] border-b border-[#E2E8F0]">
                 <tr>
                   <th className="p-4">Convidado</th>
-                  <th className="p-4">Cargo Proposto</th>
+                  <th className="p-4">Hierarquia</th>
                   <th className="p-4">Empresa / Cliente</th>
                   <th className="p-4">Link de Ativação</th>
                   <th className="p-4">Expira em</th>
@@ -476,27 +458,27 @@ export default function AdminUsuariosPage() {
                   <th className="p-4 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-[#F1F5F9]">
                 {filteredInvites.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-500">
-                      Nenhum convite pendente. Clique em &quot;Convidar Novo Usuário&quot; para enviar novos acessos.
+                    <td colSpan={7} className="p-8 text-center text-[#64748B]">
+                      Nenhum convite pendente. Clique em &quot;Convidar Novo Membro&quot; para enviar novos acessos.
                     </td>
                   </tr>
                 ) : (
                   filteredInvites.map((invite) => {
                     const isCopied = copiedId === invite.id;
                     const roleInfo = ROLE_CONFIG[invite.role] || {
-                      label: invite.role,
-                      badgeClass: 'bg-slate-800 text-slate-300 border-slate-700',
+                      label: invite.role === 'master_admin' ? '👑 Admin' : '🏢 Cliente',
+                      badgeClass: invite.role === 'master_admin' ? 'bg-[#EFF4FF] text-[#0050FF] border-[#BFDBFE]' : 'bg-emerald-50 text-emerald-700 border-emerald-200',
                     };
 
                     return (
-                      <tr key={invite.id} className="hover:bg-slate-800/30 transition-colors">
+                      <tr key={invite.id} className="hover:bg-[#F8FAFC] transition-colors">
                         <td className="p-4">
                           <div>
-                            <p className="font-bold text-white">{invite.nome}</p>
-                            <p className="text-[11px] text-slate-400 font-mono">{invite.email}</p>
+                            <p className="font-bold text-[#0F172A]">{invite.nome}</p>
+                            <p className="text-[11px] text-[#64748B] font-mono">{invite.email}</p>
                           </div>
                         </td>
 
@@ -509,7 +491,7 @@ export default function AdminUsuariosPage() {
                         </td>
 
                         <td className="p-4">
-                          <span className="font-medium text-slate-200">
+                          <span className="font-medium text-[#0F172A]">
                             {invite.cliente_nome || 'Swiftsail HQ'}
                           </span>
                         </td>
@@ -517,21 +499,21 @@ export default function AdminUsuariosPage() {
                         <td className="p-4">
                           <button
                             onClick={() => copyToClipboard(invite.link_ativacao, invite.id)}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono border transition-all ${
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono border transition-all cursor-pointer ${
                               isCopied
-                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                                : 'bg-slate-900 border-slate-800 text-cyan-400 hover:border-cyan-500/40'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                : 'bg-[#F8FAFC] border-[#CBD5E1] text-[#0050FF] hover:bg-white'
                             }`}
                           >
                             {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                            <span>{isCopied ? 'Link Copiado!' : 'Copiar Link de Convite'}</span>
+                            <span>{isCopied ? 'Link Copiado!' : 'Copiar Link'}</span>
                           </button>
                         </td>
 
-                        <td className="p-4 font-mono text-[11px] text-slate-400">{invite.expira_em}</td>
+                        <td className="p-4 font-mono text-[11px] text-[#64748B]">{invite.expira_em}</td>
 
                         <td className="p-4">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                             Pendente
                           </span>
                         </td>
@@ -540,7 +522,7 @@ export default function AdminUsuariosPage() {
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => handleRevokeInvite(invite.id)}
-                              className="p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 transition-colors"
+                              className="p-1.5 rounded-lg bg-white border border-[#E2E8F0] text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer shadow-xs"
                               title="Revogar Convite"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -559,24 +541,24 @@ export default function AdminUsuariosPage() {
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0f172a] border border-slate-700/80 rounded-2xl p-6 w-full max-w-xl shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 w-full max-w-xl shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                <div className="w-8 h-8 rounded-xl bg-[#EFF4FF] border border-[#BFDBFE] flex items-center justify-center text-[#0050FF]">
                   <UserPlus className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Convidar Novo Usuário</h3>
-                  <p className="text-[11px] text-slate-400">
+                  <h3 className="text-sm font-bold text-[#0F172A]">Convidar Novo Membro</h3>
+                  <p className="text-[11px] text-[#64748B]">
                     Defina o workspace, o perfil de acesso e os módulos permitidos
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowInviteModal(false)}
-                className="text-slate-400 hover:text-white text-sm p-1"
+                className="text-[#94A3B8] hover:text-[#0F172A] text-sm p-1 cursor-pointer"
               >
                 ✕
               </button>
@@ -585,18 +567,18 @@ export default function AdminUsuariosPage() {
             {/* Success View */}
             {inviteSuccessData ? (
               <div className="space-y-4 py-2">
-                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
-                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Convite gerado com sucesso!</span>
                   </div>
-                  <p className="text-xs text-slate-300">
+                  <p className="text-xs text-[#0F172A]">
                     O convite para <b>{inviteSuccessData.name}</b> ({inviteSuccessData.email}) foi criado e já está pronto para ativação.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-slate-300">
+                  <label className="block text-xs font-semibold text-[#475569]">
                     Link Exclusivo de Ativação do Usuário
                   </label>
                   <div className="flex items-center gap-2">
@@ -604,28 +586,28 @@ export default function AdminUsuariosPage() {
                       type="text"
                       readOnly
                       value={inviteSuccessData.link}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-cyan-300 select-all focus:outline-none"
+                      className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-mono text-[#0050FF] select-all focus:outline-none"
                     />
                     <button
                       onClick={() => copyToClipboard(inviteSuccessData.link, 'modal_link')}
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 flex items-center gap-1.5 transition-colors whitespace-nowrap shadow-lg shadow-cyan-500/20"
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white flex items-center gap-1.5 transition-colors whitespace-nowrap shadow-xs cursor-pointer"
                     >
                       {copiedId === 'modal_link' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       <span>{copiedId === 'modal_link' ? 'Copiado!' : 'Copiar'}</span>
                     </button>
                   </div>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-[#64748B]">
                     💡 Você pode colar este link diretamente no grupo de WhatsApp do cliente ou enviar por e-mail.
                   </p>
                 </div>
 
-                <div className="flex justify-end pt-3 border-t border-slate-800">
+                <div className="flex justify-end pt-3 border-t border-[#F1F5F9]">
                   <button
                     onClick={() => {
                       setInviteSuccessData(null);
                       setShowInviteModal(false);
                     }}
-                    className="px-5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition-colors"
+                    className="px-5 py-2 rounded-xl text-xs font-bold bg-[#0050FF] text-white hover:bg-[#0040D6] transition-colors cursor-pointer"
                   >
                     Concluir e Fechar
                   </button>
@@ -638,8 +620,8 @@ export default function AdminUsuariosPage() {
                   <div
                     className={`p-3 rounded-xl border flex items-center gap-2 ${
                       formFeedback.type === 'error'
-                        ? 'bg-rose-500/10 text-rose-300 border-rose-500/30'
-                        : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                     }`}
                   >
                     <AlertCircle className="w-4 h-4" />
@@ -650,33 +632,33 @@ export default function AdminUsuariosPage() {
                 {/* Name & Email */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-slate-300 mb-1">Nome Completo *</label>
+                    <label className="block font-semibold text-[#475569] mb-1">Nome Completo *</label>
                     <input
                       type="text"
                       required
                       value={formName}
                       onChange={(e) => setFormName(e.target.value)}
                       placeholder="ex: João Silva"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
+                      className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-[#0F172A] focus:outline-none focus:border-[#0050FF] focus:bg-white transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-300 mb-1">E-mail de Acesso *</label>
+                    <label className="block font-semibold text-[#475569] mb-1">E-mail de Acesso *</label>
                     <input
                       type="email"
                       required
                       value={formEmail}
                       onChange={(e) => setFormEmail(e.target.value)}
                       placeholder="ex: joao@cliente.com.br"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
+                      className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-[#0F172A] focus:outline-none focus:border-[#0050FF] focus:bg-white transition-colors"
                     />
                   </div>
                 </div>
 
-                {/* Role Selector */}
+                {/* Role Selector: Apenas Admin e Cliente conforme Seção 2 */}
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1.5">Cargo / Tipo de Usuário *</label>
+                  <label className="block font-semibold text-[#475569] mb-1.5">Hierarquia de Acesso *</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {(Object.keys(ROLE_CONFIG) as UserRole[]).map((r) => {
                       const isSelected = formRole === r;
@@ -686,15 +668,15 @@ export default function AdminUsuariosPage() {
                           onClick={() => setFormRole(r)}
                           className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
                             isSelected
-                              ? 'bg-cyan-500/10 border-cyan-500/50 text-white shadow-sm'
-                              : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                              ? 'bg-[#EFF4FF] border-[#0050FF] text-[#0050FF] shadow-xs'
+                              : 'bg-[#F8FAFC] border-[#E2E8F0] text-[#475569] hover:border-[#CBD5E1]'
                           }`}
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-xs">{ROLE_CONFIG[r].label}</span>
-                            {isSelected && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+                            {isSelected && <Check className="w-3.5 h-3.5 text-[#0050FF]" />}
                           </div>
-                          <p className="text-[10px] text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                          <p className="text-[10px] text-[#64748B] mt-1 line-clamp-2 leading-relaxed">
                             {ROLE_CONFIG[r].desc}
                           </p>
                         </div>
@@ -705,14 +687,14 @@ export default function AdminUsuariosPage() {
 
                 {/* Client Assignment (if client role) */}
                 {isClientRole && (
-                  <div className="p-3 bg-slate-950/80 rounded-xl border border-amber-500/30 space-y-1.5">
-                    <label className="block font-bold text-amber-300">
-                      🏢 Atribuir ao Cliente / Workspace:
+                  <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1.5">
+                    <label className="block font-bold text-[#0F172A]">
+                      🏢 Atribuir ao Workspace do Cliente:
                     </label>
                     <select
                       value={formClientId}
                       onChange={(e) => setFormClientId(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-amber-500"
+                      className="w-full bg-white border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#0050FF] cursor-pointer shadow-xs"
                     >
                       {clients.map((c) => (
                         <option key={c.cliente_id} value={c.cliente_id}>
@@ -720,16 +702,16 @@ export default function AdminUsuariosPage() {
                         </option>
                       ))}
                     </select>
-                    <p className="text-[10px] text-slate-400">
-                      Este usuário terá acesso restrito exclusivamente a este cliente.
+                    <p className="text-[10px] text-[#64748B]">
+                      Este usuário terá acesso restrito exclusivamente aos dados deste cliente.
                     </p>
                   </div>
                 )}
 
                 {/* Modules Permission Checkboxes */}
                 <div className="space-y-2">
-                  <label className="block font-semibold text-slate-300">
-                    Módulos Liberados para este Usuário:
+                  <label className="block font-semibold text-[#475569]">
+                    Módulos Liberados para este Membro:
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {ALL_MODULES.map((mod) => {
@@ -739,15 +721,15 @@ export default function AdminUsuariosPage() {
                           type="button"
                           key={mod.id}
                           onClick={() => handleToggleModule(mod.id)}
-                          className={`p-2 rounded-xl border text-left flex items-center gap-2 transition-all ${
+                          className={`p-2 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
                             isChecked
-                              ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300'
-                              : 'bg-slate-950/40 border-slate-800 text-slate-500 hover:border-slate-700'
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                              : 'bg-[#F8FAFC] border-[#E2E8F0] text-[#64748B] hover:border-[#CBD5E1]'
                           }`}
                         >
                           <div
                             className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${
-                              isChecked ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'border-slate-700'
+                              isChecked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-[#CBD5E1] bg-white'
                             }`}
                           >
                             {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
@@ -760,11 +742,11 @@ export default function AdminUsuariosPage() {
                 </div>
 
                 {/* Modal Actions */}
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#F1F5F9]">
                   <button
                     type="button"
                     onClick={() => setShowInviteModal(false)}
-                    className="px-4 py-2 rounded-xl text-slate-400 hover:text-white transition-colors"
+                    className="px-4 py-2 rounded-xl text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
                   >
                     Cancelar
                   </button>
@@ -772,7 +754,7 @@ export default function AdminUsuariosPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20 flex items-center gap-2 transition-all"
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white shadow-xs flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                   >
                     {isSubmitting ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />

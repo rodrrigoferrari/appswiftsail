@@ -256,8 +256,8 @@ export default function AdminCredentialsPage() {
                 <div
                   className={`p-3.5 rounded-xl text-xs border ${
                     testResult['uazapi'].success
-                      ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-                      : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-rose-50 text-rose-700 border-rose-200'
                   }`}
                 >
                   <p className="font-semibold">{testResult['uazapi'].message}</p>
@@ -269,18 +269,18 @@ export default function AdminCredentialsPage() {
 
               <div className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Server URL da Uazapi</label>
+                  <label className="block text-[#475569] font-semibold mb-1">Server URL da Uazapi</label>
                   <input
                     type="text"
                     value={adminCreds.uazapi_url}
                     onChange={(e) => setAdminCreds({ ...adminCreds, uazapi_url: e.target.value })}
                     placeholder="https://api.uazapi.com ou https://seu-servidor.com"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none"
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">
+                  <label className="block text-[#475569] font-semibold mb-1">
                     Admin Token Global (Header: <code>admintoken</code>)
                   </label>
                   <div className="relative">
@@ -289,16 +289,16 @@ export default function AdminCredentialsPage() {
                       value={adminCreds.uazapi_token}
                       onChange={(e) => setAdminCreds({ ...adminCreds, uazapi_token: e.target.value })}
                       placeholder="Insira o admintoken da sua conta administrativa Uazapi"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 pr-10 text-white font-mono focus:border-emerald-500 focus:outline-none"
+                      className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 pr-10 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
                     />
                     <button
                       onClick={() => toggleShow('uazapi_admin')}
-                      className="absolute right-3 top-2.5 text-slate-400 hover:text-white"
+                      className="absolute right-3 top-2.5 text-[#94A3B8] hover:text-[#0F172A] cursor-pointer"
                     >
                       {showKeys['uazapi_admin'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-1">
+                  <p className="text-[10px] text-[#64748B] mt-1">
                     Permite criar instâncias isoladas com <code>POST /instance/create</code> para qualquer cliente.
                   </p>
                 </div>
@@ -308,21 +308,21 @@ export default function AdminCredentialsPage() {
 
           {/* META BM TAB */}
           {activeTab === 'meta' && (
-            <div className="glass-card p-6 space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
                 <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-blue-400" />
+                  <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-[#0050FF]" />
                     BM Parceiro Meta (Global)
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-[#64748B]">
                     Acessa e gerencia as contas de anúncios de todos os clientes cadastrados
                   </p>
                 </div>
                 <button
                   onClick={() => handleTestConnection('meta')}
                   disabled={testingService === 'meta'}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-blue-400 border border-blue-500/20 flex items-center gap-1.5 transition-colors"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#EFF4FF] hover:bg-[#E0EAFF] text-[#0050FF] border border-[#BFDBFE] flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
                 >
                   {testingService === 'meta' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
                   Testar Graph API
@@ -333,8 +333,8 @@ export default function AdminCredentialsPage() {
                 <div
                   className={`p-3.5 rounded-xl text-xs border ${
                     testResult['meta'].success
-                      ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-                      : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-rose-50 text-rose-700 border-rose-200'
                   }`}
                 >
                   <p className="font-semibold">{testResult['meta'].message}</p>
@@ -343,18 +343,18 @@ export default function AdminCredentialsPage() {
 
               <div className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">ID do BM Parceiro Swiftsail</label>
+                  <label className="block text-[#475569] font-semibold mb-1">ID do BM Parceiro Swiftsail</label>
                   <input
                     type="text"
                     value={adminCreds.meta_bm_id}
                     onChange={(e) => setAdminCreds({ ...adminCreds, meta_bm_id: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-blue-500 focus:outline-none"
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
                   />
-                  <p className="text-[10px] text-slate-500 mt-1">BM ID Swiftsail: 791208745012339</p>
+                  <p className="text-[10px] text-[#64748B] mt-1">BM ID Swiftsail: 791208745012339</p>
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">
+                  <label className="block text-[#475569] font-semibold mb-1">
                     System User Access Token (Permissões de Gerenciamento)
                   </label>
                   <div className="relative">
@@ -363,11 +363,11 @@ export default function AdminCredentialsPage() {
                       value={adminCreds.meta_access_token}
                       onChange={(e) => setAdminCreds({ ...adminCreds, meta_access_token: e.target.value })}
                       placeholder="EAA..."
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 pr-10 text-white font-mono focus:border-blue-500 focus:outline-none"
+                      className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 pr-10 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
                     />
                     <button
                       onClick={() => toggleShow('meta')}
-                      className="absolute right-3 top-2.5 text-slate-400 hover:text-white"
+                      className="absolute right-3 top-2.5 text-[#94A3B8] hover:text-[#0F172A] cursor-pointer"
                     >
                       {showKeys['meta'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -379,19 +379,19 @@ export default function AdminCredentialsPage() {
 
           {/* GOOGLE MCC TAB */}
           {activeTab === 'google' && (
-            <div className="glass-card p-6 space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
                 <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Search className="w-4 h-4 text-cyan-400" />
+                  <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                    <Search className="w-4 h-4 text-sky-600" />
                     Google Ads MCC Gerenciador Swiftsail
                   </h3>
-                  <p className="text-xs text-slate-400">Conta gerente para todas as contas de clientes vinculadas</p>
+                  <p className="text-xs text-[#64748B]">Conta gerente para todas as contas de clientes vinculadas</p>
                 </div>
                 <button
                   onClick={() => handleTestConnection('google')}
                   disabled={testingService === 'google'}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/20 flex items-center gap-1.5 transition-colors"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#EFF4FF] hover:bg-[#E0EAFF] text-[#0050FF] border border-[#BFDBFE] flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
                 >
                   {testingService === 'google' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
                   Testar Google API
@@ -401,23 +401,23 @@ export default function AdminCredentialsPage() {
               <div className="space-y-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-slate-300 font-semibold mb-1">MCC ID Swiftsail</label>
+                    <label className="block text-[#475569] font-semibold mb-1">MCC ID Swiftsail</label>
                     <input
                       type="text"
                       value={adminCreds.google_mcc_id}
                       onChange={(e) => setAdminCreds({ ...adminCreds, google_mcc_id: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-cyan-500 focus:outline-none"
+                      className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
                     />
-                    <p className="text-[10px] text-slate-500 mt-1">MCC Swiftsail: 262-638-1700</p>
+                    <p className="text-[10px] text-[#64748B] mt-1">MCC Swiftsail: 262-638-1700</p>
                   </div>
 
                   <div>
-                    <label className="block text-slate-300 font-semibold mb-1">Developer Token</label>
+                    <label className="block text-[#475569] font-semibold mb-1">Developer Token</label>
                     <input
                       type="password"
                       value={adminCreds.google_developer_token}
                       onChange={(e) => setAdminCreds({ ...adminCreds, google_developer_token: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-cyan-500 focus:outline-none"
+                      className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
                     />
                   </div>
                 </div>
@@ -427,23 +427,23 @@ export default function AdminCredentialsPage() {
 
           {/* ASAAS TAB */}
           {activeTab === 'asaas' && (
-            <div className="glass-card p-6 space-y-5">
-              <div className="border-b border-slate-800 pb-3">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-emerald-400" />
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
+              <div className="border-b border-[#F1F5F9] pb-3">
+                <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-emerald-600" />
                   Asaas Gateway de Cobranças (Swiftsail)
                 </h3>
-                <p className="text-xs text-slate-400">Conta da agência para emissão de PIX e faturas</p>
+                <p className="text-xs text-[#64748B]">Conta da agência para emissão de PIX e faturas</p>
               </div>
 
               <div className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Chave de API Asaas ($aact_...)</label>
+                  <label className="block text-[#475569] font-semibold mb-1">Chave de API Asaas ($aact_...)</label>
                   <input
                     type="password"
                     value={adminCreds.asaas_api_key}
                     onChange={(e) => setAdminCreds({ ...adminCreds, asaas_api_key: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none"
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
                   />
                 </div>
               </div>
@@ -452,23 +452,23 @@ export default function AdminCredentialsPage() {
 
           {/* AI TAB */}
           {activeTab === 'ai' && (
-            <div className="glass-card p-6 space-y-5">
-              <div className="border-b border-slate-800 pb-3">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Bot className="w-4 h-4 text-purple-400" />
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
+              <div className="border-b border-[#F1F5F9] pb-3">
+                <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                  <Bot className="w-4 h-4 text-purple-600" />
                   OpenRouter & Grok AI
                 </h3>
-                <p className="text-xs text-slate-400">Motor de IA da agência para criativos e automações</p>
+                <p className="text-xs text-[#64748B]">Motor de IA da agência para criativos e automações</p>
               </div>
 
               <div className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Chave de API OpenRouter / xAI</label>
+                  <label className="block text-[#475569] font-semibold mb-1">Chave de API OpenRouter / xAI</label>
                   <input
                     type="password"
                     value={adminCreds.openrouter_api_key}
                     onChange={(e) => setAdminCreds({ ...adminCreds, openrouter_api_key: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-purple-500 focus:outline-none"
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
                   />
                 </div>
               </div>
