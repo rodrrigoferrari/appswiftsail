@@ -26,6 +26,7 @@ import {
   Radio,
   Search,
   MessageSquare,
+  CreditCard,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -271,6 +272,36 @@ export default function DashboardPage() {
             <span className="text-blue-400 font-bold">{metaAccounts.length} Meta</span>
             <span className="text-cyan-400 font-bold">{googleAccounts.length} Google</span>
           </div>
+        </div>
+      </div>
+
+      {/* ASAAS FINTECH OVERVIEW BANNER — Design System Integrado */}
+      <div className="bg-gradient-to-r from-blue-900/30 via-slate-900/80 to-slate-900/90 border border-blue-500/30 p-4 sm:p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-[#0050FF]/20 border border-[#0050FF]/40 text-[#38BDF8] flex items-center justify-center shrink-0">
+            <CreditCard className="w-5 h-5 text-blue-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
+                Asaas Gateway Fintech
+              </span>
+              <span className="text-xs text-slate-400 font-mono">Outubro 2026</span>
+            </div>
+            <h3 className="text-sm sm:text-base font-bold text-white mt-0.5">
+              R$ 27.809,65 Recebidos líquido <span className="text-xs font-normal text-slate-400">(14 cobranças · 12 clientes)</span>
+            </h3>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Link
+            href="/financeiro"
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#0050FF] hover:bg-[#0040D6] text-white flex items-center gap-1.5 transition-all shadow-sm"
+          >
+            <span>Ver Visualização Asaas</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
       </div>
 

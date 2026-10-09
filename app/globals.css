@@ -10,6 +10,25 @@
   --accent-cyan: #06b6d4;
   --accent-blue: #3b82f6;
   --accent-emerald: #10b981;
+
+  /* Asaas Fintech Design System Tokens (Extracted from Asaas Dashboard) */
+  --asaas-blue-primary: #0050ff;
+  --asaas-blue-hover: #0040d6;
+  --asaas-blue-active: #0030b8;
+  --asaas-blue-subtle: #eff4ff;
+  --asaas-blue-border: #bfdbfe;
+  --asaas-bg-canvas: #f8fafc;
+  --asaas-bg-surface: #ffffff;
+  --asaas-border: #e2e8f0;
+  --asaas-border-subtle: #f1f5f9;
+  --asaas-text-title: #0f172a;
+  --asaas-text-body: #334155;
+  --asaas-text-muted: #64748b;
+  --asaas-text-subtle: #94a3b8;
+  --asaas-status-received: #10b981;
+  --asaas-status-confirmed: #0284c7;
+  --asaas-status-pending: #f59e0b;
+  --asaas-status-overdue: #ef4444;
 }
 
 body {
@@ -83,3 +102,54 @@ body {
   border: 1px solid rgba(16, 185, 129, 0.3);
   color: #34d399;
 }
+
+/* Asaas Design System Component Utilities */
+.asaas-container {
+  background-color: var(--asaas-bg-canvas);
+  color: var(--asaas-text-title);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.asaas-card {
+  background-color: var(--asaas-bg-surface);
+  border: 1px solid var(--asaas-border);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.asaas-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.06);
+}
+
+.asaas-btn-primary {
+  background-color: var(--asaas-blue-primary);
+  color: #ffffff;
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.asaas-btn-primary:hover {
+  background-color: var(--asaas-blue-hover);
+}
+
+.asaas-btn-primary:active {
+  background-color: var(--asaas-blue-active);
+  transform: scale(0.98);
+}
+
+.asaas-pill {
+  border-radius: 9999px;
+  border: 1px solid var(--asaas-border);
+  background-color: var(--asaas-bg-surface);
+  color: var(--asaas-text-body);
+  transition: all 0.15s ease;
+}
+
+.asaas-pill:hover {
+  border-color: #cbd5e1;
+  background-color: #f8fafc;
+}
+
