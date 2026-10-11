@@ -34,6 +34,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import CreativePreviewModal, { CreativePreviewItem } from '@/components/CreativePreviewModal';
 import LeadsDrilldownModal from '@/components/LeadsDrilldownModal';
+import DateRangePicker from '@/components/DateRangePicker';
 
 function MidiaContent() {
   const searchParams = useSearchParams();
@@ -475,47 +476,56 @@ function MidiaContent() {
   return (
     <div className="space-y-6">
       {/* Header Bar (Estilo Asaas: Branco, Bordas #E2E8F0, Sombra Suave) */}
-      <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
-              Tráfego & Anúncios • Submenu de Plataformas
-            </span>
-            <span className="text-xs text-[#64748B] font-medium">• {dateRange.label}</span>
+      <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
+                Tráfego & Anúncios • Campanhas
+              </span>
+              <span className="text-xs text-[#64748B] font-medium">• {dateRange.label}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Building className="w-5 h-5 text-[#0050FF]" />
+              <h2 className="text-xl font-bold text-[#0F172A]">{clientName}</h2>
+            </div>
+            <p className="text-xs text-[#64748B]">
+              Desempenho de campanhas, conjuntos de anúncios, criativos e relatório de termos de busca.
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Building className="w-5 h-5 text-[#0050FF]" />
-            <h2 className="text-xl font-bold text-[#0F172A]">{clientName}</h2>
+
+          {/* Seletor de Período para Campanhas */}
+          <div className="self-start lg:self-auto">
+            <DateRangePicker />
           </div>
-          <p className="text-xs text-[#64748B]">
-            Desempenho de campanhas, conjuntos de anúncios, criativos e relatório de termos de busca.
-          </p>
         </div>
 
         {/* Platform Tabs */}
-        <div className="flex bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs">
-          <button
-            onClick={() => setActivePlatformTab('meta')}
-            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
-              activePlatformTab === 'meta'
-                ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-            <span>Meta Ads (Facebook & Instagram)</span>
-          </button>
-          <button
-            onClick={() => setActivePlatformTab('google')}
-            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
-              activePlatformTab === 'google'
-                ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            <span>Google Ads (Search & PMax)</span>
-          </button>
+        <div className="flex items-center justify-between pt-2 border-t border-[#F1F5F9]">
+          <div className="flex bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs">
+            <button
+              onClick={() => setActivePlatformTab('meta')}
+              className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activePlatformTab === 'meta'
+                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              <span>Meta Ads (Facebook & Instagram)</span>
+            </button>
+            <button
+              onClick={() => setActivePlatformTab('google')}
+              className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activePlatformTab === 'google'
+                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              <span>Google Ads (Search & PMax)</span>
+            </button>
+          </div>
         </div>
       </div>
 

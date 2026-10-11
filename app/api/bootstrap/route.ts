@@ -1,26 +1,19 @@
 import { NextResponse } from 'next/server';
-import { getClientes, getGroupAdAccounts, getGroupAdMappings, getCsStatus, getContasAdsPainel } from '@/lib/services/supabase-data';
+import { getClientes, getContasAdsPainel } from '@/lib/services/supabase-data';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const [clientes, adAccounts, mappings, csStatus, contasAds] = await Promise.all([
+    const [clientes, contasAds] = await Promise.all([
       getClientes(),
-      getGroupAdAccounts(),
-      getGroupAdMappings(),
-      getCsStatus(),
       getContasAdsPainel(),
     ]);
 
     return NextResponse.json({
       success: true,
       clientes,
-      adAccounts,
-      mappings,
-      csStatus,
-      // null = painel ainda não acessível (o app usa o cadastro antigo como contingência)
-      contasAds,
+      contasAds: contasAds || [],
     });
   } catch (error) {
     console.error('API bootstrap error:', error);

@@ -45,12 +45,16 @@ export default function DashboardPage() {
     users,
   } = useTenant();
 
-  // Diretriz 3.1: REMOVER Dashboard Master. Admin opera a partir de Gestão de Clientes.
+  // Roteamento inteligente na raiz / de acordo com o modo
   useEffect(() => {
     if (viewMode === 'admin') {
-      router.replace('/admin/clientes');
+      router.replace('/admin');
+    } else if (activeClient) {
+      router.replace(`/client/${activeClient.cliente_id.toLowerCase().replace(/_/g, '-')}`);
+    } else {
+      router.replace('/client');
     }
-  }, [viewMode, router]);
+  }, [viewMode, activeClient, router]);
 
   const isAggregated = viewMode === 'admin' || selectedClientId === 'ALL';
   const clientName = isAggregated

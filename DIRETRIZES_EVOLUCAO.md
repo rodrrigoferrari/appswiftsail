@@ -94,11 +94,24 @@ Manter os seguintes módulos:
 
 ### 4.6 Pipeline Kommo
 
-- **MANTER:** dashboard referente ao funil atualmente selecionado.
-- **MANTER/AJUSTAR:** visualização do funil por etapas, com quantidades e percentuais de conversão provenientes dos dados do CRM no banco.
+- **MANTER/AJUSTAR:** dashboard referente ao funil atualmente selecionado com layout padronizado ao de Tráfego & Campanhas (estilo Asaas, branco, bordas suaves #E2E8F0, sombra suave).
+- **MANTER/AJUSTAR:** seletor de funis integrado no mesmo formato de abas de plataforma de mídia, permitindo alternar entre "Todos os Funis Integrados" e funis específicos com contagem de leads.
+- **MANTER/AJUSTAR:** visualização do funil por etapas, com quantidades e percentuais de conversão provenientes dos dados do CRM no banco (da etapa de entrada até Ganho / Perda).
 - **REMOVER:** mapeamento manual das etapas.
-- **MANTER:** relatório de atribuição comercial e de mídia.
-- Ao clicar em um número do relatório, abrir a lista de registros correspondente aos filtros daquele número.
+- **MANTER/EVOLUIR:** Relatório Multidimensional de Atribuição Comercial & Mídia com 6 dimensões ativas:
+  1. **Origem** (Canais e fontes de tráfego)
+  2. **Campanha** (Campanhas integradas com total de leads)
+  3. **Conjunto / Público** (Públicos e conjuntos de anúncios)
+  4. **Criativo** (Anúncios com prévias visuais)
+  5. **Termo de Busca** (Palavras-chave digitadas com métricas de Google)
+  6. **Usuário Responsável** (Atribuição por nome real do vendedor/consultor com barra de volume)
+- **CRIAR/MANTER:** dropdown expansível em cada linha do relatório de atribuição ("Ver etapas do funil") exibindo a distribuição exata dos leads daquele item nas etapas do Kommo CRM.
+- **CRIAR/MANTER:** modal de detalhamento e auditoria de leads (`LeadsDrilldownModal`) acionado ao clicar em qualquer etapa ou no botão "Auditar lista completa":
+  - Exibição de nomes reais (`contato_principal_nome`), ID, telefone, campanha e valor.
+  - Coluna **Dias Estagnados** com badges coloridos (`⏱️ 1-3d`, `⚠️ 4-10d`, `🚨 >10d`) indicando estagnação.
+  - Link direto clicável que abre a tela do lead no Kommo CRM (`https://{conta}.kommo.com/leads/detail/{lead_id}`).
+  - Botão de exportação completa para arquivo CSV.
+- **AJUSTAR:** cabeçalho do CRM com seletor de cliente ajustado e seletor de datas (`DateRangePicker`) à direita sem cortes, exibindo todos os intervalos (Ontem, Semana passada, Semana atual, Mês passado, Mês atual e Personalizar).
 
 ### 4.7 Financeiro Asaas
 
@@ -125,3 +138,4 @@ Novas informações podem ser propostas pelo Antigravity, mas só passam a ser r
 | Data | Alteração aprovada pela proprietária | Seção atualizada |
 |---|---|---|
 | 2026-10-09 | Criação da primeira versão a partir das diretrizes fornecidas pela proprietária. | Todas |
+| 2026-10-10 | Evolução completa do CRM Kommo: cabeçalho estilo Mídia, seletor de funis, visualização linear de etapas, relatório de atribuição com dimensão Usuário Responsável (nome), dropdown de etapas por item, dias estagnados e links diretos para o Kommo CRM. | 4.6 Pipeline Kommo |

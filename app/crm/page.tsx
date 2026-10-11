@@ -18,13 +18,16 @@ import {
   ExternalLink,
   Zap,
   Eye,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import Link from 'next/link';
 import CreativePreviewModal, { CreativePreviewItem } from '@/components/CreativePreviewModal';
 import LeadsDrilldownModal, { FormLeadItem } from '@/components/LeadsDrilldownModal';
+import DateRangePicker from '@/components/DateRangePicker';
 
 export default function CRMPage() {
-  const { selectedClientId, activeClient, dateRange, viewMode } = useTenant();
+  const { selectedClientId, setSelectedClientId, clients, activeClient, dateRange, viewMode } = useTenant();
   const isAggregated = selectedClientId === 'ALL';
   const targetId = selectedClientId;
   const clientName = isAggregated
@@ -34,13 +37,69 @@ export default function CRMPage() {
   const [loading, setLoading] = useState(false);
   const [kommoData, setKommoData] = useState<any>(null);
   const [unavailable, setUnavailable] = useState<string | null>(null);
+  const [selectedPipeline, setSelectedPipeline] = useState<string>('ALL');
+  const [leadsDrilldown, setLeadsDrilldown] = useState<{
+    isOpen: boolean;
+    title: string;
+    type: 'form' | 'whatsapp';
+    count: number;
+    initialLeads?: FormLeadItem[];
+  } | null>(null);
+
+  const openDrilldown = (title: string, leads: any[]) => {
+    const mapped: FormLeadItem[] = (leads || []).map((l: any, i: number) => {
+      const urlFinal =
+        l.url_lead ||
+        l.urlLead ||
+        (l.conta && l.lead_id
+          ? `https://${l.conta}.kommo.com/leads/detail/${l.lead_id}`
+          : l.lead_id
+          ? `https://kommo.com/leads/detail/${l.lead_id}`
+          : null);
+
+      return {
+        id: String(l.lead_id || l.id || `lead-${i}`),
+        nome: l.nome || l.contato_principal_nome || 'Lead sem nome registrado',
+        telefone: l.telefone || '',
+        email: l.email || '',
+        data: l.criado_em
+          ? new Date(l.criado_em).toLocaleDateString('pt-BR') + ' às ' + new Date(l.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+          : l.data || 'Data não informada',
+        anuncio: l.criativo || l.campanha || l.origem || l.anuncio || 'Tráfego Pago',
+        perguntas: `Origem: ${l.origem || 'Direto'} • Campanha: ${l.campanha || 'Geral'}${l.conjunto ? ` • Público: ${l.conjunto}` : ''}`,
+        statusCrm: l.etapa || l.statusCrm || 'Em atendimento',
+        statusColor: (l.conta_como === 'ganho' || (l.etapa && l.etapa.toLowerCase().includes('ganh')))
+          ? 'emerald'
+          : (l.conta_como === 'perda' || (l.etapa && (l.etapa.toLowerCase().includes('perd') || l.etapa.toLowerCase().includes('desqual'))))
+          ? 'rose'
+          : 'cyan',
+        pipelineNome: l.pipeline_nome || l.pipelineNome,
+        etapaNome: l.etapa || l.etapaNome,
+        valor: Number(l.valor || 0),
+        origem: l.origem,
+        campanha: l.campanha,
+        urlLead: urlFinal,
+        diasEstagnados: l.dias_estagnados !== undefined && l.dias_estagnados !== null ? Number(l.dias_estagnados) : null,
+        responsavel: l.responsavel_nome || (l.responsavel_id ? `Responsável #${l.responsavel_id}` : null),
+      };
+    });
+
+    setLeadsDrilldown({
+      isOpen: true,
+      title,
+      type: 'form',
+      count: mapped.length,
+      initialLeads: mapped,
+    });
+  };
 
   useEffect(() => {
     async function fetchKommoData() {
       setLoading(true);
       try {
+        const pipeQuery = selectedPipeline && selectedPipeline !== 'ALL' ? `&pipeline=${encodeURIComponent(selectedPipeline)}` : '';
         const res = await fetch(
-          `/api/clientes/${targetId}/kommo?from=${dateRange.start}&to=${dateRange.end}`
+          `/api/clientes/${targetId}/kommo?from=${dateRange.start}&to=${dateRange.end}${pipeQuery}`
         );
         const data = await res.json();
         if (data.success) {
@@ -58,8 +117,23 @@ export default function CRMPage() {
     }
 
     fetchKommoData();
-  }, [targetId, dateRange]);
+  }, [targetId, dateRange, selectedPipeline]);
 
+  // Se o cliente selecionado mudar, reseta o funil para 'ALL'
+  useEffect(() => {
+    setSelectedPipeline('ALL');
+  }, [targetId]);
+
+  const funis = (kommoData?.funis || []) as Array<{
+    id: string;
+    nome: string;
+    total_leads: number;
+    aberta: number;
+    ganho: number;
+    perda: number;
+    valor: number;
+  }>;
+  const activeFunil = funis.find((f: any) => f.id === selectedPipeline);
   const totalLeads = Number(kommoData?.total_leads || 0);
   const valorTotal = Number(kommoData?.valor_total || 0);
   const porOrigem = kommoData?.por_origem || [];
@@ -67,6 +141,7 @@ export default function CRMPage() {
   const porConjunto = kommoData?.por_conjunto || [];
   const porCriativo = kommoData?.por_criativo || [];
   const porTermo = kommoData?.por_termo || [];
+  const porResponsavel = kommoData?.por_responsavel || [];
   const leadsAmostra = kommoData?.leads_amostra || [];
   const porEtapa = kommoData?.por_etapa || [];
   const resumoStatus = kommoData?.resumo_status || {
@@ -80,35 +155,95 @@ export default function CRMPage() {
 
   return (
     <div className="space-y-6 select-none font-sans">
-      {/* Header (Estilo Asaas: Branco, Bordas #E2E8F0, Sombra Suave) */}
-      <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
-              Atribuição Analítica & Pipeline CRM • Seção 4.6
-            </span>
-            <span className="text-xs text-[#64748B] font-medium">• {dateRange.label}</span>
+      {/* Header Bar (Layout idêntico ao de Mídia: Branco, Bordas #E2E8F0, Sombra Suave) */}
+      <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1 max-w-xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
+                CRM & Pipeline • Kommo
+              </span>
+              <span className="text-xs text-[#64748B] font-medium">• {dateRange.label}</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1.5 ${
+                  unavailable
+                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${unavailable ? 'bg-amber-400' : 'bg-emerald-500 animate-pulse'}`} />
+                <span>{unavailable ? 'Kommo: indisponível' : 'Kommo: integrado'}</span>
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Building className="w-5 h-5 text-[#0050FF] shrink-0" />
+              {clients.length > 0 ? (
+                <div className="relative inline-flex items-center max-w-xs sm:max-w-md">
+                  <select
+                    value={selectedClientId}
+                    onChange={(e) => {
+                      setSelectedClientId(e.target.value);
+                      setSelectedPipeline('ALL');
+                    }}
+                    className="text-xl font-bold text-[#0F172A] bg-transparent border-b border-dashed border-[#CBD5E1] focus:outline-none cursor-pointer hover:border-[#0050FF] transition-colors truncate"
+                    title="Alternar cliente no CRM"
+                  >
+                    <option value="ALL">🏢 Painel Master — Swiftsail HQ (Todos os Clientes)</option>
+                    {clients.map((c) => (
+                      <option key={c.cliente_id} value={c.cliente_id}>
+                        👤 {c.nome === 'EMOVERE' ? 'Emovere' : c.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <h2 className="text-xl font-bold text-[#0F172A]">{clientName}</h2>
+              )}
+            </div>
+            <p className="text-xs text-[#64748B]">
+              Rastreamento de ponta a ponta dos leads analíticos gerados pelas campanhas de tráfego pago no Kommo CRM.
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Building className="w-5 h-5 text-[#0050FF]" />
-            <h2 className="text-xl font-bold text-[#0F172A]">{clientName}</h2>
+
+          {/* Seletor de Período para CRM (Exatamente como em Mídia) */}
+          <div className="self-start lg:self-auto shrink-0">
+            <DateRangePicker />
           </div>
-          <p className="text-xs text-[#64748B]">
-            Rastreamento de ponta a ponta dos leads analíticos gerados pelas campanhas de tráfego pago no Kommo CRM.
-          </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <span
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1.5 ${
-              unavailable
-                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-            }`}
-          >
-            <span className={`w-2 h-2 rounded-full ${unavailable ? 'bg-amber-400' : 'bg-emerald-500 animate-pulse'}`} />
-            <span>{unavailable ? 'Kommo: fonte indisponível' : 'Kommo: dados integrados no banco'}</span>
-          </span>
+        {/* Platform/Funis Tabs (Exatamente como as abas de Mídia) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-[#F1F5F9]">
+          <div className="flex flex-wrap bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs gap-1">
+            <button
+              onClick={() => setSelectedPipeline('ALL')}
+              className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                selectedPipeline === 'ALL'
+                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              <span>Todos os Funis Integrados ({funis.reduce((acc, f) => acc + (f.total_leads || 0), 0) || totalLeads})</span>
+            </button>
+            {funis.map((f: any) => (
+              <button
+                key={f.id}
+                onClick={() => setSelectedPipeline(String(f.id))}
+                className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  selectedPipeline === String(f.id)
+                    ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                    : 'text-[#64748B] hover:text-[#0F172A]'
+                }`}
+              >
+                <div className={`w-2.5 h-2.5 rounded-full ${f.ganho > 0 ? 'bg-emerald-500' : 'bg-[#0050FF]'}`} />
+                <span>{f.nome} ({f.total_leads})</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="text-[11px] text-[#64748B] font-medium hidden md:block">
+            {activeFunil ? `Funil ativo: ${activeFunil.nome}` : `${funis.length} funis disponíveis`}
+          </div>
         </div>
       </div>
 
@@ -174,21 +309,33 @@ export default function CRMPage() {
           <div>
             <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
               <span className="text-base">🌪️</span>
-              Funil de Conversão Comercial (Tráfego Pago ➔ Kommo CRM)
+              <span>Funil de Conversão Comercial</span>
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]">
+                {activeFunil ? `Funil: ${activeFunil.nome}` : 'Todos os Funis Integrados'}
+              </span>
             </h3>
-            <p className="text-xs text-[#64748B]">Passagem dos leads por etapa com taxas de conversão de ponta a ponta</p>
+            <p className="text-xs text-[#64748B]">Passagem dos leads por etapa com taxas de conversão de ponta a ponta (clique em qualquer etapa para auditar)</p>
           </div>
-          <span className="text-xs font-mono text-[#0050FF] bg-[#EFF4FF] px-2.5 py-1 rounded-full border border-[#BFDBFE] font-bold">
-            Total Entrada: {totalLeads} leads
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono text-[#0050FF] bg-[#EFF4FF] px-2.5 py-1 rounded-full border border-[#BFDBFE] font-bold">
+              Total Entrada: {totalLeads} leads
+            </span>
+          </div>
         </div>
 
         <div className="space-y-3.5">
-          {/* Estágio 1: Topo */}
-          <div className="space-y-1.5">
+          {/* Linha 1: Topo Geral de Entrada no CRM */}
+          <div
+            onClick={() => openDrilldown(`1. Leads Capturados (Entrada Geral)`, leadsAmostra)}
+            className="group p-2 -mx-2 rounded-xl transition-all cursor-pointer hover:bg-[#F8FAFC] space-y-1.5"
+            title="Clique para ver todos os leads capturados"
+          >
             <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-[#0F172A] flex items-center gap-1.5">
+              <span className="font-bold text-[#0F172A] flex items-center gap-1.5 group-hover:text-[#0050FF] transition-colors">
                 <span>📥</span> 1. Leads Capturados (Total de Entrada no CRM)
+                <span className="opacity-0 group-hover:opacity-100 text-[10px] text-[#0050FF] font-semibold transition-opacity">
+                  • Ver todos ↗
+                </span>
               </span>
               <span className="font-mono text-[#0050FF] font-bold">
                 {totalLeads} leads <span className="text-[#64748B] font-normal">(100% Topo)</span>
@@ -202,152 +349,196 @@ export default function CRMPage() {
             </div>
           </div>
 
-          {/* Estágio 2: Em Aberto / Atendimento */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-[#0F172A] flex items-center gap-1.5">
-                <span>💬</span> 2. Leads em Aberto / Em Atendimento Comercial
-              </span>
-              <span className="font-mono text-[#0050FF] font-bold">
-                {resumoStatus.aberta.total} leads{' '}
-                <span className="text-emerald-600 font-semibold">
-                  ({totalLeads > 0 ? ((resumoStatus.aberta.total / totalLeads) * 100).toFixed(1) : 0}% do total)
-                </span>
-                {resumoStatus.aberta.valor > 0 && (
-                  <span className="text-[#64748B] font-normal ml-1">
-                    • {formatBRL(resumoStatus.aberta.valor)}
-                  </span>
-                )}
-              </span>
-            </div>
-            <div className="w-full bg-[#F1F5F9] rounded-full h-3 overflow-hidden border border-[#E2E8F0]">
-              <div
-                className="bg-[#0050FF] h-full rounded-full transition-all duration-500"
-                style={{ width: `${totalLeads > 0 ? Math.min(100, Math.round((resumoStatus.aberta.total / totalLeads) * 100)) : 0}%` }}
-              />
-            </div>
-          </div>
+          {/* Seletor específico de pipeline com etapas detalhadas do Kommo */}
+          {selectedPipeline !== 'ALL' && porEtapa.length > 0 ? (
+            /* Uma linha para cada estágio do funil selecionado, da etapa de entrada até ganho/perdido */
+            porEtapa.map((e: any, idx: number) => {
+              const numEtapa = idx + 2;
+              const isGanho = e.conta_como === 'ganho';
+              const isPerda = e.conta_como === 'perda';
+              const isEntrada = idx === 0 && e.etapa_nome?.toLowerCase().includes('entrada');
 
-          {/* Estágio 3: Vendas Ganhas */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-emerald-700 flex items-center gap-1.5">
-                <span>🏆</span> 3. Vendas Fechadas (Ganhos Confirmados no CRM)
-              </span>
-              <span className="font-mono text-emerald-700 font-bold">
-                {resumoStatus.ganho.total} vendas{' '}
-                <span className="text-emerald-600 font-semibold">
-                  ({totalLeads > 0 ? ((resumoStatus.ganho.total / totalLeads) * 100).toFixed(1) : 0}% conv.)
-                </span>
-                {resumoStatus.ganho.valor > 0 && (
-                  <span className="text-emerald-700 font-bold ml-1">
-                    • {formatBRL(resumoStatus.ganho.valor)}
-                  </span>
-                )}
-              </span>
-            </div>
-            <div className="w-full bg-[#F1F5F9] rounded-full h-3 overflow-hidden border border-[#E2E8F0]">
-              <div
-                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                style={{ width: `${totalLeads > 0 ? Math.min(100, Math.round((resumoStatus.ganho.total / totalLeads) * 100)) : 0}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Estágio 4: Perdas / Desqualificados */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-rose-700 flex items-center gap-1.5">
-                <span>❌</span> 4. Desqualificados / Negócios Perdidos
-              </span>
-              <span className="font-mono text-rose-700 font-bold">
-                {resumoStatus.perda.total} perdas{' '}
-                <span className="text-rose-600 font-semibold">
-                  ({totalLeads > 0 ? ((resumoStatus.perda.total / totalLeads) * 100).toFixed(1) : 0}% do total)
-                </span>
-                {resumoStatus.perda.valor > 0 && (
-                  <span className="text-[#64748B] font-normal ml-1">
-                    • {formatBRL(resumoStatus.perda.valor)}
-                  </span>
-                )}
-              </span>
-            </div>
-            <div className="w-full bg-[#F1F5F9] rounded-full h-3 overflow-hidden border border-[#E2E8F0]">
-              <div
-                className="bg-rose-500 h-full rounded-full transition-all duration-500"
-                style={{ width: `${totalLeads > 0 ? Math.min(100, Math.round((resumoStatus.perda.total / totalLeads) * 100)) : 0}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Funil de Etapas Nativas do Kommo */}
-      {porEtapa.length > 0 && (
-        <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs space-y-4">
-          <div className="border-b border-[#E2E8F0] pb-3 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                <KanbanSquare className="w-4 h-4 text-[#0050FF]" />
-                Etapas do Pipeline no CRM (Kommo)
-              </h3>
-              <p className="text-xs text-[#64748B]">Distribuição quantitativa e percentual direta do banco</p>
-            </div>
-            <span className="text-xs text-[#64748B] font-mono">{porEtapa.length} etapas ativas</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {porEtapa.map((e: any, idx: number) => {
-              const badgeColor =
-                e.conta_como === 'ganho'
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : e.conta_como === 'perda'
-                  ? 'bg-rose-50 text-rose-700 border-rose-200'
-                  : 'bg-blue-50 text-[#0050FF] border-blue-200';
+              const icon = isGanho ? '🏆' : isPerda ? '❌' : isEntrada ? '📥' : '💬';
+              const barColor = isGanho ? 'bg-emerald-500' : isPerda ? 'bg-rose-500' : 'bg-[#0050FF]';
+              const textColor = isGanho ? 'text-emerald-700' : isPerda ? 'text-rose-700' : 'text-[#0F172A]';
+              const countColor = isGanho ? 'text-emerald-700 font-bold' : isPerda ? 'text-rose-700 font-bold' : 'text-[#0050FF] font-bold';
+              const pctSubColor = isGanho ? 'text-emerald-600' : isPerda ? 'text-rose-600' : 'text-emerald-600';
 
               const percent = totalLeads > 0 ? ((e.total / totalLeads) * 100).toFixed(1) : '0';
+              const labelTipo = isGanho ? 'vendas' : isPerda ? 'perdas' : 'leads';
+              const labelSufixo = isGanho ? 'conv.' : 'do total';
+
+              const leadsDaEtapa = leadsAmostra.filter(
+                (l: any) =>
+                  String(l.status_id) === String(e.status_id) ||
+                  (l.etapa && l.etapa.toLowerCase() === e.etapa_nome.toLowerCase())
+              );
 
               return (
-                <div key={idx} className="p-3.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] space-y-2">
+                <div
+                  key={e.status_id || idx}
+                  onClick={() => openDrilldown(`${numEtapa}. ${e.etapa_nome}`, leadsDaEtapa)}
+                  className="group p-2 -mx-2 rounded-xl transition-all cursor-pointer hover:bg-[#F8FAFC] space-y-1.5"
+                  title={`Clique para auditar os ${e.total} leads na etapa ${e.etapa_nome}`}
+                >
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-[#0F172A] truncate max-w-[170px]" title={e.etapa_nome}>
-                      {e.etapa_nome}
+                    <span className={`font-bold ${textColor} flex items-center gap-1.5 group-hover:underline`}>
+                      <span>{icon}</span> {numEtapa}. {e.etapa_nome}
+                      <span className="opacity-0 group-hover:opacity-100 text-[10px] text-[#0050FF] font-semibold transition-opacity">
+                        • Ver leads ({e.total}) ↗
+                      </span>
                     </span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${badgeColor}`}>
-                      {e.conta_como}
+                    <span className={`font-mono ${countColor}`}>
+                      {e.total} {labelTipo}{' '}
+                      <span className={`${pctSubColor} font-semibold`}>
+                        ({percent}% {labelSufixo})
+                      </span>
+                      {e.valor > 0 && (
+                        <span className={`${isGanho ? 'text-emerald-700 font-bold' : 'text-[#64748B] font-normal'} ml-1`}>
+                          • {formatBRL(e.valor)}
+                        </span>
+                      )}
                     </span>
                   </div>
-                  <div className="flex items-baseline justify-between text-xs">
-                    <span className="text-[#64748B] text-[11px] truncate max-w-[130px]">{e.pipeline_nome}</span>
-                    <span className="font-bold text-[#0F172A]">
-                      {e.total} leads <span className="text-[#64748B] font-normal">({percent}%)</span>
-                    </span>
-                  </div>
-                  {e.valor > 0 && (
-                    <div className="text-[11px] text-emerald-600 font-bold font-mono text-right">
-                      {formatBRL(e.valor)}
-                    </div>
-                  )}
-                  <div className="w-full bg-[#E2E8F0] rounded-full h-1.5 overflow-hidden">
+                  <div className="w-full bg-[#F1F5F9] rounded-full h-3 overflow-hidden border border-[#E2E8F0]">
                     <div
-                      className={`h-full rounded-full ${
-                        e.conta_como === 'ganho'
-                          ? 'bg-emerald-500'
-                          : e.conta_como === 'perda'
-                          ? 'bg-rose-500'
-                          : 'bg-[#0050FF]'
-                      }`}
-                      style={{ width: `${percent}%` }}
+                      className={`${barColor} h-full rounded-full transition-all duration-500`}
+                      style={{
+                        width: `${totalLeads > 0 ? Math.min(100, Math.round((e.total / totalLeads) * 100)) : 0}%`,
+                      }}
                     />
                   </div>
                 </div>
               );
-            })}
-          </div>
-        </div>
-      )}
+            })
+          ) : (
+            /* Visão Consolidada de Todos os Funis Integrados (Mesmo Layout Clássico com clique) */
+            <>
+              {/* Estágio 2: Em Aberto / Atendimento */}
+              <div
+                onClick={() =>
+                  openDrilldown(
+                    '2. Leads em Aberto / Em Atendimento Comercial',
+                    leadsAmostra.filter((l: any) => l.conta_como === 'aberta')
+                  )
+                }
+                className="group p-2 -mx-2 rounded-xl transition-all cursor-pointer hover:bg-[#F8FAFC] space-y-1.5"
+                title="Clique para ver leads em atendimento"
+              >
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-[#0F172A] flex items-center gap-1.5 group-hover:text-[#0050FF] transition-colors">
+                    <span>💬</span> 2. Leads em Aberto / Em Atendimento Comercial
+                    <span className="opacity-0 group-hover:opacity-100 text-[10px] text-[#0050FF] font-semibold transition-opacity">
+                      • Ver leads ({resumoStatus.aberta.total}) ↗
+                    </span>
+                  </span>
+                  <span className="font-mono text-[#0050FF] font-bold">
+                    {resumoStatus.aberta.total} leads{' '}
+                    <span className="text-emerald-600 font-semibold">
+                      ({totalLeads > 0 ? ((resumoStatus.aberta.total / totalLeads) * 100).toFixed(1) : 0}% do total)
+                    </span>
+                    {resumoStatus.aberta.valor > 0 && (
+                      <span className="text-[#64748B] font-normal ml-1">
+                        • {formatBRL(resumoStatus.aberta.valor)}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="w-full bg-[#F1F5F9] rounded-full h-3 overflow-hidden border border-[#E2E8F0]">
+                  <div
+                    className="bg-[#0050FF] h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${totalLeads > 0 ? Math.min(100, Math.round((resumoStatus.aberta.total / totalLeads) * 100)) : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
 
-      {/* Relatório Multidimensional de Atribuição (Origem, Campanha, Conjunto, Criativo, Termo de Busca) */}
+              {/* Estágio 3: Vendas Ganhas */}
+              <div
+                onClick={() =>
+                  openDrilldown(
+                    '3. Vendas Fechadas (Ganhos Confirmados no CRM)',
+                    leadsAmostra.filter((l: any) => l.conta_como === 'ganho')
+                  )
+                }
+                className="group p-2 -mx-2 rounded-xl transition-all cursor-pointer hover:bg-[#F8FAFC] space-y-1.5"
+                title="Clique para ver vendas ganhas"
+              >
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-emerald-700 flex items-center gap-1.5 group-hover:underline">
+                    <span>🏆</span> 3. Vendas Fechadas (Ganhos Confirmados no CRM)
+                    <span className="opacity-0 group-hover:opacity-100 text-[10px] text-emerald-700 font-semibold transition-opacity">
+                      • Ver vendas ({resumoStatus.ganho.total}) ↗
+                    </span>
+                  </span>
+                  <span className="font-mono text-emerald-700 font-bold">
+                    {resumoStatus.ganho.total} vendas{' '}
+                    <span className="text-emerald-600 font-semibold">
+                      ({totalLeads > 0 ? ((resumoStatus.ganho.total / totalLeads) * 100).toFixed(1) : 0}% conv.)
+                    </span>
+                    {resumoStatus.ganho.valor > 0 && (
+                      <span className="text-emerald-700 font-bold ml-1">
+                        • {formatBRL(resumoStatus.ganho.valor)}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="w-full bg-[#F1F5F9] rounded-full h-3 overflow-hidden border border-[#E2E8F0]">
+                  <div
+                    className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${totalLeads > 0 ? Math.min(100, Math.round((resumoStatus.ganho.total / totalLeads) * 100)) : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Estágio 4: Perdas / Desqualificados */}
+              <div
+                onClick={() =>
+                  openDrilldown(
+                    '4. Desqualificados / Negócios Perdidos',
+                    leadsAmostra.filter((l: any) => l.conta_como === 'perda')
+                  )
+                }
+                className="group p-2 -mx-2 rounded-xl transition-all cursor-pointer hover:bg-[#F8FAFC] space-y-1.5"
+                title="Clique para ver perdas"
+              >
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-rose-700 flex items-center gap-1.5 group-hover:underline">
+                    <span>❌</span> 4. Desqualificados / Negócios Perdidos
+                    <span className="opacity-0 group-hover:opacity-100 text-[10px] text-rose-700 font-semibold transition-opacity">
+                      • Ver perdas ({resumoStatus.perda.total}) ↗
+                    </span>
+                  </span>
+                  <span className="font-mono text-rose-700 font-bold">
+                    {resumoStatus.perda.total} perdas{' '}
+                    <span className="text-rose-600 font-semibold">
+                      ({totalLeads > 0 ? ((resumoStatus.perda.total / totalLeads) * 100).toFixed(1) : 0}% do total)
+                    </span>
+                    {resumoStatus.perda.valor > 0 && (
+                      <span className="text-[#64748B] font-normal ml-1">
+                        • {formatBRL(resumoStatus.perda.valor)}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="w-full bg-[#F1F5F9] rounded-full h-3 overflow-hidden border border-[#E2E8F0]">
+                  <div
+                    className="bg-rose-500 h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${totalLeads > 0 ? Math.min(100, Math.round((resumoStatus.perda.total / totalLeads) * 100)) : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Relatório Multidimensional de Atribuição (Origem, Campanha, Conjunto, Criativo, Termo de Busca, Responsável) */}
       <AttributionMatrix
         totalLeads={totalLeads}
         porOrigem={porOrigem}
@@ -355,11 +546,176 @@ export default function CRMPage() {
         porConjunto={porConjunto}
         porCriativo={porCriativo}
         porTermo={porTermo}
+        porResponsavel={porResponsavel}
+        porEtapa={porEtapa}
         leadsAmostra={leadsAmostra}
         clientName={clientName}
         formatBRL={formatBRL}
         valorTotal={valorTotal}
+        onOpenDrilldown={openDrilldown}
       />
+
+      {/* Popup Modal para Ver Nomes e Contatos de Leads do Kommo */}
+      {leadsDrilldown && (
+        <LeadsDrilldownModal
+          isOpen={leadsDrilldown.isOpen}
+          onClose={() => setLeadsDrilldown(null)}
+          title={leadsDrilldown.title}
+          type={leadsDrilldown.type}
+          leadsCount={leadsDrilldown.count}
+          initialLeads={leadsDrilldown.initialLeads}
+        />
+      )}
+    </div>
+  );
+}
+
+// Subcomponente de Etapas do Funil para o Dropdown da Linha de Atribuição (Mesmo Layout do Funil Comercial)
+function ItemFunnelStages({
+  itemTitle,
+  itemTotal,
+  leadsDoItem,
+  porEtapaCatalogo = [],
+  onOpenDrilldown,
+  formatBRL,
+}: {
+  itemTitle: string;
+  itemTotal: number;
+  leadsDoItem: any[];
+  porEtapaCatalogo?: any[];
+  onOpenDrilldown: (title: string, leads: any[]) => void;
+  formatBRL: (v: number) => string;
+}) {
+  const etapasCalculadas = useMemo(() => {
+    if (porEtapaCatalogo && porEtapaCatalogo.length > 0) {
+      return porEtapaCatalogo.map((e: any, idx: number) => {
+        const daEtapa = leadsDoItem.filter(
+          (l: any) =>
+            String(l.status_id) === String(e.status_id) ||
+            (l.etapa && l.etapa.toLowerCase() === e.etapa_nome.toLowerCase())
+        );
+        const valorEtapa = daEtapa.reduce((acc: number, l: any) => acc + (Number(l.valor) || 0), 0);
+        return {
+          idx: idx + 1,
+          status_id: e.status_id,
+          etapa_nome: e.etapa_nome,
+          conta_como: e.conta_como,
+          total: daEtapa.length,
+          valor: valorEtapa,
+          leads: daEtapa,
+        };
+      });
+    }
+
+    // Fallback dinâmico caso não haja catálogo prévio carregado
+    const map = new Map<string, { etapa_nome: string; conta_como: string; total: number; valor: number; leads: any[] }>();
+    for (const l of leadsDoItem) {
+      const eNome = l.etapa || 'Em atendimento';
+      const cComo = (l.conta_como || 'aberta').toLowerCase();
+      if (!map.has(eNome)) {
+        map.set(eNome, { etapa_nome: eNome, conta_como: cComo, total: 0, valor: 0, leads: [] });
+      }
+      const entry = map.get(eNome)!;
+      entry.total += 1;
+      entry.valor += Number(l.valor) || 0;
+      entry.leads.push(l);
+    }
+    return Array.from(map.values()).map((e, idx) => ({ ...e, idx: idx + 1, status_id: `etapa-${idx}` }));
+  }, [porEtapaCatalogo, leadsDoItem]);
+
+  const baseTotal = itemTotal || leadsDoItem.length || 1;
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="mt-3 pt-3 border-t border-[#E2E8F0] space-y-3 bg-[#F8FAFC] p-3.5 rounded-xl border border-[#E2E8F0] shadow-2xs"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-[#E2E8F0] pb-2 text-[11px]">
+        <div className="flex items-center gap-1.5 font-bold text-[#0F172A]">
+          <span>🌪️</span>
+          <span>Etapas no Pipeline do Kommo CRM</span>
+          <span className="text-[#64748B] font-normal">
+            ({leadsDoItem.length} leads rastreados para este item)
+          </span>
+        </div>
+        <button
+          onClick={() => onOpenDrilldown(`${itemTitle} — Todos os Leads`, leadsDoItem)}
+          className="text-[#0050FF] hover:underline cursor-pointer flex items-center gap-1 font-semibold self-start sm:self-auto"
+        >
+          <span>Auditar lista completa ({leadsDoItem.length}) ↗</span>
+        </button>
+      </div>
+
+      <div className="space-y-2.5">
+        {etapasCalculadas.length === 0 ? (
+          <p className="text-xs text-[#64748B] py-2 text-center">Nenhum lead com etapa registrada para este item.</p>
+        ) : (
+          etapasCalculadas.map((e: any) => {
+            const isGanho = e.conta_como === 'ganho';
+            const isPerda = e.conta_como === 'perda';
+            const isEntrada = e.idx === 1 && e.etapa_nome?.toLowerCase().includes('entrada');
+
+            const icon = isGanho ? '🏆' : isPerda ? '❌' : isEntrada ? '📥' : '💬';
+            const barColor = isGanho ? 'bg-emerald-500' : isPerda ? 'bg-rose-500' : 'bg-[#0050FF]';
+            const textColor = isGanho ? 'text-emerald-700' : isPerda ? 'text-rose-700' : 'text-[#0F172A]';
+            const countColor = isGanho ? 'text-emerald-700 font-bold' : isPerda ? 'text-rose-700 font-bold' : 'text-[#0050FF] font-bold';
+            const pctSubColor = isGanho ? 'text-emerald-600' : isPerda ? 'text-rose-600' : 'text-emerald-600';
+
+            const pct = baseTotal > 0 ? ((e.total / baseTotal) * 100).toFixed(1) : '0';
+            const labelTipo = isGanho ? 'vendas' : isPerda ? 'perdas' : 'leads';
+            const labelSufixo = isGanho ? 'conv.' : 'do item';
+
+            return (
+              <div
+                key={e.status_id || e.idx}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  onOpenDrilldown(`${itemTitle} • ${e.etapa_nome}`, e.leads);
+                }}
+                className={`group/stage p-2 rounded-lg transition-all cursor-pointer hover:bg-white border hover:border-[#BFDBFE] space-y-1.5 ${
+                  e.total > 0 ? 'bg-white/80 border-[#E2E8F0]' : 'opacity-60 bg-transparent border-transparent hover:opacity-100'
+                }`}
+                title={`Clique para ver os ${e.total} leads nesta etapa no Kommo`}
+              >
+                <div className="flex items-center justify-between text-xs">
+                  <span className={`font-semibold ${textColor} flex items-center gap-1.5 group-hover/stage:underline truncate max-w-sm`}>
+                    <span>{icon}</span> {e.idx}. {e.etapa_nome}
+                    <button
+                      type="button"
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        onOpenDrilldown(`${itemTitle} • ${e.etapa_nome}`, e.leads);
+                      }}
+                      className="opacity-0 group-hover/stage:opacity-100 text-[10px] text-[#0050FF] font-bold hover:underline transition-opacity cursor-pointer bg-[#EFF4FF] px-1.5 py-0.5 rounded border border-[#BFDBFE]"
+                    >
+                      Ver leads ({e.total}) ↗
+                    </button>
+                  </span>
+                  <span className={`font-mono text-[11px] ${countColor} shrink-0`}>
+                    {e.total} {labelTipo}{' '}
+                    <span className={`${pctSubColor} font-semibold`}>
+                      ({pct}% {labelSufixo})
+                    </span>
+                    {e.valor > 0 && (
+                      <span className={`${isGanho ? 'text-emerald-700 font-bold' : 'text-[#64748B] font-normal'} ml-1`}>
+                        • {formatBRL(e.valor)}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="w-full bg-[#E2E8F0] rounded-full h-2 overflow-hidden">
+                  <div
+                    className={`${barColor} h-full rounded-full transition-all duration-500`}
+                    style={{
+                      width: `${baseTotal > 0 ? Math.min(100, Math.round((e.total / baseTotal) * 100)) : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
@@ -372,10 +728,13 @@ function AttributionMatrix({
   porConjunto = [],
   porCriativo = [],
   porTermo = [],
+  porResponsavel = [],
+  porEtapa = [],
   leadsAmostra = [],
   clientName = 'Swiftsail Mídia',
   formatBRL,
   valorTotal,
+  onOpenDrilldown,
 }: {
   totalLeads: number;
   porOrigem: any[];
@@ -383,14 +742,18 @@ function AttributionMatrix({
   porConjunto?: any[];
   porCriativo?: any[];
   porTermo?: any[];
+  porResponsavel?: any[];
+  porEtapa?: any[];
   leadsAmostra?: any[];
   clientName?: string;
   formatBRL: (v: number) => string;
   valorTotal: number;
+  onOpenDrilldown?: (title: string, leads: any[]) => void;
 }) {
   const [selectedDimension, setSelectedDimension] = useState<
-    'origem' | 'campanha' | 'conjunto' | 'criativo' | 'termo'
+    'origem' | 'campanha' | 'conjunto' | 'criativo' | 'termo' | 'responsavel'
   >('origem');
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCreativeModal, setSelectedCreativeModal] = useState<CreativePreviewItem | null>(null);
   const [leadsDrilldown, setLeadsDrilldown] = useState<{
@@ -400,6 +763,49 @@ function AttributionMatrix({
     count: number;
     initialLeads?: FormLeadItem[];
   } | null>(null);
+
+  const toggleRow = (key: string) => {
+    setExpandedRows((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const handleDrilldown = (title: string, leads: any[]) => {
+    if (onOpenDrilldown) {
+      onOpenDrilldown(title, leads);
+    } else {
+      const mapped: FormLeadItem[] = (leads || []).map((l: any, i: number) => ({
+        id: l.lead_id || `lead-${i}`,
+        nome: l.nome || 'Lead sem nome registrado',
+        telefone: l.telefone || '',
+        email: l.email || '',
+        data: l.criado_em
+          ? new Date(l.criado_em).toLocaleDateString('pt-BR') + ' às ' + new Date(l.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+          : 'Data não informada',
+        anuncio: l.criativo || l.campanha || l.origem || 'Tráfego Pago',
+        perguntas: `Origem: ${l.origem || 'Direto'} • Campanha: ${l.campanha || 'Geral'}${l.conjunto ? ` • Público: ${l.conjunto}` : ''}`,
+        statusCrm: l.etapa || 'Em atendimento',
+        statusColor: l.conta_como === 'ganho' ? 'emerald' : l.conta_como === 'perda' ? 'rose' : 'cyan',
+        pipelineNome: l.pipeline_nome,
+        etapaNome: l.etapa,
+        valor: Number(l.valor || 0),
+        origem: l.origem,
+        campanha: l.campanha,
+        urlLead: l.url_lead,
+        diasEstagnados: l.dias_estagnados !== undefined && l.dias_estagnados !== null ? Number(l.dias_estagnados) : null,
+        responsavel: l.responsavel_nome || (l.responsavel_id ? `Responsável #${l.responsavel_id}` : null),
+      }));
+
+      setLeadsDrilldown({
+        isOpen: true,
+        title,
+        type: 'form',
+        count: mapped.length,
+        initialLeads: mapped,
+      });
+    }
+  };
 
   // Conjuntos derivados dinamicamente das campanhas reais do Supabase / Kommo
   const conjuntosData = useMemo(() => {
@@ -534,7 +940,7 @@ function AttributionMatrix({
             Relatório de Atribuição Comercial & Mídia
           </h3>
           <p className="text-xs text-[#64748B]">
-            Quebra de leads por <b>Origem</b>, <b>Campanha</b>, <b>Conjunto</b>, <b>Criativo</b> e <b>Termo de Busca</b>
+            Quebra de leads por <b>Origem</b>, <b>Campanha</b>, <b>Conjunto</b>, <b>Criativo</b>, <b>Termo de Busca</b> e <b>Usuário Responsável</b>
           </p>
         </div>
 
@@ -590,6 +996,16 @@ function AttributionMatrix({
           >
             🔍 5. Termo de Busca ({termosBuscaData.length})
           </button>
+          <button
+            onClick={() => setSelectedDimension('responsavel')}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap cursor-pointer ${
+              selectedDimension === 'responsavel'
+                ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
+                : 'text-[#64748B] hover:text-[#0F172A]'
+            }`}
+          >
+            👤 6. Responsável ({porResponsavel.length})
+          </button>
         </div>
       </div>
 
@@ -600,18 +1016,60 @@ function AttributionMatrix({
             <p className="text-xs text-[#64748B] py-6 text-center">Nenhum dado de origem registrado.</p>
           ) : (
             porOrigem.map((item: any) => {
+              const rowKey = `origem-${item.origem}`;
+              const isExpanded = !!expandedRows[rowKey];
               const percent = totalLeads > 0 ? ((item.total / totalLeads) * 100).toFixed(1) : '0';
+              const leadsDoItem = leadsAmostra.filter(
+                (l: any) => l.origem && l.origem.toLowerCase() === item.origem.toLowerCase()
+              );
+
               return (
-                <div key={item.origem} className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-bold text-[#0F172A]">{item.origem}</span>
-                    <span className="text-[#0050FF] font-mono font-bold">
-                      {item.total} leads <span className="text-[#64748B] font-normal">({percent}%)</span>
-                    </span>
+                <div
+                  key={item.origem}
+                  className={`p-3.5 bg-[#F8FAFC] rounded-xl border transition-all ${
+                    isExpanded ? 'border-[#0050FF]/50 bg-white shadow-xs' : 'border-[#E2E8F0] hover:border-[#CBD5E1]'
+                  }`}
+                >
+                  <div
+                    onClick={() => toggleRow(rowKey)}
+                    className="space-y-1.5 cursor-pointer select-none"
+                    title="Clique para ver o dropdown com as etapas deste canal"
+                  >
+                    <div className="flex justify-between text-xs items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-[#0F172A]">{item.origem}</span>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 transition-colors ${
+                            isExpanded
+                              ? 'bg-[#0050FF] text-white'
+                              : 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]'
+                          }`}
+                        >
+                          <span>{isExpanded ? 'Ocultar etapas' : 'Ver etapas do funil'}</span>
+                          <ChevronDown
+                            className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                          />
+                        </span>
+                      </div>
+                      <span className="text-[#0050FF] font-mono font-bold">
+                        {item.total} leads <span className="text-[#64748B] font-normal">({percent}%)</span>
+                      </span>
+                    </div>
+                    <div className="w-full bg-[#E2E8F0] rounded-full h-2 overflow-hidden">
+                      <div className="bg-[#0050FF] h-full rounded-full" style={{ width: `${percent}%` }} />
+                    </div>
                   </div>
-                  <div className="w-full bg-[#E2E8F0] rounded-full h-2 overflow-hidden">
-                    <div className="bg-[#0050FF] h-full rounded-full" style={{ width: `${percent}%` }} />
-                  </div>
+
+                  {isExpanded && (
+                    <ItemFunnelStages
+                      itemTitle={`Origem: ${item.origem}`}
+                      itemTotal={item.total}
+                      leadsDoItem={leadsDoItem}
+                      porEtapaCatalogo={porEtapa}
+                      onOpenDrilldown={handleDrilldown}
+                      formatBRL={formatBRL}
+                    />
+                  )}
                 </div>
               );
             })
@@ -626,18 +1084,63 @@ function AttributionMatrix({
             <p className="text-xs text-[#64748B] py-6 text-center">Nenhuma campanha mapeada.</p>
           ) : (
             porCampanha.map((item: any) => {
+              const rowKey = `campanha-${item.campanha}`;
+              const isExpanded = !!expandedRows[rowKey];
               const percent = totalLeads > 0 ? ((item.total / totalLeads) * 100).toFixed(1) : '0';
+              const leadsDoItem = leadsAmostra.filter(
+                (l: any) =>
+                  l.campanha &&
+                  (l.campanha.toLowerCase().includes(item.campanha.toLowerCase()) ||
+                    item.campanha.toLowerCase().includes(l.campanha.toLowerCase()))
+              );
+
               return (
-                <div key={item.campanha} className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-bold text-[#0F172A] truncate max-w-md">{item.campanha}</span>
-                    <span className="text-[#0050FF] font-mono font-bold">
-                      {item.total} leads <span className="text-[#64748B] font-normal">({percent}%)</span>
-                    </span>
+                <div
+                  key={item.campanha}
+                  className={`p-3.5 bg-[#F8FAFC] rounded-xl border transition-all ${
+                    isExpanded ? 'border-[#0050FF]/50 bg-white shadow-xs' : 'border-[#E2E8F0] hover:border-[#CBD5E1]'
+                  }`}
+                >
+                  <div
+                    onClick={() => toggleRow(rowKey)}
+                    className="space-y-1.5 cursor-pointer select-none"
+                    title="Clique para abrir ou fechar o dropdown de etapas desta campanha"
+                  >
+                    <div className="flex justify-between text-xs items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-[#0F172A] truncate max-w-md">{item.campanha}</span>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 transition-colors ${
+                            isExpanded
+                              ? 'bg-[#0050FF] text-white'
+                              : 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]'
+                          }`}
+                        >
+                          <span>{isExpanded ? 'Ocultar etapas' : 'Ver etapas do funil'}</span>
+                          <ChevronDown
+                            className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                          />
+                        </span>
+                      </div>
+                      <span className="text-[#0050FF] font-mono font-bold">
+                        {item.total} leads <span className="text-[#64748B] font-normal">({percent}%)</span>
+                      </span>
+                    </div>
+                    <div className="w-full bg-[#E2E8F0] rounded-full h-2 overflow-hidden">
+                      <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${percent}%` }} />
+                    </div>
                   </div>
-                  <div className="w-full bg-[#E2E8F0] rounded-full h-2 overflow-hidden">
-                    <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${percent}%` }} />
-                  </div>
+
+                  {isExpanded && (
+                    <ItemFunnelStages
+                      itemTitle={`Campanha: ${item.campanha}`}
+                      itemTotal={item.total}
+                      leadsDoItem={leadsDoItem}
+                      porEtapaCatalogo={porEtapa}
+                      onOpenDrilldown={handleDrilldown}
+                      formatBRL={formatBRL}
+                    />
+                  )}
                 </div>
               );
             })
@@ -649,29 +1152,72 @@ function AttributionMatrix({
       {selectedDimension === 'conjunto' && (
         <div className="space-y-3">
           {conjuntosData.map((conj: any) => {
+            const rowKey = `conjunto-${conj.nome}`;
+            const isExpanded = !!expandedRows[rowKey];
             const percent = totalLeads > 0 ? ((conj.leads / totalLeads) * 100).toFixed(1) : '0';
+            const leadsDoItem = leadsAmostra.filter(
+              (l: any) =>
+                l.conjunto &&
+                (l.conjunto.toLowerCase().includes(conj.nome.toLowerCase()) ||
+                  conj.nome.toLowerCase().includes(l.conjunto.toLowerCase()))
+            );
+
             return (
-              <div key={conj.nome} className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1.5">
-                <div className="flex justify-between text-xs items-center">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]">
-                      📂 {conj.campanha}
-                    </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                      {conj.tipo}
-                    </span>
-                    <span className="font-bold text-[#0F172A]">{conj.nome}</span>
+              <div
+                key={conj.nome}
+                className={`p-3.5 bg-[#F8FAFC] rounded-xl border transition-all ${
+                  isExpanded ? 'border-[#0050FF]/50 bg-white shadow-xs' : 'border-[#E2E8F0] hover:border-[#CBD5E1]'
+                }`}
+              >
+                <div
+                  onClick={() => toggleRow(rowKey)}
+                  className="space-y-1.5 cursor-pointer select-none"
+                  title="Clique para ver o dropdown com as etapas deste público"
+                >
+                  <div className="flex justify-between text-xs items-center">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]">
+                        📂 {conj.campanha}
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                        {conj.tipo}
+                      </span>
+                      <span className="font-bold text-[#0F172A]">{conj.nome}</span>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 transition-colors ${
+                          isExpanded
+                            ? 'bg-[#0050FF] text-white'
+                            : 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]'
+                        }`}
+                      >
+                        <span>{isExpanded ? 'Ocultar etapas' : 'Ver etapas do funil'}</span>
+                        <ChevronDown
+                          className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                        />
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[#64748B] text-[11px]">Conv: {conj.convRate}</span>
+                      <span className="text-purple-600 font-mono font-bold">
+                        {conj.leads} leads <span className="text-[#64748B] font-normal">({percent}%)</span>
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[#64748B] text-[11px]">Conv: {conj.convRate}</span>
-                    <span className="text-purple-600 font-mono font-bold">
-                      {conj.leads} leads <span className="text-[#64748B] font-normal">({percent}%)</span>
-                    </span>
+                  <div className="w-full bg-[#E2E8F0] rounded-full h-2 overflow-hidden">
+                    <div className="bg-purple-500 h-full rounded-full" style={{ width: `${percent}%` }} />
                   </div>
                 </div>
-                <div className="w-full bg-[#E2E8F0] rounded-full h-2 overflow-hidden">
-                  <div className="bg-purple-500 h-full rounded-full" style={{ width: `${percent}%` }} />
-                </div>
+
+                {isExpanded && (
+                  <ItemFunnelStages
+                    itemTitle={`Conjunto: ${conj.nome}`}
+                    itemTotal={conj.leads}
+                    leadsDoItem={leadsDoItem}
+                    porEtapaCatalogo={porEtapa}
+                    onOpenDrilldown={handleDrilldown}
+                    formatBRL={formatBRL}
+                  />
+                )}
               </div>
             );
           })}
@@ -682,10 +1228,23 @@ function AttributionMatrix({
       {selectedDimension === 'criativo' && (
         <div className="space-y-3">
           {criativosData.map((criat) => {
+            const rowKey = `criativo-${criat.nome}`;
+            const isExpanded = !!expandedRows[rowKey];
             const leadsCount = criat.leads ?? 0;
             const percent = totalLeads > 0 ? ((leadsCount / totalLeads) * 100).toFixed(1) : '0';
+            const leadsDoItem = leadsAmostra.filter(
+              (l: any) =>
+                (l.criativo && l.criativo.toLowerCase().includes(criat.nome.toLowerCase())) ||
+                (l.campanha && l.campanha.toLowerCase().includes(criat.campanha?.toLowerCase() || ''))
+            );
+
             return (
-              <div key={criat.nome} className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-2 hover:border-[#CBD5E1] transition-colors">
+              <div
+                key={criat.nome}
+                className={`p-3.5 bg-[#F8FAFC] rounded-xl border transition-all ${
+                  isExpanded ? 'border-[#0050FF]/50 bg-white shadow-xs' : 'border-[#E2E8F0] hover:border-[#CBD5E1]'
+                }`}
+              >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-3">
                     {/* Thumbnail Clicável */}
@@ -739,41 +1298,22 @@ function AttributionMatrix({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <span className="text-[#64748B] text-[11px]">CTR: {criat.ctr}</span>
                     <button
-                      onClick={() => {
-                        const matching = leadsAmostra
-                          .filter((l: any) =>
-                            (l.criativo && l.criativo.toLowerCase().includes(criat.nome.toLowerCase())) ||
-                            (l.campanha && l.campanha.toLowerCase().includes(criat.campanha?.toLowerCase() || ''))
-                          )
-                          .map((l: any, i: number) => ({
-                            id: l.lead_id || `lead-${i}`,
-                            nome: l.nome,
-                            telefone: '+55 41 98***-****',
-                            email: 'contato@crm.com.br',
-                            data: new Date(l.criado_em).toLocaleDateString('pt-BR') + ' às ' + new Date(l.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                            anuncio: `${criat.nome} • ${criat.adset}`,
-                            perguntas: `Origem: ${l.origem} • Etapa: ${l.etapa}`,
-                            statusCrm: l.etapa,
-                            statusColor: l.conta_como === 'ganho' ? 'emerald' : l.conta_como === 'perda' ? 'rose' : 'cyan',
-                          }));
-
-                        setLeadsDrilldown({
-                          isOpen: true,
-                          title: `${criat.nome} • ${criat.campanha}`,
-                          type: 'form',
-                          count: criat.leads || 0,
-                          initialLeads: matching.length > 0 ? matching : undefined,
-                        });
-                      }}
-                      className="text-amber-700 font-mono font-bold hover:underline transition-colors flex items-center gap-1 cursor-pointer bg-amber-50 px-2 py-1 rounded-lg border border-amber-200"
-                      title="Clique para ver os nomes e contatos capturados neste criativo"
+                      onClick={() => toggleRow(rowKey)}
+                      className={`text-xs px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-all ${
+                        isExpanded
+                          ? 'bg-[#0050FF] text-white shadow-2xs'
+                          : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                      }`}
+                      title="Clique para ver o dropdown de etapas deste anúncio"
                     >
                       <span>{criat.leads} leads</span>
-                      <span className="text-[#64748B] font-normal">({percent}%)</span>
-                      <span className="text-[10px]">👁️</span>
+                      <span className="text-[10px] opacity-80">({percent}%)</span>
+                      <ChevronDown
+                        className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                      />
                     </button>
                     <button
                       onClick={() => setSelectedCreativeModal(criat)}
@@ -785,9 +1325,23 @@ function AttributionMatrix({
                   </div>
                 </div>
 
-                <div className="w-full bg-[#E2E8F0] rounded-full h-2 overflow-hidden">
+                <div
+                  onClick={() => toggleRow(rowKey)}
+                  className="w-full bg-[#E2E8F0] rounded-full h-2 overflow-hidden mt-2 cursor-pointer"
+                >
                   <div className="bg-amber-500 h-full rounded-full" style={{ width: `${percent}%` }} />
                 </div>
+
+                {isExpanded && (
+                  <ItemFunnelStages
+                    itemTitle={`Criativo: ${criat.nome}`}
+                    itemTotal={leadsCount}
+                    leadsDoItem={leadsDoItem}
+                    porEtapaCatalogo={porEtapa}
+                    onOpenDrilldown={handleDrilldown}
+                    formatBRL={formatBRL}
+                  />
+                )}
               </div>
             );
           })}
@@ -807,30 +1361,149 @@ function AttributionMatrix({
                   <th className="py-2.5 px-3">CPC Médio</th>
                   <th className="py-2.5 px-3">Leads Gerados</th>
                   <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3 text-right">Etapas Kommo</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E2E8F0] bg-white">
-                {termosBuscaData.map((t: any, idx: number) => (
-                  <tr key={idx} className="hover:bg-[#F8FAFC] transition-colors">
-                    <td className="py-2.5 px-3 font-semibold text-[#0F172A]">"{t.termo}"</td>
-                    <td className="py-2.5 px-3">
-                      <span className="px-2 py-0.5 rounded text-[10px] bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]">
-                        {t.match}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-[#64748B]">{t.cliques}</td>
-                    <td className="py-2.5 px-3 font-mono text-[#64748B]">{t.cpc}</td>
-                    <td className="py-2.5 px-3 font-mono font-bold text-emerald-600">{t.leads} leads</td>
-                    <td className="py-2.5 px-3">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        {t.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {termosBuscaData.map((t: any, idx: number) => {
+                  const rowKey = `termo-${t.termo}`;
+                  const isExpanded = !!expandedRows[rowKey];
+                  const leadsDoItem = leadsAmostra.filter(
+                    (l: any) => l.termo_busca && l.termo_busca.toLowerCase().includes(t.termo.toLowerCase())
+                  );
+
+                  return (
+                    <React.Fragment key={idx}>
+                      <tr
+                        onClick={() => toggleRow(rowKey)}
+                        className={`hover:bg-[#F8FAFC] transition-colors cursor-pointer ${
+                          isExpanded ? 'bg-[#F1F5F9]/70' : ''
+                        }`}
+                      >
+                        <td className="py-2.5 px-3 font-semibold text-[#0F172A]">
+                          "{t.termo}"
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className="px-2 py-0.5 rounded text-[10px] bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]">
+                            {t.match}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-[#64748B]">{t.cliques}</td>
+                        <td className="py-2.5 px-3 font-mono text-[#64748B]">{t.cpc}</td>
+                        <td className="py-2.5 px-3 font-mono font-bold text-emerald-600">{t.leads} leads</td>
+                        <td className="py-2.5 px-3">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {t.status}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          <span
+                            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              isExpanded
+                                ? 'bg-[#0050FF] text-white'
+                                : 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]'
+                            }`}
+                          >
+                            <span>{isExpanded ? 'Ocultar' : 'Ver etapas'}</span>
+                            <ChevronDown
+                              className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                            />
+                          </span>
+                        </td>
+                      </tr>
+
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={7} className="p-3 bg-white border-b border-[#E2E8F0]">
+                            <ItemFunnelStages
+                              itemTitle={`Termo de Busca: "${t.termo}"`}
+                              itemTotal={t.leads}
+                              leadsDoItem={leadsDoItem}
+                              porEtapaCatalogo={porEtapa}
+                              onOpenDrilldown={handleDrilldown}
+                              formatBRL={formatBRL}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Dimensão 6: Usuário Responsável */}
+      {selectedDimension === 'responsavel' && (
+        <div className="space-y-3">
+          {porResponsavel.length === 0 ? (
+            <p className="text-xs text-[#64748B] py-6 text-center">Nenhum responsável registrado nos leads.</p>
+          ) : (
+            porResponsavel.map((item: any) => {
+              const rowKey = `responsavel-${item.id}`;
+              const isExpanded = !!expandedRows[rowKey];
+              const percent = totalLeads > 0 ? ((item.total / totalLeads) * 100).toFixed(1) : '0';
+              const leadsDoItem = leadsAmostra.filter(
+                (l: any) =>
+                  (l.responsavel_nome && l.responsavel_nome.trim().toLowerCase() === item.nome.trim().toLowerCase()) ||
+                  String(l.responsavel_id || '') === String(item.id) ||
+                  (!l.responsavel_nome && !l.responsavel_id && item.id === 'Sem Responsável Atribuído')
+              );
+
+              return (
+                <div
+                  key={item.id}
+                  className={`p-3.5 bg-[#F8FAFC] rounded-xl border transition-all ${
+                    isExpanded ? 'border-[#0050FF]/50 bg-white shadow-xs' : 'border-[#E2E8F0] hover:border-[#CBD5E1]'
+                  }`}
+                >
+                  <div
+                    onClick={() => toggleRow(rowKey)}
+                    className="space-y-1.5 cursor-pointer select-none"
+                    title="Clique para ver o dropdown com as etapas deste responsável"
+                  >
+                    <div className="flex justify-between text-xs items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-[#0F172A]">{item.nome}</span>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 transition-colors ${
+                            isExpanded
+                              ? 'bg-[#0050FF] text-white'
+                              : 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]'
+                          }`}
+                        >
+                          <span>{isExpanded ? 'Ocultar etapas' : 'Ver etapas do funil'}</span>
+                          <ChevronDown
+                            className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                          />
+                        </span>
+                      </div>
+                      <span className="text-[#0050FF] font-mono font-bold">
+                        {item.total} leads <span className="text-[#64748B] font-normal">({percent}%)</span>
+                      </span>
+                    </div>
+                    <div className="w-full bg-[#E2E8F0] rounded-full h-2 overflow-hidden">
+                      <div className="bg-[#0050FF] h-full rounded-full" style={{ width: `${percent}%` }} />
+                    </div>
+                  </div>
+
+                  {/* Dropdown com as Etapas do Funil para Este Responsável */}
+                  {isExpanded && (
+                    <ItemFunnelStages
+                      itemTitle={item.nome}
+                      itemTotal={item.total}
+                      leadsDoItem={leadsDoItem}
+                      porEtapaCatalogo={porEtapa}
+                      onOpenDrilldown={handleDrilldown}
+                      formatBRL={formatBRL}
+                    />
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       )}
 

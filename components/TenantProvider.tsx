@@ -1,8 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { Cliente, GroupAdAccount, GroupAdMapping, CsStatus, AppUser, UserInvite, ContaAdsPainel } from '@/types/database';
 import { hojeBRT, diasAtrasBRT } from '@/lib/date';
+import { findClientBySlug } from '@/lib/clientSlug';
 
 interface TenantContextType {
   selectedClientId: string;
@@ -86,6 +88,33 @@ export function TenantProvider({
     loadBootstrap();
     loadUsers();
   }, []);
+
+  const pathname = usePathname();
+
+  // Sincronização automática com a hierarquia da URL (/admin, /admin/client/[slug], /client, /client/[slug])
+  useEffect(() => {
+    if (!pathname || clients.length === 0) return;
+
+    if (pathname.startsWith('/admin/client/')) {
+      const slug = pathname.replace('/admin/client/', '').split('/')[0];
+      const found = findClientBySlug(clients, slug);
+      if (found) {
+        setSelectedClientId(found.cliente_id);
+        setViewMode('admin');
+      }
+    } else if (pathname === '/admin' || pathname === '/admin/clientes' || pathname === '/admin/ia') {
+      setViewMode('admin');
+    } else if (pathname.startsWith('/client/')) {
+      const slug = pathname.replace('/client/', '').split('/')[0];
+      const found = findClientBySlug(clients, slug);
+      if (found) {
+        setSelectedClientId(found.cliente_id);
+        setViewMode('client');
+      }
+    } else if (pathname === '/client') {
+      setViewMode('client');
+    }
+  }, [pathname, clients]);
 
   const refreshUsers = async () => {
     try {

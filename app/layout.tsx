@@ -2,8 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { getClientes } from '@/lib/services/supabase-data';
 import { TenantProvider } from '@/components/TenantProvider';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
+import AppShell from '@/components/AppShell';
 
 export const metadata: Metadata = {
   title: 'Swiftsail Enterprise OS | Gestão de Tráfego, IA & CRM',
@@ -22,13 +21,7 @@ export default async function RootLayout({
     <html lang="pt-BR" className="light">
       <body className="bg-[#F8FAFC] text-[#0F172A] min-h-screen antialiased flex overflow-hidden font-sans">
         <TenantProvider initialClients={initialClients}>
-          <Sidebar />
-          <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-[#F8FAFC]">
-            <Header />
-            <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-6">
-              {children}
-            </main>
-          </div>
+          <AppShell>{children}</AppShell>
         </TenantProvider>
       </body>
     </html>

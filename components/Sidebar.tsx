@@ -2,7 +2,7 @@
 
 import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Megaphone,
@@ -24,11 +24,14 @@ import {
   Users2,
   Sliders,
   Send,
+  Smartphone,
 } from 'lucide-react';
 
 import { useTenant } from './TenantProvider';
+import { getClientSlug } from '@/lib/clientSlug';
 
 function SidebarContent() {
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const {
@@ -59,7 +62,10 @@ function SidebarContent() {
     <aside className="w-64 bg-white border-r border-[#E2E8F0] flex flex-col h-screen sticky top-0 z-40 select-none font-sans">
       {/* Brand Header */}
       <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
-        <Link href={viewMode === 'admin' ? '/admin/clientes' : '/'} className="flex items-center gap-3">
+        <Link
+          href={viewMode === 'admin' ? '/admin' : activeClient ? `/client/${getClientSlug(activeClient)}` : '/client'}
+          className="flex items-center gap-3"
+        >
           <div className="w-9 h-9 rounded-xl bg-[#EFF4FF] border border-[#BFDBFE] flex items-center justify-center overflow-hidden p-1 shadow-xs">
             <img src="/logo.png" alt="Swiftsail Logo" className="w-full h-full object-contain" />
           </div>
@@ -74,7 +80,10 @@ function SidebarContent() {
       <div className="p-3 border-b border-[#E2E8F0] bg-[#F8FAFC]">
         <div className="flex rounded-xl bg-[#F1F5F9] border border-[#E2E8F0] p-1">
           <button
-            onClick={switchToAdminHQ}
+            onClick={() => {
+              switchToAdminHQ();
+              router.push('/admin');
+            }}
             className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               viewMode === 'admin'
                 ? 'bg-white text-[#0F172A] border border-[#E2E8F0] shadow-xs'
@@ -88,8 +97,12 @@ function SidebarContent() {
           <button
             onClick={() => {
               setViewMode('client');
-              if (selectedClientId === 'ALL' && clients.length > 0) {
-                setSelectedClientId(clients[0].cliente_id);
+              const target = activeClient || (clients.length > 0 ? clients[0] : undefined);
+              if (target) {
+                setSelectedClientId(target.cliente_id);
+                router.push(`/client/${getClientSlug(target)}`);
+              } else {
+                router.push('/client');
               }
             }}
             className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
@@ -113,7 +126,13 @@ function SidebarContent() {
           </label>
           <select
             value={selectedClientId}
-            onChange={(e) => setSelectedClientId(e.target.value)}
+            onChange={(e) => {
+              setSelectedClientId(e.target.value);
+              const target = clients.find((c) => c.cliente_id === e.target.value);
+              if (target) {
+                router.push(`/client/${getClientSlug(target)}`);
+              }
+            }}
             className="w-full bg-white text-xs font-semibold text-[#0F172A] border border-[#CBD5E1] rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#0050FF] transition-colors cursor-pointer shadow-xs"
           >
             {clients.map((c) => {
@@ -246,18 +265,18 @@ function SidebarContent() {
 
             {/* Dashboard do Cliente */}
             <Link
-              href="/"
+              href={activeClient ? `/client/${getClientSlug(activeClient)}` : '/client'}
               className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
-                pathname === '/'
+                pathname === '/' || pathname.startsWith('/client')
                   ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold shadow-xs'
                   : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
               }`}
             >
               <div className="flex items-center gap-3">
-                <LayoutDashboard className={`w-4 h-4 ${pathname === '/' ? 'text-[#0050FF]' : 'text-[#64748B]'}`} />
+                <LayoutDashboard className={`w-4 h-4 ${pathname === '/' || pathname.startsWith('/client') ? 'text-[#0050FF]' : 'text-[#64748B]'}`} />
                 <span>Dashboard do Cliente</span>
               </div>
-              {pathname === '/' && <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />}
+              {(pathname === '/' || pathname.startsWith('/client')) && <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />}
             </Link>
 
             {/* Tráfego e Anúncios COM SUBMENU DAS PLATAFORMAS (Seção 4.1 e 4.3) */}
@@ -465,10 +484,13 @@ function SidebarContent() {
       </nav>
 
       {/* Footer Helper */}
-      <div className="p-3 border-t border-[#E2E8F0] bg-[#F8FAFC]">
+      <div className="p-3 border-t border-[#E2E8F0] bg-[#F8FAFC] space-y-2">
         {viewMode === 'client' ? (
           <button
-            onClick={switchToAdminHQ}
+            onClick={() => {
+              switchToAdminHQ();
+              router.push('/admin');
+            }}
             className="w-full py-1.5 px-2 rounded-lg bg-white hover:bg-slate-50 text-[#0F172A] border border-[#E2E8F0] shadow-xs text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
           >
             <Crown className="w-3.5 h-3.5 text-[#0050FF]" />
@@ -485,6 +507,15 @@ function SidebarContent() {
             </span>
           </div>
         )}
+
+        <Link
+          href="/login"
+          className="w-full py-1.5 px-2 rounded-lg bg-white hover:bg-[#EFF4FF] text-[#64748B] hover:text-[#0050FF] border border-[#E2E8F0] hover:border-[#BFDBFE] shadow-xs text-[10px] font-semibold flex items-center justify-center gap-1.5 transition-all"
+          title="Testar a tela de login"
+        >
+          <Smartphone className="w-3 h-3 text-[#0050FF]" />
+          <span>Tela de Login (/login)</span>
+        </Link>
       </div>
     </aside>
   );

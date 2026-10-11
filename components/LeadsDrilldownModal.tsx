@@ -22,13 +22,21 @@ import {
 export interface FormLeadItem {
   id?: string;
   nome: string;
-  telefone: string;
-  email: string;
+  telefone?: string;
+  email?: string;
   data: string;
-  anuncio: string;
-  perguntas: string;
+  anuncio?: string;
+  perguntas?: string;
   statusCrm: string;
   statusColor?: string;
+  pipelineNome?: string;
+  etapaNome?: string;
+  valor?: number;
+  origem?: string;
+  campanha?: string;
+  urlLead?: string | null;
+  diasEstagnados?: number | null;
+  responsavel?: string | null;
 }
 
 interface LeadsDrilldownModalProps {
@@ -155,14 +163,19 @@ export default function LeadsDrilldownModal({
     },
   ];
 
-  const leadsList = (initialLeads && initialLeads.length > 0) ? initialLeads : defaultFormLeads;
+  const leadsList = initialLeads !== undefined ? initialLeads : defaultFormLeads;
 
   const filteredLeads = leadsList.filter((lead) => {
+    const term = searchTerm.toLowerCase();
     const matchesSearch =
-      lead.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.telefone.includes(searchTerm) ||
-      lead.perguntas.toLowerCase().includes(searchTerm.toLowerCase());
+      !searchTerm ||
+      lead.nome.toLowerCase().includes(term) ||
+      (lead.email && lead.email.toLowerCase().includes(term)) ||
+      (lead.telefone && lead.telefone.includes(term)) ||
+      (lead.perguntas && lead.perguntas.toLowerCase().includes(term)) ||
+      (lead.anuncio && lead.anuncio.toLowerCase().includes(term)) ||
+      (lead.statusCrm && lead.statusCrm.toLowerCase().includes(term)) ||
+      (lead.pipelineNome && lead.pipelineNome.toLowerCase().includes(term));
 
     const matchesStatus =
       statusFilter === 'ALL' ||
@@ -171,22 +184,28 @@ export default function LeadsDrilldownModal({
     return matchesSearch && matchesStatus;
   });
 
+  const formatBRL = (val: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
   const handleExportCSV = () => {
-    const headers = ['Nome', 'Telefone', 'Email', 'Data', 'Criativo', 'Respostas', 'Status CRM'];
+    const headers = ['Nome', 'Telefone', 'Email', 'Data', 'Funil', 'Status CRM', 'Valor', 'Dias Estagnados', 'Origem / Campanha', 'URL Kommo'];
     const rows = filteredLeads.map((l) => [
       `"${l.nome}"`,
-      `"${l.telefone}"`,
-      `"${l.email}"`,
+      `"${l.telefone || ''}"`,
+      `"${l.email || ''}"`,
       `"${l.data}"`,
-      `"${l.anuncio}"`,
-      `"${l.perguntas.replace(/"/g, '""')}"`,
+      `"${l.pipelineNome || ''}"`,
       `"${l.statusCrm}"`,
+      `"${l.valor ? formatBRL(l.valor) : 'R$ 0,00'}"`,
+      `"${l.diasEstagnados !== null && l.diasEstagnados !== undefined ? l.diasEstagnados : ''}"`,
+      `"${(l.anuncio || l.perguntas || '').replace(/"/g, '""')}"`,
+      `"${l.urlLead || ''}"`,
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `leads_formulario_${Date.now()}.csv`);
+    link.setAttribute('download', `leads_kommo_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -210,14 +229,14 @@ export default function LeadsDrilldownModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-[#0F172A]">
-                  Lista de Leads & Respostas do Formulário
+                  Detalhamento de Leads no CRM (Kommo)
                 </h3>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]">
-                  {filteredLeads.length} contatos
+                  {filteredLeads.length} leads
                 </span>
               </div>
               <p className="text-xs text-[#64748B]">
-                Origem: <b className="text-[#0F172A]">{title}</b> • Dados sincronizados via Meta Instant Forms & Webhooks
+                Linha selecionada: <b className="text-[#0050FF]">{title}</b> • Sincronizado do Supabase com link direto no Kommo
               </p>
             </div>
           </div>
@@ -225,7 +244,7 @@ export default function LeadsDrilldownModal({
           <div className="flex items-center gap-2 self-end sm:self-center">
             <button
               onClick={handleExportCSV}
-              className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#F8FAFC] text-[#0F172A] text-xs font-semibold flex items-center gap-1.5 border border-[#CBD5E1] transition-colors shadow-xs"
+              className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#F8FAFC] text-[#0F172A] text-xs font-semibold flex items-center gap-1.5 border border-[#CBD5E1] transition-colors shadow-xs cursor-pointer"
             >
               <Download className="w-3.5 h-3.5 text-[#0050FF]" />
               <span>Exportar CSV</span>
@@ -233,7 +252,7 @@ export default function LeadsDrilldownModal({
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-xl text-[#64748B] hover:text-[#0F172A] hover:bg-[#F1F5F9] transition-colors"
+              className="p-1.5 rounded-xl text-[#64748B] hover:text-[#0F172A] hover:bg-[#F1F5F9] transition-colors cursor-pointer"
               title="Fechar (Esc)"
             >
               <X className="w-5 h-5" />
@@ -247,7 +266,7 @@ export default function LeadsDrilldownModal({
             <Search className="w-4 h-4 text-[#94A3B8] absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Buscar por nome do lead, e-mail, telefone ou resposta..."
+              placeholder="Buscar por nome do lead, funil, etapa ou campanha..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-white border border-[#CBD5E1] rounded-xl pl-9 pr-3 py-1.5 text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0050FF]"
@@ -255,17 +274,16 @@ export default function LeadsDrilldownModal({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-[#64748B]">Status CRM:</span>
+            <span className="text-xs font-semibold text-[#64748B]">Filtrar Status:</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="bg-white border border-[#CBD5E1] rounded-xl px-2.5 py-1.5 text-xs text-[#0F172A] focus:outline-none focus:border-[#0050FF] font-semibold cursor-pointer shadow-xs"
             >
-              <option value="ALL">Todos os Status</option>
-              <option value="Agendamento">Agendados</option>
-              <option value="Venda">Vendas Fechadas</option>
-              <option value="Qualificação">Em Qualificação</option>
-              <option value="Novo">Novos Leads</option>
+              <option value="ALL">Todos os Leads ({leadsList.length})</option>
+              <option value="Venda">Vendas / Ganhos</option>
+              <option value="Perda">Perdas / Desqualificados</option>
+              <option value="Atendimento">Em Atendimento</option>
             </select>
           </div>
         </div>
@@ -273,46 +291,123 @@ export default function LeadsDrilldownModal({
         {/* Tabela de Leads com Nome, Contato e Respostas */}
         <div className="flex-1 overflow-auto p-4 bg-white">
           {filteredLeads.length === 0 ? (
-            <div className="p-12 text-center text-[#64748B] text-xs font-medium">
-              Nenhum lead encontrado com o filtro aplicado.
+            <div className="p-12 text-center text-[#64748B] text-xs font-medium space-y-1">
+              <p className="font-bold text-[#0F172A]">Nenhum lead encontrado.</p>
+              <p>Não há leads correspondentes ao filtro nesta etapa.</p>
             </div>
           ) : (
             <div className="border border-[#E2E8F0] rounded-xl overflow-hidden bg-white shadow-xs">
               <table className="w-full text-xs text-left">
                 <thead>
                   <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC] font-bold">
-                    <th className="py-3 px-4">Nome do Lead / Paciente</th>
-                    <th className="py-3 px-4">E-mail</th>
-                    <th className="py-3 px-4">Data de Envio</th>
-                    <th className="py-3 px-4">Respostas do Formulário Meta</th>
-                    <th className="py-3 px-4">Status no Kommo CRM</th>
+                    <th className="py-3 px-4">Lead / Contato</th>
+                    <th className="py-3 px-4">Funil & Etapa CRM</th>
+                    <th className="py-3 px-4">Valor</th>
+                    <th className="py-3 px-4">Dias Estagnados</th>
+                    <th className="py-3 px-4">Data de Entrada</th>
+                    <th className="py-3 px-4">Origem / Campanha</th>
                     <th className="py-3 px-4 text-right">Ação Direta</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0]">
                   {filteredLeads.map((lead, idx) => {
-                    const cleanPhone = lead.telefone.replace(/\D/g, '');
+                    const cleanPhone = (lead.telefone || '').replace(/\D/g, '');
                     return (
                       <tr key={lead.id || idx} className="hover:bg-[#F8FAFC] transition-colors">
-                        {/* Nome & Telefone */}
+                        {/* Nome & Detalhes */}
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full bg-[#EFF4FF] text-[#0050FF] font-bold flex items-center justify-center text-xs shrink-0 border border-[#BFDBFE]">
-                              {lead.nome.charAt(0)}
+                            <div className="w-8 h-8 rounded-full bg-[#EFF4FF] text-[#0050FF] font-bold flex items-center justify-center text-xs shrink-0 border border-[#BFDBFE]">
+                              {lead.nome ? lead.nome.charAt(0).toUpperCase() : 'L'}
                             </div>
                             <div>
-                              <strong className="text-[#0F172A] font-bold block">{lead.nome}</strong>
-                              <span className="text-[11px] text-[#64748B] font-mono flex items-center gap-1 mt-0.5">
-                                <Phone className="w-3 h-3 text-emerald-600" />
-                                {lead.telefone}
-                              </span>
+                              {lead.urlLead ? (
+                                <a
+                                  href={lead.urlLead}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[#0F172A] hover:text-[#0050FF] font-bold block hover:underline transition-colors cursor-pointer"
+                                  title="Abrir detalhes deste lead no Kommo CRM"
+                                >
+                                  {lead.nome} ↗
+                                </a>
+                              ) : (
+                                <strong className="text-[#0F172A] font-bold block">{lead.nome}</strong>
+                              )}
+                              <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                                {lead.id && (
+                                  <span className="text-[10px] text-[#94A3B8] font-mono">
+                                    ID: {lead.id}
+                                  </span>
+                                )}
+                                {lead.responsavel && (
+                                  <span className="text-[10px] bg-[#F1F5F9] text-[#475569] px-1.5 py-0.2 rounded font-medium border border-[#E2E8F0]">
+                                    👤 {lead.responsavel}
+                                  </span>
+                                )}
+                              </div>
+                              {lead.telefone && (
+                                <span className="text-[11px] text-[#64748B] font-mono flex items-center gap-1 mt-0.5">
+                                  <Phone className="w-3 h-3 text-emerald-600" />
+                                  {lead.telefone}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </td>
 
-                        {/* Email */}
-                        <td className="py-3 px-4 font-mono text-[#475569] max-w-[180px] truncate" title={lead.email}>
-                          {lead.email}
+                        {/* Funil & Etapa */}
+                        <td className="py-3 px-4">
+                          <div className="space-y-1">
+                            <span
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border inline-block ${
+                                lead.statusColor === 'emerald' || lead.statusCrm.toLowerCase().includes('ganho') || lead.statusCrm.toLowerCase().includes('venda ganha')
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : lead.statusColor === 'rose' || lead.statusCrm.toLowerCase().includes('perda') || lead.statusCrm.toLowerCase().includes('perdido')
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                  : 'bg-blue-50 text-[#0050FF] border-blue-200'
+                              }`}
+                            >
+                              ● {lead.statusCrm}
+                            </span>
+                            {lead.pipelineNome && (
+                              <span className="block text-[11px] text-[#64748B] font-medium">
+                                🎯 {lead.pipelineNome}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Valor */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          {lead.valor && lead.valor > 0 ? (
+                            <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 text-xs">
+                              {formatBRL(lead.valor)}
+                            </span>
+                          ) : (
+                            <span className="font-mono text-[#94A3B8] text-xs">R$ 0,00</span>
+                          )}
+                        </td>
+
+                        {/* Dias Estagnados */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          {lead.diasEstagnados !== null && lead.diasEstagnados !== undefined ? (
+                            <span
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border inline-flex items-center gap-1.5 font-mono shadow-2xs ${
+                                lead.diasEstagnados > 10
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                  : lead.diasEstagnados > 3
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              }`}
+                              title={`Lead está há ${lead.diasEstagnados} dias sem avançar de etapa no Kommo`}
+                            >
+                              <span>{lead.diasEstagnados > 10 ? '🚨' : lead.diasEstagnados > 3 ? '⚠️' : '⏱️'}</span>
+                              <span>{lead.diasEstagnados} {lead.diasEstagnados === 1 ? 'dia' : 'dias'}</span>
+                            </span>
+                          ) : (
+                            <span className="text-[#94A3B8] text-[11px] font-mono">—</span>
+                          )}
                         </td>
 
                         {/* Data */}
@@ -320,45 +415,44 @@ export default function LeadsDrilldownModal({
                           {lead.data}
                         </td>
 
-                        {/* Respostas do Formulário */}
+                        {/* Origem / Campanha */}
                         <td className="py-3 px-4 text-[#0F172A] max-w-xs">
-                          <div className="p-2 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-[11px] leading-relaxed text-[#334155]">
-                            {lead.perguntas}
+                          <div className="p-2 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-[11px] leading-relaxed text-[#334155] truncate" title={lead.anuncio || lead.perguntas || ''}>
+                            {lead.anuncio || lead.perguntas || lead.origem || 'Tráfego Pago'}
                           </div>
                         </td>
 
-                        {/* Status no CRM */}
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                              lead.statusColor === 'emerald' || lead.statusCrm.includes('Confirmado') || lead.statusCrm.includes('Venda')
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : lead.statusColor === 'cyan' || lead.statusCrm.includes('Qualificação')
-                                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                : lead.statusColor === 'amber'
-                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                : 'bg-slate-100 text-slate-700 border-slate-200'
-                            }`}
-                          >
-                            ● {lead.statusCrm}
-                          </span>
-                        </td>
-
-                        {/* Ações */}
+                        {/* Ação Direta (Link Kommo) */}
                         <td className="py-3 px-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
-                            <a
-                              href={`https://wa.me/${cleanPhone}?text=Ol%C3%A1%20${encodeURIComponent(
-                                lead.nome.split(' ')[0]
-                              )}%2C%20recebemos%20seu%20cadastro%20e%20gostaria%20de%20conversar!`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs transition-all"
-                              title="Iniciar conversa no WhatsApp"
-                            >
-                              <MessageCircle className="w-3 h-3" />
-                              <span>WhatsApp</span>
-                            </a>
+                            {lead.urlLead ? (
+                              <a
+                                href={lead.urlLead}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-2.5 py-1.5 rounded-lg bg-[#EFF4FF] hover:bg-[#0050FF] text-[#0050FF] hover:text-white font-bold text-[11px] flex items-center gap-1.5 border border-[#BFDBFE] shadow-2xs transition-all cursor-pointer"
+                                title="Abrir lead diretamente no Kommo CRM"
+                              >
+                                <span>Abrir no Kommo</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            ) : (
+                              <span className="text-[11px] text-[#94A3B8] italic">Sem link Kommo</span>
+                            )}
+
+                            {cleanPhone.length >= 10 && (
+                              <a
+                                href={`https://wa.me/${cleanPhone}?text=Ol%C3%A1%20${encodeURIComponent(
+                                  lead.nome.split(' ')[0]
+                                )}%2C%20tudo%20bem?`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] flex items-center justify-center shadow-xs transition-all cursor-pointer"
+                                title="Iniciar conversa no WhatsApp"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5" />
+                              </a>
+                            )}
                           </div>
                         </td>
                       </tr>

@@ -1,11 +1,15 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { Cliente, GroupAdAccount, GroupAdMapping, AgenteEvento, CsStatus, WhatsAppDailySummary, ContaAdsPainel } from '@/types/database';
+import { Cliente, ContaAdsPainel } from '@/types/database';
 
+/**
+ * Busca clientes com status 'ativo' diretamente da tabela pública clientes.
+ * Contrato de segurança: Somente leitura pelo servidor com service_role.
+ */
 export async function getClientes(): Promise<Cliente[]> {
   try {
     const { data, error } = await supabaseAdmin
       .from('clientes')
-      .select('*')
+      .select('cliente_id,nome,status,parent_cliente_id,grupo_whatsapp_id,drive_folder_id,data_inicio,data_encerramento,atualizado_em')
       .eq('status', 'ativo')
       .order('nome', { ascending: true });
 
@@ -13,14 +17,16 @@ export async function getClientes(): Promise<Cliente[]> {
       console.error('Error fetching clientes:', error);
       return [];
     }
-    return data || [];
+    return (data || []) as Cliente[];
   } catch (err) {
     console.error('Unexpected error fetching clientes:', err);
     return [];
   }
 }
 
-
+/**
+ * Consulta contas de anúncio ativas de public.painel_contas_ads.
+ */
 export async function getContasAdsPainel(): Promise<ContaAdsPainel[] | null> {
   try {
     const { data, error } = await supabaseAdmin
@@ -33,93 +39,20 @@ export async function getContasAdsPainel(): Promise<ContaAdsPainel[] | null> {
   }
 }
 
-export async function getGroupAdAccounts(): Promise<GroupAdAccount[]> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('group_ad_accounts')
-      .select('*')
-      .order('account_name', { ascending: true });
-
-    if (error) {
-      console.error('Error fetching group_ad_accounts:', error);
-      return [];
-    }
-    return data || [];
-  } catch (err) {
-    console.error('Unexpected error fetching group_ad_accounts:', err);
-    return [];
-  }
-}
-
-export async function getGroupAdMappings(): Promise<GroupAdMapping[]> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('group_ad_mapping')
-      .select('*')
-      .order('client_name', { ascending: true });
-
-    if (error) {
-      console.error('Error fetching group_ad_mapping:', error);
-      return [];
-    }
-    return data || [];
-  } catch (err) {
-    console.error('Unexpected error fetching group_ad_mapping:', err);
-    return [];
-  }
-}
-
-export async function getAgentesEventos(): Promise<AgenteEvento[]> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('agentes_eventos')
-      .select('*')
-      .order('criado_em', { ascending: false })
-      .limit(20);
-
-    if (error) {
-      console.error('Error fetching agentes_eventos:', error);
-      return [];
-    }
-    return data || [];
-  } catch (err) {
-    console.error('Unexpected error fetching agentes_eventos:', err);
-    return [];
-  }
-}
-
-export async function getCsStatus(): Promise<CsStatus[]> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('cs_status')
-      .select('*')
-      .order('criado_em', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching cs_status:', error);
-      return [];
-    }
-    return data || [];
-  } catch (err) {
-    console.error('Unexpected error fetching cs_status:', err);
-    return [];
-  }
-}
-
+/**
+ * Consulta as últimas rodadas de sincronização em public.painel_sync_rodadas.
+ */
 export async function getUltimasSyncRodadas() {
   try {
     const { data, error } = await supabaseAdmin
       .from('painel_sync_rodadas')
-      .select('*')
+      .select('fonte,status,iniciado_em,terminado_em,linhas,erro')
       .order('iniciado_em', { ascending: false })
-      .limit(10);
+      .limit(20);
 
-    if (error) {
-      return [];
-    }
+    if (error) return [];
     return data || [];
   } catch {
     return [];
   }
 }
-
