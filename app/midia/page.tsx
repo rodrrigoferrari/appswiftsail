@@ -117,28 +117,108 @@ function MidiaContent() {
   const formatBRL = (val: number | null | undefined) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val) || 0);
 
-  const openLeadsDrilldown = (title: string, type: 'form' | 'whatsapp', count: number, filterTerm?: string) => {
+  const openLeadsDrilldown = (
+    title: string,
+    type: 'form' | 'whatsapp',
+    count: number,
+    filterCriteria?: string | { criativo?: string; campanha?: string; conjunto?: string; filterTerm?: string }
+  ) => {
     let initialLeads: any[] | undefined = undefined;
     if (kommoData?.leads_amostra && kommoData.leads_amostra.length > 0) {
-      const term = (filterTerm || title).toLowerCase();
-      const filtered = kommoData.leads_amostra.filter((l: any) =>
-        (l.campanha && term.includes(l.campanha.toLowerCase())) ||
-        (l.criativo && term.includes(l.criativo.toLowerCase())) ||
-        (l.conjunto && term.includes(l.conjunto.toLowerCase()))
-      );
+      const normalize = (str?: string | null) =>
+        (str || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .trim();
+
+      const options =
+        typeof filterCriteria === 'string'
+          ? { filterTerm: filterCriteria }
+          : filterCriteria || {};
+
+      const term = normalize(options.filterTerm || title);
+      const optCamp = normalize(options.campanha);
+      const optCriat = normalize(options.criativo);
+      const optConj = normalize(options.conjunto);
+
+      let filtered = kommoData.leads_amostra.filter((l: any) => {
+        const lCamp = normalize(l.campanha);
+        const lCriat = normalize(l.criativo);
+        const lConj = normalize(l.conjunto);
+
+        // Se especificou criativo exato
+        if (optCriat && lCriat && (lCriat.includes(optCriat) || optCriat.includes(lCriat))) {
+          return true;
+        }
+        // Se especificou conjunto exato
+        if (optConj && lConj && (lConj.includes(optConj) || optConj.includes(lConj))) {
+          return true;
+        }
+        // Se especificou campanha exata
+        if (optCamp && lCamp && (lCamp.includes(optCamp) || optCamp.includes(lCamp))) {
+          return true;
+        }
+
+        // Busca flexível pelo termo geral
+        if (term) {
+          if (lCriat && (lCriat.includes(term) || term.includes(lCriat))) return true;
+          if (lCamp && (lCamp.includes(term) || term.includes(lCamp))) return true;
+          if (lConj && (lConj.includes(term) || term.includes(lConj))) return true;
+        }
+
+        return false;
+      });
+
+      // Se a filtragem específica não retornou (ex: variações de UTM do criativo), tenta fallback por campanha
+      if (filtered.length === 0 && optCamp) {
+        filtered = kommoData.leads_amostra.filter((l: any) => {
+          const lCamp = normalize(l.campanha);
+          return lCamp && (lCamp.includes(optCamp) || optCamp.includes(lCamp));
+        });
+      }
+
+      // Se ainda não encontrou e o termo geral falhou, usa a amostra do período do cliente
       const list = filtered.length > 0 ? filtered : kommoData.leads_amostra;
-      initialLeads = list.slice(0, 50).map((l: any, i: number) => ({
-        id: l.lead_id || `l-${i}`,
-        nome: l.nome,
-        telefone: '+55 41 98***-****',
-        email: 'contato@cliente.com.br',
-        data: new Date(l.criado_em).toLocaleDateString('pt-BR') + ' às ' + new Date(l.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        anuncio: l.criativo || l.campanha || title,
-        perguntas: `Origem: ${l.origem} • Etapa Comercial: ${l.etapa}`,
-        statusCrm: l.etapa,
-        statusColor: l.conta_como === 'ganho' ? 'emerald' : l.conta_como === 'perda' ? 'rose' : 'cyan',
-      }));
+
+      initialLeads = list.map((l: any, i: number) => {
+        const urlFinal =
+          l.url_lead ||
+          l.urlLead ||
+          (l.conta && l.lead_id
+            ? `https://${l.conta}.kommo.com/leads/detail/${l.lead_id}`
+            : l.lead_id
+            ? `https://kommo.com/leads/detail/${l.lead_id}`
+            : null);
+
+        return {
+          id: String(l.lead_id || `l-${i}`),
+          nome: l.nome || l.contato_principal_nome || 'Lead sem nome registrado',
+          telefone: l.telefone || '',
+          email: l.email || '',
+          data: l.criado_em
+            ? new Date(l.criado_em).toLocaleDateString('pt-BR') + ' às ' + new Date(l.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            : 'Data recente',
+          anuncio: l.criativo || l.campanha || title,
+          perguntas: `Origem: ${l.origem || 'Tráfego Pago'} • Etapa Comercial: ${l.etapa || 'Em atendimento'}`,
+          statusCrm: l.etapa || 'Em atendimento',
+          statusColor: (l.conta_como === 'ganho' || (l.etapa && l.etapa.toLowerCase().includes('ganh')))
+            ? 'emerald'
+            : (l.conta_como === 'perda' || (l.etapa && (l.etapa.toLowerCase().includes('perd') || l.etapa.toLowerCase().includes('desqual'))))
+            ? 'rose'
+            : 'cyan',
+          pipelineNome: l.pipeline_nome || l.pipelineNome,
+          etapaNome: l.etapa || l.etapaNome,
+          valor: Number(l.valor || 0),
+          origem: l.origem,
+          campanha: l.campanha,
+          urlLead: urlFinal,
+          diasEstagnados: l.dias_estagnados !== null && l.dias_estagnados !== undefined ? Number(l.dias_estagnados) : null,
+          responsavel: l.responsavel_nome || (l.responsavel_id ? `Responsável #${l.responsavel_id}` : null),
+        };
+      });
     }
+
     setLeadsDrilldown({
       isOpen: true,
       title,
@@ -736,7 +816,7 @@ function MidiaContent() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    openLeadsDrilldown(camp.nome, 'form', camp.leads, camp.nome);
+                                    openLeadsDrilldown(camp.nome, 'form', camp.leads, { campanha: camp.nome });
                                   }}
                                   className="text-[#0050FF] font-bold hover:underline cursor-pointer"
                                   title="Ver leads capturados no formulário"
@@ -748,7 +828,7 @@ function MidiaContent() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    openLeadsDrilldown(camp.nome, 'whatsapp', camp.conversas_iniciadas, camp.nome);
+                                    openLeadsDrilldown(camp.nome, 'whatsapp', camp.conversas_iniciadas, { campanha: camp.nome });
                                   }}
                                   className="text-emerald-600 font-bold hover:underline cursor-pointer"
                                   title="Ver conversas iniciadas no WhatsApp"
@@ -810,7 +890,23 @@ function MidiaContent() {
                                   <div className="flex items-center gap-3 text-xs font-mono">
                                     <span className="text-[#64748B]">Gasto: <b className="text-[#0F172A]">{adset.gasto !== null && adset.gasto !== undefined && adset.gasto > 0 ? formatBRL(adset.gasto) : 'CBO'}</b></span>
                                     <span className="text-[#64748B] border-l border-[#E2E8F0] pl-3">
-                                      Retorno: <b className="text-[#0050FF]">{adset.leads > 0 ? `${adset.leads} leads` : `${adset.conversas} conversas`}</b>
+                                      Retorno:{' '}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openLeadsDrilldown(
+                                            `${adset.nome} • ${camp.nome}`,
+                                            adset.leads > 0 ? 'form' : 'whatsapp',
+                                            adset.leads || adset.conversas || 0,
+                                            { conjunto: adset.nome, campanha: camp.nome }
+                                          );
+                                        }}
+                                        className="text-[#0050FF] font-bold hover:underline cursor-pointer"
+                                        title="Ver contatos deste conjunto sincronizados do Kommo"
+                                      >
+                                        {adset.leads > 0 ? `${adset.leads} leads` : `${adset.conversas} conversas`}
+                                      </button>
                                     </span>
                                     <span className="text-[#64748B] border-l border-[#E2E8F0] pl-3">
                                       CTR: <b className="text-[#0F172A]">{adset.ctr}</b>
@@ -885,9 +981,16 @@ function MidiaContent() {
                                           <div>
                                             <span className="text-[#64748B] text-[9px] block font-sans">Retorno</span>
                                             <button
-                                              onClick={() => openLeadsDrilldown(`${criat.nome} • ${camp.nome}`, criat.leads > 0 ? 'form' : 'whatsapp', criat.leads || criat.conversas || 0, criat.nome)}
+                                              onClick={() =>
+                                                openLeadsDrilldown(
+                                                  `${criat.nome} • ${camp.nome}`,
+                                                  criat.leads > 0 ? 'form' : 'whatsapp',
+                                                  criat.leads || criat.conversas || 0,
+                                                  { criativo: criat.nome, campanha: camp.nome, conjunto: adset.nome }
+                                                )
+                                              }
                                               className="text-[#0050FF] font-bold hover:underline cursor-pointer"
-                                              title="Ver contatos capturados"
+                                              title="Ver contatos capturados deste criativo no Kommo"
                                             >
                                               {criat.leads > 0 ? `${criat.leads} leads` : `${criat.conversas} conv.`}
                                             </button>
@@ -1073,7 +1176,7 @@ function MidiaContent() {
                                 <>
                                   <td className="py-3 px-4 font-mono font-bold text-emerald-400">
                                     <button
-                                      onClick={() => openLeadsDrilldown(c.nome, 'whatsapp', conversas, c.nome)}
+                                      onClick={() => openLeadsDrilldown(c.nome, 'whatsapp', conversas, { campanha: c.nome })}
                                       className="hover:underline hover:text-emerald-300 transition-colors flex items-center gap-1.5 cursor-pointer text-left font-bold font-mono"
                                       title="Clique para ver a lista de conversas no WhatsApp"
                                     >
@@ -1097,7 +1200,7 @@ function MidiaContent() {
                                 <>
                                   <td className="py-3 px-4 font-mono font-bold text-cyan-300">
                                     <button
-                                      onClick={() => openLeadsDrilldown(c.nome, 'form', leads, c.nome)}
+                                      onClick={() => openLeadsDrilldown(c.nome, 'form', leads, { campanha: c.nome })}
                                       className="hover:underline hover:text-cyan-200 transition-colors flex items-center gap-1.5 cursor-pointer text-left font-bold font-mono"
                                       title="Clique para ver os nomes completos capturados"
                                     >
@@ -1176,7 +1279,7 @@ function MidiaContent() {
                                   </td>
                                   <td className="py-3 px-4 font-mono font-bold text-cyan-300">
                                     <button
-                                      onClick={() => openLeadsDrilldown(c.nome, 'form', leads, c.nome)}
+                                      onClick={() => openLeadsDrilldown(c.nome, 'form', leads, { campanha: c.nome })}
                                       className="hover:underline hover:text-cyan-200 transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
                                       title="Clique para ver os nomes capturados no formulário"
                                     >
@@ -1186,7 +1289,7 @@ function MidiaContent() {
                                   </td>
                                   <td className="py-3 px-4 font-mono font-bold text-emerald-400">
                                     <button
-                                      onClick={() => openLeadsDrilldown(c.nome, 'whatsapp', conversas, c.nome)}
+                                      onClick={() => openLeadsDrilldown(c.nome, 'whatsapp', conversas, { campanha: c.nome })}
                                       className="hover:underline hover:text-emerald-300 transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
                                       title="Clique para ver as conversas no WhatsApp"
                                     >
@@ -1337,7 +1440,7 @@ function MidiaContent() {
                             <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{as.gasto !== null && as.gasto !== undefined && as.gasto > 0 ? formatBRL(as.gasto) : 'CBO'}</td>
                             <td className="py-3 px-4 font-mono font-bold text-[#0050FF]">
                               <button
-                                onClick={() => openLeadsDrilldown(`${as.nome} • ${as.campanhaNome}`, as.leads > 0 ? 'form' : 'whatsapp', as.leads || as.conversas || 0, as.nome)}
+                                onClick={() => openLeadsDrilldown(`${as.nome} • ${as.campanhaNome}`, as.leads > 0 ? 'form' : 'whatsapp', as.leads || as.conversas || 0, { conjunto: as.nome, campanha: as.campanhaNome })}
                                 className="hover:underline transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
                                 title="Clique para ver os nomes e contatos capturados neste público"
                               >
@@ -1506,7 +1609,7 @@ function MidiaContent() {
                         {/* RETORNO ADAPTATIVO POR OBJETIVO */}
                         <td className="py-3 px-4 font-mono font-bold text-[#0050FF]">
                           <button
-                            onClick={() => openLeadsDrilldown(`${ad.nome} • ${ad.adset}`, ad.leads > 0 ? 'form' : 'whatsapp', ad.leads || ad.conversas || 0, ad.nome)}
+                            onClick={() => openLeadsDrilldown(`${ad.nome} • ${ad.adset}`, ad.leads > 0 ? 'form' : 'whatsapp', ad.leads || ad.conversas || 0, { criativo: ad.nome, conjunto: ad.adset })}
                             className="hover:underline transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
                             title="Clique para ver os nomes e contatos capturados neste criativo"
                           >

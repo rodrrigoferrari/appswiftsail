@@ -221,6 +221,13 @@ export default function LeadsDrilldownModal({
                 <tbody className="divide-y divide-[#E2E8F0]">
                   {filteredLeads.map((lead, idx) => {
                     const cleanPhone = (lead.telefone || '').replace(/\D/g, '');
+                    const leadUrl =
+                      lead.urlLead && lead.urlLead.trim().length > 0
+                        ? lead.urlLead
+                        : lead.id && !lead.id.startsWith('lead-') && !lead.id.startsWith('l-') && /^\d+$/.test(lead.id)
+                        ? `https://kommo.com/leads/detail/${lead.id}`
+                        : null;
+
                     return (
                       <tr key={lead.id || idx} className="hover:bg-[#F8FAFC] transition-colors">
                         {/* Nome & Detalhes */}
@@ -230,11 +237,11 @@ export default function LeadsDrilldownModal({
                               {lead.nome ? lead.nome.charAt(0).toUpperCase() : 'L'}
                             </div>
                             <div>
-                              {lead.urlLead ? (
+                              {leadUrl ? (
                                 <a
-                                  href={lead.urlLead}
+                                  href={leadUrl}
                                   target="_blank"
-                                  rel="noreferrer"
+                                  rel="noopener noreferrer"
                                   className="text-[#0F172A] hover:text-[#0050FF] font-bold block hover:underline transition-colors cursor-pointer"
                                   title="Abrir detalhes deste lead no Kommo CRM"
                                 >
@@ -255,7 +262,7 @@ export default function LeadsDrilldownModal({
                                   </span>
                                 )}
                               </div>
-                              {lead.telefone && (
+                              {cleanPhone.length >= 8 && (
                                 <span className="text-[11px] text-[#64748B] font-mono flex items-center gap-1 mt-0.5">
                                   <Phone className="w-3 h-3 text-emerald-600" />
                                   {lead.telefone}
@@ -334,11 +341,11 @@ export default function LeadsDrilldownModal({
                         {/* Ação Direta (Link Kommo) */}
                         <td className="py-3 px-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
-                            {lead.urlLead ? (
+                            {leadUrl ? (
                               <a
-                                href={lead.urlLead}
+                                href={leadUrl}
                                 target="_blank"
-                                rel="noreferrer"
+                                rel="noopener noreferrer"
                                 className="px-2.5 py-1.5 rounded-lg bg-[#EFF4FF] hover:bg-[#0050FF] text-[#0050FF] hover:text-white font-bold text-[11px] flex items-center gap-1.5 border border-[#BFDBFE] shadow-2xs transition-all cursor-pointer"
                                 title="Abrir lead diretamente no Kommo CRM"
                               >
@@ -355,7 +362,7 @@ export default function LeadsDrilldownModal({
                                   lead.nome.split(' ')[0]
                                 )}%2C%20tudo%20bem?`}
                                 target="_blank"
-                                rel="noreferrer"
+                                rel="noopener noreferrer"
                                 className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] flex items-center justify-center shadow-xs transition-all cursor-pointer"
                                 title="Iniciar conversa no WhatsApp"
                               >
