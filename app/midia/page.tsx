@@ -426,26 +426,33 @@ function MidiaContent() {
   const [negativados, setNegativados] = useState<Record<string, boolean>>({});
 
   const searchTermsSource = useMemo(() => {
-    if (kommoData?.por_termo && kommoData.por_termo.length > 0) {
-      return kommoData.por_termo.map((t: any, idx: number) => {
-        const conversoes = Number(t.total || 0);
-        return {
-          id: `t-real-${idx}`,
-          termo: t.termo,
-          kw: `"${t.termo}"`,
-          match: t.termo.includes(' ') ? 'Frase' : 'Exata',
-          impressoes: '—',
-          cliques: '—',
-          ctr: '—',
-          cpc: '—',
-          custo: 0,
-          conversoes: conversoes,
-          status: conversoes > 2 ? 'Adicionada' : 'Oportunidade',
-        };
-      });
+    if (googleData?.termos_busca && googleData.termos_busca.length > 0) {
+      return googleData.termos_busca.map((t: any) => ({
+        id: t.id,
+        termo: t.termo,
+        campanha: t.campanha,
+        kw: t.palavra_chave || '—',
+        match:
+          t.correspondencia === 'EXACT'
+            ? 'Exata'
+            : t.correspondencia === 'PHRASE'
+            ? 'Frase'
+            : t.correspondencia === 'BROAD'
+            ? 'Ampla'
+            : t.correspondencia || '—',
+        status_termo: t.status_termo,
+        sugestao: t.sugestao,
+        impressoes: Number(t.impressoes || 0),
+        cliques: Number(t.cliques || 0),
+        ctr: t.ctr > 0 ? `${t.ctr}%` : '—',
+        cpc: t.cpc > 0 ? formatBRL(t.cpc) : '—',
+        custo: Number(t.gasto || 0),
+        conversoes: Number(t.conversoes || 0),
+        custoPorConversao: t.custo_por_conversao > 0 ? formatBRL(t.custo_por_conversao) : '—',
+      }));
     }
     return [];
-  }, [kommoData?.por_termo]);
+  }, [googleData?.termos_busca]);
 
   const filteredSearchTerms = searchTermsSource.filter((t: any) =>
     t.termo.toLowerCase().includes(searchTermFilter.toLowerCase())
@@ -1657,21 +1664,18 @@ function MidiaContent() {
           {/* Subtab 2: Relatório de Termos de Busca Reais (Search Terms Report) */}
           {googleSubTab === 'search_terms' && (
             <div className="space-y-4">
-              {/* KPI Cards dos Termos de Busca */}
+              {/* KPI Cards dos Termos de Busca Reais */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs space-y-1">
-                  <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Termos Analisados</span>
+                  <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Termos no Período</span>
                   <p className="text-2xl font-black text-[#0F172A]">{filteredSearchTerms.length}</p>
-                  <p className="text-[10px] text-emerald-600 font-semibold">↑ 100% termos auditados</p>
+                  <p className="text-[10px] text-emerald-600 font-semibold">↑ {searchTermsSource.length} termos auditados no leilão</p>
                 </div>
 
                 <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs space-y-1">
                   <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Custo em Pesquisa</span>
                   <p className="text-2xl font-black text-[#0F172A]">
-                    {formatBRL(
-                      searchTermsSource.reduce((acc: number, t: any) => acc + (t.custo || 0), 0) ||
-                      Number(googleData?.totais?.gasto || 0)
-                    )}
+                    {formatBRL(searchTermsSource.reduce((acc: number, t: any) => acc + (t.custo || 0), 0))}
                   </p>
                   <p className="text-[10px] text-[#64748B]">
                     CPC Médio: {formatBRL(Number(googleData?.totais?.cpc || 0))}
@@ -1679,24 +1683,21 @@ function MidiaContent() {
                 </div>
 
                 <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs space-y-1">
-                  <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Conversões / Leads</span>
+                  <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Conversões Diretas</span>
                   <p className="text-2xl font-black text-emerald-600">
-                    {(
-                      searchTermsSource.reduce((acc: number, t: any) => acc + (t.conversoes || 0), 0) ||
-                      Number(googleData?.totais?.conversoes || 0)
-                    ).toLocaleString('pt-BR')} leads
+                    {searchTermsSource.reduce((acc: number, t: any) => acc + (t.conversoes || 0), 0).toLocaleString('pt-BR')}
                   </p>
                   <p className="text-[10px] text-[#64748B]">
-                    Taxa Conv: {googleData?.totais?.ctr ? `${googleData.totais.ctr}%` : '—'}
+                    Taxa Conv. Média: {googleData?.totais?.ctr ? `${googleData.totais.ctr}%` : '—'}
                   </p>
                 </div>
 
                 <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs space-y-1">
-                  <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Termos Negativados</span>
+                  <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Possível Negativar</span>
                   <p className="text-2xl font-black text-rose-600">
-                    {Object.values(negativados).filter(Boolean).length}
+                    {searchTermsSource.filter((t: any) => t.sugestao === 'possivel_negativar').length}
                   </p>
-                  <p className="text-[10px] text-rose-600 font-medium">Economia estimada em cliques irrelevantes</p>
+                  <p className="text-[10px] text-rose-600 font-medium">Com gasto no período e 0 conversões</p>
                 </div>
               </div>
 
@@ -1704,9 +1705,16 @@ function MidiaContent() {
               <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
                 <div className="p-4 border-b border-[#E2E8F0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-bold text-[#0F172A]">Relatório de Termos de Busca Reais (Search Terms)</h3>
-                    <p className="text-xs text-[#64748B]">
-                      O que os usuários realmente digitaram no Google antes de clicar no anúncio
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm font-bold text-[#0F172A]">Relatório de Termos de Busca Reais (Search Terms)</h3>
+                      {googleData?.atualizado_em && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1]">
+                          Atualizado: {new Date(googleData.atualizado_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-[#64748B] mt-0.5">
+                      Termos reais digitados no Google que acionaram anúncios de pesquisa no período selecionado (sem dados fictícios).
                     </p>
                   </div>
 
@@ -1726,22 +1734,24 @@ function MidiaContent() {
 
                 {filteredSearchTerms.length === 0 ? (
                   <div className="p-12 text-center text-[#64748B] text-xs">
-                    Nenhum termo de busca registrado para este cliente no período selecionado.
+                    Nenhum termo de busca com veiculação registrada para este cliente no período selecionado.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left">
                       <thead>
                         <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
-                          <th className="py-3 px-4">Termo Real Digitado pelo Usuário</th>
+                          <th className="py-3 px-4">Termo Real Digitado</th>
+                          <th className="py-3 px-4">Campanha</th>
                           <th className="py-3 px-4">Palavra-Chave Acionada</th>
                           <th className="py-3 px-4">Match</th>
                           <th className="py-3 px-4">Impressões</th>
                           <th className="py-3 px-4">Cliques</th>
                           <th className="py-3 px-4">CTR</th>
                           <th className="py-3 px-4">CPC</th>
-                          <th className="py-3 px-4">Custo Total</th>
+                          <th className="py-3 px-4">Gasto Total</th>
                           <th className="py-3 px-4">Conversões</th>
+                          <th className="py-3 px-4">Diagnóstico</th>
                           <th className="py-3 px-4">Ação</th>
                         </tr>
                       </thead>
@@ -1750,11 +1760,23 @@ function MidiaContent() {
                           const isNeg = negativados[t.id];
                           return (
                             <tr key={t.id} className={`hover:bg-[#F8FAFC] transition-colors ${isNeg ? 'bg-rose-50/50' : ''}`}>
+                              {/* TERMO REAL DIGITADO */}
                               <td className="py-3 px-4 font-semibold text-[#0F172A]">
                                 "{t.termo}"
                                 {isNeg && <span className="ml-2 text-[10px] text-rose-600 font-bold">(Negativado)</span>}
                               </td>
+
+                              {/* CAMPANHA */}
+                              <td className="py-3 px-4">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] inline-block max-w-[140px] truncate" title={t.campanha}>
+                                  {t.campanha}
+                                </span>
+                              </td>
+
+                              {/* PALAVRA-CHAVE */}
                               <td className="py-3 px-4 font-mono text-[#475569]">{t.kw}</td>
+
+                              {/* CORRESPONDENCIA */}
                               <td className="py-3 px-4">
                                 <span
                                   className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
@@ -1768,12 +1790,44 @@ function MidiaContent() {
                                   {t.match}
                                 </span>
                               </td>
+
+                              {/* MÉTRICAS */}
                               <td className="py-3 px-4 font-mono text-[#475569]">{t.impressoes}</td>
                               <td className="py-3 px-4 font-mono text-[#475569]">{t.cliques}</td>
                               <td className="py-3 px-4 font-mono text-[#475569]">{t.ctr}</td>
                               <td className="py-3 px-4 font-mono text-[#475569]">{t.cpc}</td>
                               <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{formatBRL(t.custo)}</td>
                               <td className="py-3 px-4 font-mono font-bold text-emerald-600">{t.conversoes}</td>
+
+                              {/* DIAGNÓSTICO / SUGESTÃO INTELIGENTE */}
+                              <td className="py-3 px-4">
+                                {t.sugestao === 'possivel_negativar' ? (
+                                  <span
+                                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap"
+                                    title="Termo com gasto e zero conversões no período (sugestão visual)"
+                                  >
+                                    ⚠️ Possível Negativar
+                                  </span>
+                                ) : t.sugestao === 'possivel_nova_kw' ? (
+                                  <span
+                                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap"
+                                    title="Termo com conversão e ainda não adicionado como palavra-chave (sugestão visual)"
+                                  >
+                                    ⭐ Nova Palavra
+                                  </span>
+                                ) : t.sugestao === 'adicionada' ? (
+                                  <span
+                                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] whitespace-nowrap"
+                                    title="Termo já cadastrado como palavra-chave na conta"
+                                  >
+                                    ✓ Na Conta
+                                  </span>
+                                ) : (
+                                  <span className="text-[#94A3B8] font-mono text-[11px]">—</span>
+                                )}
+                              </td>
+
+                              {/* AÇÃO: MARCAR NEGATIVADO LOCAL */}
                               <td className="py-3 px-4">
                                 <button
                                   onClick={() => handleNegativeTerm(t.id)}

@@ -109,6 +109,96 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       })
       .sort((a, b) => b.gasto - a.gasto);
 
+    // 3. View painel_google_termos_busca_dia: termos de busca reais acionados nas campanhas de Search
+    let termosRows: any[] = [];
+    try {
+      termosRows = await fetchAll<any>((a, b) =>
+        supabaseAdmin
+          .from('painel_google_termos_busca_dia')
+          .select('cliente_id,customer_id,campaign_id,campanha,ad_group_id,grupo,data,termo,palavra_chave,correspondencia,status_termo,impressoes,cliques,gasto,conversoes')
+          .in('cliente_id', ids)
+          .gte('data', from)
+          .lte('data', to)
+          .range(a, b)
+      );
+    } catch {
+      // Graceful fallback se a view não estiver disponível
+    }
+
+    // Agrupa termos de busca pelo período respeitando o seletor de data
+    const porTermoMap = new Map<string, any>();
+    for (const r of termosRows) {
+      const termoNorm = (r.termo || '').trim().toLowerCase();
+      if (!termoNorm) continue;
+      const chave = `${r.cliente_id}::${r.campaign_id}::${termoNorm}`;
+      const existing = porTermoMap.get(chave) || {
+        id: `tb-${r.campaign_id}-${r.ad_group_id || 'default'}-${termoNorm}`,
+        termo: r.termo,
+        campanha: r.campanha || `Campanha ${r.campaign_id}`,
+        campaign_id: r.campaign_id,
+        grupo: r.grupo || null,
+        ad_group_id: r.ad_group_id,
+        palavra_chave: r.palavra_chave || '—',
+        correspondencia: r.correspondencia || '—',
+        status_termo: r.status_termo || 'NONE',
+        impressoes: 0,
+        cliques: 0,
+        gasto: 0,
+        conversoes: 0,
+      };
+      existing.impressoes += Number(r.impressoes) || 0;
+      existing.cliques += Number(r.cliques) || 0;
+      existing.gasto += Number(r.gasto) || 0;
+      existing.conversoes += Number(r.conversoes) || 0;
+      // Se já virou ADDED em algum registro, preserva status ADDED
+      if (r.status_termo === 'ADDED') existing.status_termo = 'ADDED';
+      porTermoMap.set(chave, existing);
+    }
+
+    // Só exibe termos que tiveram veiculação real no período (mesma lógica do Meta: sem histórico morto)
+    const termosBusca = Array.from(porTermoMap.values())
+      .filter((t) => t.impressoes > 0 || t.cliques > 0 || t.gasto > 0 || t.conversoes > 0)
+      .map((t) => {
+        const ctr = t.impressoes > 0 ? Number(((t.cliques / t.impressoes) * 100).toFixed(2)) : 0;
+        const cpc = t.cliques > 0 ? Number((t.gasto / t.cliques).toFixed(2)) : 0;
+        const custoPorConversao = t.conversoes > 0 ? Number((t.gasto / t.conversoes).toFixed(2)) : 0;
+
+        let sugestao: 'possivel_nova_kw' | 'possivel_negativar' | 'adicionada' | 'neutro' = 'neutro';
+        if (t.status_termo === 'ADDED') {
+          sugestao = 'adicionada';
+        } else if (t.conversoes > 0) {
+          sugestao = 'possivel_nova_kw';
+        } else if (t.gasto > 0 && t.conversoes === 0) {
+          sugestao = 'possivel_negativar';
+        }
+
+        return {
+          ...t,
+          gasto: Number(t.gasto.toFixed(2)),
+          ctr,
+          cpc,
+          custo_por_conversao: custoPorConversao,
+          sugestao,
+        };
+      })
+      .sort((a, b) => b.gasto - a.gasto || b.cliques - a.cliques || b.impressoes - a.impressoes);
+
+    // 4. Última atualização da fonte Google em painel_sync_rodadas
+    let atualizadoEm: string | null = null;
+    try {
+      const { data: syncRow } = await supabaseAdmin
+        .from('painel_sync_rodadas')
+        .select('terminado_em, iniciado_em')
+        .eq('fonte', 'google')
+        .eq('status', 'ok')
+        .order('iniciado_em', { ascending: false })
+        .limit(1)
+        .single();
+      atualizadoEm = syncRow?.terminado_em || syncRow?.iniciado_em || null;
+    } catch {
+      // Graceful fallback
+    }
+
     const t = campanhas.reduce(
       (acc, c) => ({
         gasto: acc.gasto + c.gasto,
@@ -124,6 +214,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       success: true,
       cliente_id,
       periodo: { from, to },
+      atualizado_em: atualizadoEm,
       totais: {
         ...t,
         ctr: t.impressoes > 0 ? Number(((t.cliques / t.impressoes) * 100).toFixed(2)) : 0,
@@ -131,6 +222,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
         custo_por_conversao: t.conversoes > 0 ? Number((t.gasto / t.conversoes).toFixed(2)) : 0,
       },
       campanhas,
+      termos_busca: termosBusca,
     });
   } catch (err: unknown) {
     return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Erro interno' }, { status: 500 });
