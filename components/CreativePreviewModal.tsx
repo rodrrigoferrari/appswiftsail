@@ -144,7 +144,7 @@ export default function CreativePreviewModal({
     creative.thumbUrl ||
     creative.thumbnail_storage_path ||
     (directMetaUrl ? `/api/meta/thumbnail?url=${encodeURIComponent(directMetaUrl)}` : null) ||
-    'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=80';
+    '/api/meta/thumbnail?url=default';
 
   // Normalização do formato
   const formatoNorm =

@@ -86,41 +86,68 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       porCampanha.set(key, c);
     }
 
-    // 3. Carrega anúncios e criativos reais de painel_meta_anuncios_criativos
+    // 3. Só considera campanhas que efetivamente rodaram no período (gasto, impressões, cliques ou leads/conversas > 0)
+    const activeCampanhasList = Array.from(porCampanha.values()).filter(
+      (c) =>
+        Number(c.gasto || 0) > 0 ||
+        Number(c.impressoes || 0) > 0 ||
+        Number(c.cliques || 0) > 0 ||
+        Number(c.leads || 0) > 0 ||
+        Number(c.conversas_iniciadas || 0) > 0
+    );
+
+    const activeCampIds = new Set(activeCampanhasList.map((c) => c.campaign_id));
+
+    // 4. Carrega anúncios e criativos reais de painel_meta_anuncios_criativos
+    // Filtrando estritamente para não trazer histórico inativo que não rodou no período
     const anunciosPorCampanha = new Map<string, any[]>();
-    try {
-      const criativosRows = await fetchAll<any>((a, b) =>
-        supabaseAdmin
-          .from('painel_meta_anuncios_criativos')
-          .select('cliente_id,campaign_id,campanha,adset_id,conjunto,ad_id,anuncio,status,effective_status,creative_id,criativo_nome,criativo_titulo,criativo_tipo,preview_link,link_permanente,instagram_permalink_url,link_destino,thumbnail_storage_path')
-          .in('cliente_id', ids)
-          .range(a, b)
-      );
-      for (const row of criativosRows) {
-        if (!row.campaign_id) continue;
-        const list = anunciosPorCampanha.get(row.campaign_id) || [];
-        list.push(row);
-        anunciosPorCampanha.set(row.campaign_id, list);
+    if (activeCampIds.size > 0) {
+      try {
+        const criativosRows = await fetchAll<any>((a, b) =>
+          supabaseAdmin
+            .from('painel_meta_anuncios_criativos')
+            .select('cliente_id,campaign_id,campanha,adset_id,conjunto,ad_id,anuncio,status,effective_status,creative_id,criativo_nome,criativo_titulo,criativo_tipo,preview_link,link_permanente,instagram_permalink_url,link_destino,thumbnail_storage_path,created_time,updated_time')
+            .in('cliente_id', ids)
+            .range(a, b)
+        );
+
+        // Agrupa todos os anúncios pertencentes às campanhas que rodaram no período
+        const rawAdsPorCamp = new Map<string, any[]>();
+        for (const row of criativosRows) {
+          if (!row.campaign_id || !activeCampIds.has(row.campaign_id)) continue;
+          const list = rawAdsPorCamp.get(row.campaign_id) || [];
+          list.push(row);
+          rawAdsPorCamp.set(row.campaign_id, list);
+        }
+
+        // Filtra por veiculação real no período:
+        // Apenas anúncios que estão efetivamente ATIVOS no leilão (effective_status === 'ACTIVE')
+        // ou cuja campanha foi pausada recentemente mas o anúncio estava ativo (status === 'ACTIVE' && effective_status === 'CAMPAIGN_PAUSED').
+        // Anúncios com ADSET_PAUSED, PAUSED ou ARCHIVED nunca veiculam e são ignorados para não poluir com histórico inativo.
+        for (const [campId, ads] of rawAdsPorCamp.entries()) {
+          const adsComVeiculacao = ads.filter((a) => {
+            if (a.effective_status === 'ACTIVE') return true;
+            if (a.effective_status === 'CAMPAIGN_PAUSED' && a.status === 'ACTIVE') return true;
+            return false;
+          });
+
+          // Apenas registra anúncios que realmente tiveram veiculação no leilão, sem fallback para anúncios pausados
+          if (adsComVeiculacao.length > 0) {
+            anunciosPorCampanha.set(campId, adsComVeiculacao);
+          }
+        }
+      } catch {
+        // Graceful fallback se a view não estiver disponível
       }
-    } catch {
-      // Graceful fallback se a view não estiver disponível
     }
 
-    // Só retorna campanhas que efetivamente rodaram no período (gasto, impressões, cliques ou leads/conversas > 0)
-    const campanhas = Array.from(porCampanha.values())
-      .filter(
-        (c) =>
-          Number(c.gasto || 0) > 0 ||
-          Number(c.impressoes || 0) > 0 ||
-          Number(c.cliques || 0) > 0 ||
-          Number(c.leads || 0) > 0 ||
-          Number(c.conversas_iniciadas || 0) > 0
-      )
+    const campanhas = activeCampanhasList
       .map((c) => {
         const metaStatus = statusMap.get(`${c.cliente_id}:${c.campaign_id}`) || statusMap.get(c.campaign_id);
         const adsList = anunciosPorCampanha.get(c.campaign_id) || [];
+        const campNome = c.nome || metaStatus?.campanha || adsList[0]?.campanha || `Campanha ${c.campaign_id}`;
 
-        // Agrupamento de anúncios por conjunto real
+        // Agrupamento de anúncios por conjunto real que teve veiculação
         const adsetsMap = new Map<string, any>();
         for (const ad of adsList) {
           const asId = ad.adset_id || `as-${c.campaign_id}-default`;
@@ -130,7 +157,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
               id: asId,
               nome: asName,
               campanhaId: c.campaign_id,
-              campanhaNome: c.nome,
+              campanhaNome: campNome,
               status: ad.effective_status || ad.status || 'ACTIVE',
               criativos: [],
             });
@@ -139,7 +166,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
           asItem.criativos.push({
             id: ad.ad_id,
             campaignId: c.campaign_id,
-            campanha: c.nome,
+            campanha: campNome,
             adsetId: asId,
             adset: asName,
             nome: ad.anuncio || `Anúncio ${ad.ad_id}`,
@@ -159,33 +186,62 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
 
         const adsets = Array.from(adsetsMap.values());
 
-        // Se houver adsets reais, distribui proporcionalmente os KPIs para exibição rica
-        const totalAdsCount = adsList.length;
-        if (adsets.length > 0 && totalAdsCount > 0) {
+        // Regra de Integridade: Não inventar números dividindo proporcionalmente.
+        // Se a campanha possui apenas 1 conjunto, todo o KPI pertence a ele.
+        // Se possui múltiplos conjuntos (CBO), o gasto é gerenciado a nível de campanha (CBO).
+        if (adsets.length === 1) {
+          const onlyAdset = adsets[0];
+          onlyAdset.gasto = c.gasto;
+          onlyAdset.leads = c.leads;
+          onlyAdset.conversas = c.conversas_iniciadas;
+          onlyAdset.cliques = c.cliques;
+          onlyAdset.impressoes = c.impressoes;
+          onlyAdset.ctr = c.impressoes > 0 ? Number(((c.cliques / c.impressoes) * 100).toFixed(2)) : 0;
+
+          if (onlyAdset.criativos.length === 1) {
+            const onlyCreative = onlyAdset.criativos[0];
+            onlyCreative.gasto = c.gasto;
+            onlyCreative.leads = c.leads;
+            onlyCreative.conversas = c.conversas_iniciadas;
+            onlyCreative.cliques = c.cliques;
+            onlyCreative.impressoes = c.impressoes;
+            onlyCreative.ctr = onlyAdset.ctr;
+            onlyCreative.cpl = c.leads > 0 ? Number((c.gasto / c.leads).toFixed(2)) : 0;
+          } else {
+            onlyAdset.criativos.forEach((cr: any) => {
+              cr.gasto = null;
+              cr.leads = null;
+              cr.conversas = null;
+              cr.cliques = null;
+              cr.impressoes = null;
+              cr.ctr = null;
+              cr.cpl = null;
+            });
+          }
+        } else {
           adsets.forEach((as) => {
-            const asWeight = as.criativos.length / totalAdsCount;
-            as.gasto = Number((c.gasto * asWeight).toFixed(2));
-            as.leads = Math.round(c.leads * asWeight);
-            as.conversas = Math.round(c.conversas_iniciadas * asWeight);
-            as.cliques = Math.round(c.cliques * asWeight);
-            as.impressoes = Math.round(c.impressoes * asWeight);
-            as.ctr = as.impressoes > 0 ? Number(((as.cliques / as.impressoes) * 100).toFixed(2)) : c.ctr;
+            as.gasto = null;
+            as.leads = null;
+            as.conversas = null;
+            as.cliques = null;
+            as.impressoes = null;
+            as.ctr = null;
 
             as.criativos.forEach((cr: any) => {
-              const crWeight = 1 / Math.max(1, as.criativos.length);
-              cr.gasto = Number((as.gasto * crWeight).toFixed(2));
-              cr.leads = Math.round(as.leads * crWeight);
-              cr.conversas = Math.round(as.conversas * crWeight);
-              cr.cliques = Math.round(as.cliques * crWeight);
-              cr.impressoes = Math.round(as.impressoes * crWeight);
-              cr.ctr = as.ctr;
-              cr.cpl = cr.leads > 0 ? Number((cr.gasto / cr.leads).toFixed(2)) : 0;
+              cr.gasto = null;
+              cr.leads = null;
+              cr.conversas = null;
+              cr.cliques = null;
+              cr.impressoes = null;
+              cr.ctr = null;
+              cr.cpl = null;
             });
           });
         }
 
         return {
           ...c,
+          nome: campNome,
           status: metaStatus?.status || null,
           effective_status: metaStatus?.effective_status || null,
           orcamento_diario: metaStatus?.orcamento_diario ?? null,

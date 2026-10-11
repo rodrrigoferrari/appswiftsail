@@ -114,8 +114,8 @@ function MidiaContent() {
   const metaCampanhas = metaData?.campanhas || [];
   const googleCampanhas = googleData?.campanhas || [];
 
-  const formatBRL = (val: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+  const formatBRL = (val: number | null | undefined) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val) || 0);
 
   const openLeadsDrilldown = (title: string, type: 'form' | 'whatsapp', count: number, filterTerm?: string) => {
     let initialLeads: any[] | undefined = undefined;
@@ -320,48 +320,40 @@ function MidiaContent() {
       const campGasto = Number(c.gasto || 0);
       const campLeads = Number(c.leads || 0);
       const campConversas = Number(c.conversas_iniciadas || 0);
-      const campCliques = Number(c.cliques || 1);
-      const campImpressões = Number(c.impressoes || 100);
+      const campCliques = Number(c.cliques || 0);
+      const campImpressões = Number(c.impressoes || 0);
       const campNome = c.nome || `Campanha ${cIdx + 1}`;
       const campId = String(c.campaign_id);
       const status = c.effective_status || c.status || 'ACTIVE';
       const orcDiario = c.orcamento_diario ? Number(c.orcamento_diario) : null;
       const brand = clientName || 'Swiftsail Mídia';
 
-      const imgPresets = [
-        'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=600&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&auto=format&fit=crop&q=80',
-      ];
-
       // Se a campanha possui conjuntos e anúncios reais carregados do Supabase, utiliza-os diretamente
       if (c.adsets && c.adsets.length > 0) {
         return {
           ...c,
-          adsets: c.adsets.map((as: any, asIdx: number) => ({
+          adsets: c.adsets.map((as: any) => ({
             id: as.id,
             nome: as.nome,
             campanhaId: campId,
             campanhaNome: campNome,
             segmentacao: as.segmentacao || as.nome,
-            orcamento: as.orcamento || (orcDiario ? formatBRL(orcDiario / Math.max(1, c.adsets.length)) + '/dia' : 'CBO'),
-            gasto: as.gasto || 0,
-            leads: as.leads || 0,
-            conversas: as.conversas || 0,
-            cliques: as.cliques || 0,
-            impressoes: as.impressoes || 0,
-            ctr: as.ctr ? `${as.ctr}%` : (as.impressoes > 0 ? ((as.cliques / as.impressoes) * 100).toFixed(2) + '%' : '0.00%'),
+            orcamento: as.orcamento || (orcDiario ? formatBRL(orcDiario) + '/dia (CBO)' : 'CBO'),
+            gasto: as.gasto,
+            leads: as.leads,
+            conversas: as.conversas,
+            cliques: as.cliques,
+            impressoes: as.impressoes,
+            ctr: as.ctr !== null && as.ctr !== undefined ? `${as.ctr}%` : null,
             status: as.status || status,
             objetivo: getCampaignObjective(c),
-            criativos: (as.criativos || []).map((cr: any, crIdx: number) => {
+            criativos: (as.criativos || []).map((cr: any) => {
               const targetLink = cr.instagram_permalink_url || cr.link_permanente || cr.preview_link;
               const realThumb = cr.thumbnail_storage_path
                 ? cr.thumbnail_storage_path
                 : targetLink
                 ? `/api/meta/thumbnail?url=${encodeURIComponent(targetLink)}`
-                : imgPresets[(cIdx + asIdx + crIdx) % imgPresets.length];
+                : `/api/meta/thumbnail?url=default`;
               const fNorm = cr.criativo_tipo === 'VIDEO' ? ('reels' as const) : cr.criativo_tipo === 'SHARE' ? ('carousel' as const) : ('image' as const);
               return {
                 id: cr.id,
@@ -373,11 +365,11 @@ function MidiaContent() {
                 thumbUrl: realThumb,
                 adset: as.nome,
                 campanha: campNome,
-                gasto: cr.gasto || 0,
-                leads: cr.leads || 0,
-                conversas: cr.conversas || 0,
-                ctr: cr.ctr ? `${cr.ctr}%` : (cr.impressoes > 0 ? ((cr.cliques / cr.impressoes) * 100).toFixed(2) + '%' : '0.00%'),
-                cpl: cr.cpl || 0,
+                gasto: cr.gasto,
+                leads: cr.leads,
+                conversas: cr.conversas,
+                ctr: cr.ctr !== null && cr.ctr !== undefined ? `${cr.ctr}%` : null,
+                cpl: cr.cpl,
                 status: cr.status || status,
                 headline: cr.criativo_titulo || cr.nome,
                 copy: cr.criativo_nome || '',
@@ -432,37 +424,27 @@ function MidiaContent() {
 
   // Termos de busca do Google Ads com estado de negativado interativo
   const [negativados, setNegativados] = useState<Record<string, boolean>>({});
-  const initialSearchTerms = [
-    { id: 't-1', termo: 'apartamento alto padrao curitiba batel', kw: '[apartamento batel curitiba]', match: 'Exata', impressoes: 1420, cliques: 142, ctr: '10.0%', cpc: 'R$ 3,90', custo: 553.8, conversoes: 18, status: 'Adicionada' },
-    { id: 't-2', termo: 'quanto custa um apartamento na planta gonzaga', kw: '"apartamento planta gonzaga"', match: 'Frase', impressoes: 980, cliques: 86, ctr: '8.77%', cpc: 'R$ 3,45', custo: 296.7, conversoes: 11, status: 'Novo Termo' },
-    { id: 't-3', termo: 'imoveis gonzaga sca 181 curitiba', kw: '[gonzaga sca 181]', match: 'Exata', impressoes: 1850, cliques: 194, ctr: '10.48%', cpc: 'R$ 4,10', custo: 795.4, conversoes: 24, status: 'Oportunidade' },
-    { id: 't-4', termo: 'apartamento aluguel barato centro', kw: 'apartamento centro', match: 'Ampla', impressoes: 740, cliques: 62, ctr: '8.38%', cpc: 'R$ 2,20', custo: 136.4, conversoes: 0, status: 'Irrelevante' },
-    { id: 't-5', termo: 'lancamento construtora pessoa amst', kw: '"construtora pessoa"', match: 'Frase', impressoes: 520, cliques: 48, ctr: '9.23%', cpc: 'R$ 3,60', custo: 172.8, conversoes: 7, status: 'Adicionada' },
-    { id: 't-6', termo: 'tabela de precos terrenos loteamento fechado', kw: 'terrenos loteamento', match: 'Ampla', impressoes: 610, cliques: 55, ctr: '9.02%', cpc: 'R$ 3,10', custo: 170.5, conversoes: 4, status: 'Oportunidade' },
-  ];
 
   const searchTermsSource = useMemo(() => {
     if (kommoData?.por_termo && kommoData.por_termo.length > 0) {
       return kommoData.por_termo.map((t: any, idx: number) => {
-        const cliques = Math.max(1, Math.round(Number(t.total || 1) * 7.5));
-        const conversoes = Number(t.total || 1);
-        const custo = Number((cliques * 3.45).toFixed(2));
+        const conversoes = Number(t.total || 0);
         return {
           id: `t-real-${idx}`,
           termo: t.termo,
           kw: `"${t.termo}"`,
           match: t.termo.includes(' ') ? 'Frase' : 'Exata',
-          impressoes: cliques * 10,
-          cliques: cliques,
-          ctr: '10.0%',
-          cpc: 'R$ 3,45',
-          custo: custo,
+          impressoes: '—',
+          cliques: '—',
+          ctr: '—',
+          cpc: '—',
+          custo: 0,
           conversoes: conversoes,
           status: conversoes > 2 ? 'Adicionada' : 'Oportunidade',
         };
       });
     }
-    return initialSearchTerms;
+    return [];
   }, [kommoData?.por_termo]);
 
   const filteredSearchTerms = searchTermsSource.filter((t: any) =>
@@ -819,7 +801,7 @@ function MidiaContent() {
                                   </div>
 
                                   <div className="flex items-center gap-3 text-xs font-mono">
-                                    <span className="text-[#64748B]">Gasto: <b className="text-[#0F172A]">{formatBRL(adset.gasto)}</b></span>
+                                    <span className="text-[#64748B]">Gasto: <b className="text-[#0F172A]">{adset.gasto !== null && adset.gasto !== undefined && adset.gasto > 0 ? formatBRL(adset.gasto) : 'CBO'}</b></span>
                                     <span className="text-[#64748B] border-l border-[#E2E8F0] pl-3">
                                       Retorno: <b className="text-[#0050FF]">{adset.leads > 0 ? `${adset.leads} leads` : `${adset.conversas} conversas`}</b>
                                     </span>
@@ -891,7 +873,7 @@ function MidiaContent() {
                                         <div className="pt-2 border-t border-[#E2E8F0] flex items-center justify-between text-[11px] font-mono">
                                           <div>
                                             <span className="text-[#64748B] text-[9px] block font-sans">Gasto</span>
-                                            <span className="text-[#0F172A] font-bold">{formatBRL(criat.gasto || 0)}</span>
+                                            <span className="text-[#0F172A] font-bold">{criat.gasto !== null && criat.gasto !== undefined && criat.gasto > 0 ? formatBRL(criat.gasto) : '—'}</span>
                                           </div>
                                           <div>
                                             <span className="text-[#64748B] text-[9px] block font-sans">Retorno</span>
@@ -1254,7 +1236,7 @@ function MidiaContent() {
                                         <div key={as.id} className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-2">
                                           <div className="flex items-center justify-between text-xs font-bold text-[#0F172A]">
                                             <span className="truncate">{as.nome}</span>
-                                            <span className="text-[#0050FF] font-mono text-[11px]">{formatBRL(as.gasto)}</span>
+                                            <span className="text-[#0050FF] font-mono text-[11px]">{as.gasto !== null && as.gasto !== undefined && as.gasto > 0 ? formatBRL(as.gasto) : 'CBO'}</span>
                                           </div>
                                           <div className="space-y-1">
                                             {as.criativos.map((cr: any) => (
@@ -1345,18 +1327,18 @@ function MidiaContent() {
                               </span>
                             </td>
                             <td className="py-3 px-4 font-mono text-[#475569]">{as.orcamento}</td>
-                            <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{formatBRL(as.gasto)}</td>
+                            <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{as.gasto !== null && as.gasto !== undefined && as.gasto > 0 ? formatBRL(as.gasto) : 'CBO'}</td>
                             <td className="py-3 px-4 font-mono font-bold text-[#0050FF]">
                               <button
                                 onClick={() => openLeadsDrilldown(`${as.nome} • ${as.campanhaNome}`, as.leads > 0 ? 'form' : 'whatsapp', as.leads || as.conversas || 0, as.nome)}
                                 className="hover:underline transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
                                 title="Clique para ver os nomes e contatos capturados neste público"
                               >
-                                <span>{as.leads > 0 ? `${as.leads} leads` : `${as.conversas} conversas`}</span>
+                                <span>{as.leads > 0 ? `${as.leads} leads` : as.conversas > 0 ? `${as.conversas} conversas` : '—'}</span>
                                 <span className="text-[9px]">👁️</span>
                               </button>
                             </td>
-                            <td className="py-3 px-4 font-mono text-[#475569]">{as.ctr}</td>
+                            <td className="py-3 px-4 font-mono text-[#475569]">{as.ctr || '—'}</td>
                             <td className="py-3 px-4">
                               <button
                                 onClick={() => toggleAdSet(as.id)}
@@ -1390,7 +1372,7 @@ function MidiaContent() {
                                       <div className="min-w-0">
                                         <p className="text-xs font-bold text-[#0F172A] truncate">{cr.nome}</p>
                                         <p className="text-[10px] text-[#64748B] font-mono mt-0.5">
-                                          Gasto: {formatBRL(cr.gasto)} • Retorno: {cr.leads > 0 ? `${cr.leads} leads` : `${cr.conversas} conv.`}
+                                          Gasto: {cr.gasto !== null && cr.gasto !== undefined && cr.gasto > 0 ? formatBRL(cr.gasto) : '—'} • Retorno: {cr.leads > 0 ? `${cr.leads} leads` : `${cr.conversas} conv.`}
                                         </p>
                                       </div>
                                     </div>
@@ -1512,7 +1494,7 @@ function MidiaContent() {
                         </td>
 
                         {/* GASTO */}
-                        <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{formatBRL(ad.gasto || 0)}</td>
+                        <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{ad.gasto !== null && ad.gasto !== undefined && ad.gasto > 0 ? formatBRL(ad.gasto) : '—'}</td>
 
                         {/* RETORNO ADAPTATIVO POR OBJETIVO */}
                         <td className="py-3 px-4 font-mono font-bold text-[#0050FF]">
@@ -1522,14 +1504,14 @@ function MidiaContent() {
                             title="Clique para ver os nomes e contatos capturados neste criativo"
                           >
                             <span>
-                              {ad.leads > 0 ? `${ad.leads} leads` : `${ad.conversas} conv.`}
+                              {ad.leads > 0 ? `${ad.leads} leads` : ad.conversas > 0 ? `${ad.conversas} conv.` : '—'}
                             </span>
                             <span className="text-[9px]">👁️</span>
                           </button>
                         </td>
 
                         {/* CTR */}
-                        <td className="py-3 px-4 font-mono text-[#475569]">{ad.ctr}</td>
+                        <td className="py-3 px-4 font-mono text-[#475569]">{ad.ctr || '—'}</td>
 
                         {/* STATUS */}
                         <td className="py-3 px-4">
@@ -1692,7 +1674,7 @@ function MidiaContent() {
                     )}
                   </p>
                   <p className="text-[10px] text-[#64748B]">
-                    CPC Médio: {formatBRL(Number(googleData?.totais?.cpc || 3.45))}
+                    CPC Médio: {formatBRL(Number(googleData?.totais?.cpc || 0))}
                   </p>
                 </div>
 
@@ -1742,71 +1724,77 @@ function MidiaContent() {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left">
-                    <thead>
-                      <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
-                        <th className="py-3 px-4">Termo Real Digitado pelo Usuário</th>
-                        <th className="py-3 px-4">Palavra-Chave Acionada</th>
-                        <th className="py-3 px-4">Match</th>
-                        <th className="py-3 px-4">Impressões</th>
-                        <th className="py-3 px-4">Cliques</th>
-                        <th className="py-3 px-4">CTR</th>
-                        <th className="py-3 px-4">CPC</th>
-                        <th className="py-3 px-4">Custo Total</th>
-                        <th className="py-3 px-4">Conversões</th>
-                        <th className="py-3 px-4">Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#E2E8F0] bg-white">
-                      {filteredSearchTerms.map((t: any) => {
-                        const isNeg = negativados[t.id];
-                        return (
-                          <tr key={t.id} className={`hover:bg-[#F8FAFC] transition-colors ${isNeg ? 'bg-rose-50/50' : ''}`}>
-                            <td className="py-3 px-4 font-semibold text-[#0F172A]">
-                              "{t.termo}"
-                              {isNeg && <span className="ml-2 text-[10px] text-rose-600 font-bold">(Negativado)</span>}
-                            </td>
-                            <td className="py-3 px-4 font-mono text-[#475569]">{t.kw}</td>
-                            <td className="py-3 px-4">
-                              <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                  t.match === 'Exata'
-                                    ? 'bg-[#EFF4FF] text-[#0050FF] border-[#BFDBFE]'
-                                    : t.match === 'Frase'
-                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                                }`}
-                              >
-                                {t.match}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 font-mono text-[#475569]">{t.impressoes}</td>
-                            <td className="py-3 px-4 font-mono text-[#475569]">{t.cliques}</td>
-                            <td className="py-3 px-4 font-mono text-[#475569]">{t.ctr}</td>
-                            <td className="py-3 px-4 font-mono text-[#475569]">{t.cpc}</td>
-                            <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{formatBRL(t.custo)}</td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-600">{t.conversoes}</td>
-                            <td className="py-3 px-4">
-                              <button
-                                onClick={() => handleNegativeTerm(t.id)}
-                                className={`px-2.5 py-1 rounded text-[11px] font-bold border flex items-center gap-1 transition-all cursor-pointer ${
-                                  isNeg
-                                    ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-                                    : 'bg-white hover:bg-rose-50 text-[#475569] hover:text-rose-600 border-[#CBD5E1]'
-                                }`}
-                                title={isNeg ? 'Termo negativado no leilão' : 'Negativar termo irrelevante'}
-                              >
-                                <Ban className="w-3 h-3" />
-                                <span>{isNeg ? 'Negativado' : 'Negativar'}</span>
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                {filteredSearchTerms.length === 0 ? (
+                  <div className="p-12 text-center text-[#64748B] text-xs">
+                    Nenhum termo de busca registrado para este cliente no período selecionado.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead>
+                        <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
+                          <th className="py-3 px-4">Termo Real Digitado pelo Usuário</th>
+                          <th className="py-3 px-4">Palavra-Chave Acionada</th>
+                          <th className="py-3 px-4">Match</th>
+                          <th className="py-3 px-4">Impressões</th>
+                          <th className="py-3 px-4">Cliques</th>
+                          <th className="py-3 px-4">CTR</th>
+                          <th className="py-3 px-4">CPC</th>
+                          <th className="py-3 px-4">Custo Total</th>
+                          <th className="py-3 px-4">Conversões</th>
+                          <th className="py-3 px-4">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E2E8F0] bg-white">
+                        {filteredSearchTerms.map((t: any) => {
+                          const isNeg = negativados[t.id];
+                          return (
+                            <tr key={t.id} className={`hover:bg-[#F8FAFC] transition-colors ${isNeg ? 'bg-rose-50/50' : ''}`}>
+                              <td className="py-3 px-4 font-semibold text-[#0F172A]">
+                                "{t.termo}"
+                                {isNeg && <span className="ml-2 text-[10px] text-rose-600 font-bold">(Negativado)</span>}
+                              </td>
+                              <td className="py-3 px-4 font-mono text-[#475569]">{t.kw}</td>
+                              <td className="py-3 px-4">
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                    t.match === 'Exata'
+                                      ? 'bg-[#EFF4FF] text-[#0050FF] border-[#BFDBFE]'
+                                      : t.match === 'Frase'
+                                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                                  }`}
+                                >
+                                  {t.match}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 font-mono text-[#475569]">{t.impressoes}</td>
+                              <td className="py-3 px-4 font-mono text-[#475569]">{t.cliques}</td>
+                              <td className="py-3 px-4 font-mono text-[#475569]">{t.ctr}</td>
+                              <td className="py-3 px-4 font-mono text-[#475569]">{t.cpc}</td>
+                              <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{formatBRL(t.custo)}</td>
+                              <td className="py-3 px-4 font-mono font-bold text-emerald-600">{t.conversoes}</td>
+                              <td className="py-3 px-4">
+                                <button
+                                  onClick={() => handleNegativeTerm(t.id)}
+                                  className={`px-2.5 py-1 rounded text-[11px] font-bold border flex items-center gap-1 transition-all cursor-pointer ${
+                                    isNeg
+                                      ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                                      : 'bg-white hover:bg-rose-50 text-[#475569] hover:text-rose-600 border-[#CBD5E1]'
+                                  }`}
+                                  title={isNeg ? 'Termo negativado no leilão' : 'Negativar termo irrelevante'}
+                                >
+                                  <Ban className="w-3 h-3" />
+                                  <span>{isNeg ? 'Negativado' : 'Negativar'}</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
