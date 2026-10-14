@@ -55,6 +55,7 @@ function SidebarContent() {
     setViewMode,
     activeClient,
     switchToAdminHQ,
+    restoreMasterAdmin,
   } = useTenant();
 
   // Submenu toggle states - inicializados de forma inteligente e compacta
@@ -163,7 +164,49 @@ function SidebarContent() {
         </div>
       )}
 
-      {/* Workspace Selector (Isolado estritamente por AvailableClients) */}
+      {/* Atalho Rápido de Inspecionar Cliente (Exibido no Modo Admin para Master Admin) */}
+      {viewMode === 'admin' && isMasterAdmin && (
+        <div className="px-3 py-2 border-b border-[#E2E8F0] bg-[#F8FAFC]">
+          <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-1 flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <Building className="w-3 h-3 text-[#0050FF]" />
+              Inspecionar Cliente
+            </span>
+            <span className="text-[9px] text-[#0050FF] font-bold bg-[#EFF4FF] px-1 rounded">
+              {clients.length} empresas
+            </span>
+          </label>
+          <select
+            value={selectedClientId}
+            onChange={(e) => {
+              const newId = e.target.value;
+              setSelectedClientId(newId);
+              if (newId !== 'ALL') {
+                const target = clients.find((c) => c.cliente_id === newId);
+                if (target) {
+                  setViewMode('client');
+                  router.push(`/client/${getClientSlug(target)}`);
+                }
+              }
+            }}
+            className="w-full bg-white text-xs font-semibold text-[#0F172A] border border-[#CBD5E1] rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#0050FF] transition-colors cursor-pointer shadow-xs"
+            title="Selecionar cliente para inspecionar workspace"
+          >
+            <option value="ALL">🏢 Ir para Workspace de Cliente...</option>
+            {clients.map((c) => {
+              const displayName = c.nome === 'EMOVERE' ? 'Emovere' : c.nome;
+              const statusIcon = c.status === 'ativo' ? '🟢' : c.status === 'pausado' ? '🟡' : '🔴';
+              return (
+                <option key={c.cliente_id} value={c.cliente_id}>
+                  {statusIcon} {displayName}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      )}
+
+      {/* Workspace Selector (Exibido no Modo Cliente) */}
       {viewMode === 'client' && (
         <div className="px-3 py-2.5 border-b border-[#E2E8F0] bg-[#EFF4FF]/30">
           <label className="block text-[10px] font-bold text-[#0050FF] uppercase tracking-wider mb-1 flex items-center justify-between">
@@ -171,15 +214,48 @@ function SidebarContent() {
               <Building className="w-3 h-3" />
               Workspace Ativo
             </span>
-            {!isMasterAdmin && (
+            {isMasterAdmin ? (
+              <span className="text-[9px] text-[#0050FF] bg-blue-100 font-bold px-1.5 py-0.2 rounded border border-[#BFDBFE]">
+                Visão Admin
+              </span>
+            ) : (
               <span className="text-[9px] text-[#64748B] bg-white px-1.5 py-0.2 rounded border border-[#CBD5E1]">
                 🔒 Atribuído
               </span>
             )}
           </label>
 
-          {availableClients.length <= 1 ? (
-            /* Cliente com único workspace fixo */
+          {isMasterAdmin ? (
+            /* ADMIN: Sempre tem acesso ao seletor completo com TODAS as empresas */
+            <select
+              value={selectedClientId}
+              onChange={(e) => {
+                const newId = e.target.value;
+                setSelectedClientId(newId);
+                const target = clients.find((c) => c.cliente_id === newId);
+                if (target) {
+                  if (pathname.startsWith('/client/')) {
+                    router.push(`/client/${getClientSlug(target)}`);
+                  } else if (pathname.startsWith('/admin/client/')) {
+                    router.push(`/admin/client/${getClientSlug(target)}`);
+                  }
+                  // Em /midia, /crm, /whatsapp, etc. o usuário continua na página atual com os novos dados
+                }
+              }}
+              className="w-full bg-white text-xs font-semibold text-[#0F172A] border border-[#CBD5E1] rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#0050FF] transition-colors cursor-pointer shadow-xs"
+            >
+              {clients.map((c) => {
+                const displayName = c.nome === 'EMOVERE' ? 'Emovere' : c.nome;
+                const statusIcon = c.status === 'ativo' ? '🟢' : c.status === 'pausado' ? '🟡' : '🔴';
+                return (
+                  <option key={c.cliente_id} value={c.cliente_id}>
+                    {statusIcon} {displayName}
+                  </option>
+                );
+              })}
+            </select>
+          ) : availableClients.length <= 1 ? (
+            /* Cliente comum com único workspace fixo */
             <div className="w-full bg-white text-xs font-bold text-[#0F172A] border border-[#CBD5E1] rounded-lg px-2.5 py-1.5 shadow-xs flex items-center gap-2">
               <span className="text-emerald-500">🟢</span>
               <span className="truncate">
@@ -187,14 +263,17 @@ function SidebarContent() {
               </span>
             </div>
           ) : (
-            /* Cliente com múltiplos workspaces designados */
+            /* Cliente comum com múltiplos workspaces designados */
             <select
               value={selectedClientId}
               onChange={(e) => {
-                setSelectedClientId(e.target.value);
-                const target = availableClients.find((c) => c.cliente_id === e.target.value);
+                const newId = e.target.value;
+                setSelectedClientId(newId);
+                const target = availableClients.find((c) => c.cliente_id === newId);
                 if (target) {
-                  router.push(`/client/${getClientSlug(target)}`);
+                  if (pathname.startsWith('/client/')) {
+                    router.push(`/client/${getClientSlug(target)}`);
+                  }
                 }
               }}
               className="w-full bg-white text-xs font-semibold text-[#0F172A] border border-[#CBD5E1] rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#0050FF] transition-colors cursor-pointer shadow-xs"
@@ -930,14 +1009,28 @@ function SidebarContent() {
               <span>Painel Master Admin</span>
             </button>
           ) : (
-            <div className="flex items-center justify-between text-[11px] text-[#64748B] px-1">
-              <span className="flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Portal do Cliente</span>
-              </span>
-              <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                Ativo
-              </span>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] text-[#64748B] px-1">
+                <span className="flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Portal do Cliente</span>
+                </span>
+                <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Ativo
+                </span>
+              </div>
+
+              <button
+                onClick={() => {
+                  restoreMasterAdmin();
+                  router.push('/admin');
+                }}
+                className="w-full py-1.5 px-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 shadow-xs text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                title="Restaurar a conta Master Admin de Rodrigo Ferrari"
+              >
+                <Crown className="w-3.5 h-3.5 text-amber-600" />
+                <span>Restaurar Master Admin (Rodrigo)</span>
+              </button>
             </div>
           )
         ) : (

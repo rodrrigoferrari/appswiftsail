@@ -20,6 +20,7 @@ import {
   Check,
   AlertCircle,
 } from 'lucide-react';
+import { getCategoryCatalog } from '@/lib/ai/models-catalog';
 
 export const OPENROUTER_MODELS = [
   {
@@ -512,32 +513,67 @@ export default function AdminIAPage() {
                   </a>
                 </label>
 
-                {/* Seletor Agrupado de Modelos da OpenRouter */}
-                <select
-                  value={isCustomModel ? 'custom' : selectedFeature.selectedModel}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === 'custom') {
-                      handleUpdateFeature('selectedModel', 'anthropic/claude-3.5-sonnet');
-                    } else {
-                      handleUpdateFeature('selectedModel', val);
-                    }
-                  }}
-                  className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2.5 text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#0050FF] cursor-pointer shadow-2xs"
-                >
-                  {OPENROUTER_MODELS.map((group) => (
-                    <optgroup key={group.provider} label={group.provider}>
-                      {group.models.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.id} — {model.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                  <optgroup label="Outro Modelo">
-                    <option value="custom">Digitar slug customizado da OpenRouter...</option>
-                  </optgroup>
-                </select>
+                {/* Seletor Customizado por Função Especializada */}
+                {(() => {
+                  const mappedCat =
+                    selectedFeature.category === 'imagem' ? 'foto' :
+                    selectedFeature.category === 'video' ? 'video' :
+                    selectedFeature.category === 'landing_page' ? 'site' : 'bi';
+                  const catCatalog = getCategoryCatalog(mappedCat);
+
+                  return (
+                    <div className="space-y-2">
+                      <select
+                        value={selectedFeature.selectedModel}
+                        onChange={(e) => handleUpdateFeature('selectedModel', e.target.value)}
+                        className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2.5 text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#0050FF] cursor-pointer shadow-2xs"
+                      >
+                        {catCatalog.groups.map((group) => (
+                          <optgroup key={group.groupName} label={group.groupName}>
+                            {group.models.map((model) => (
+                              <option key={model.id} value={model.id}>
+                                {model.name} ({model.id})
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+
+                      {/* Cards Rápidos de Recomendação */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        <span className="text-[10px] text-[#64748B] font-medium self-center mr-1">
+                          Recomendados para {catCatalog.categoryLabel}:
+                        </span>
+                        {catCatalog.recommendedModels.map((rec) => {
+                          const isSelected = selectedFeature.selectedModel === rec.id;
+                          return (
+                            <button
+                              key={rec.id}
+                              type="button"
+                              onClick={() => handleUpdateFeature('selectedModel', rec.id)}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-[#0050FF] text-white shadow-2xs'
+                                  : 'bg-white border border-[#CBD5E1] text-[#334155] hover:border-[#0050FF] hover:text-[#0050FF]'
+                              }`}
+                            >
+                              <span>{rec.name.split(' (')[0]}</span>
+                              <span
+                                className={`text-[9px] px-1 py-0.2 rounded font-bold ${
+                                  isSelected
+                                    ? 'bg-white/20 text-white'
+                                    : 'bg-[#EFF4FF] text-[#0050FF]'
+                                }`}
+                              >
+                                {rec.badge}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Input para Slug Customizado se aplicável */}

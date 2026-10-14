@@ -33,6 +33,7 @@ interface TenantContextType {
   selectClientAndSwitchToWorkspace: (clientId: string) => void;
   switchToAdminHQ: () => void;
   refreshUsers: () => Promise<void>;
+  restoreMasterAdmin: () => void;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
@@ -65,10 +66,19 @@ export function TenantProvider({
     try {
       const stored = localStorage.getItem('swiftsail_user');
       if (stored) {
-        setCurrentUser(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        if (
+          parsed.role === 'master_admin' ||
+          parsed.whatsapp === '41992332996' ||
+          parsed.whatsapp === '5541992332996' ||
+          parsed.email === 'rodrigo@swiftsail.co'
+        ) {
+          localStorage.setItem('swiftsail_is_master_admin', 'true');
+        }
+        setCurrentUser(parsed);
       } else {
         // Fallback default: Master Admin (Rodrigo Ferrari)
-        setCurrentUser({
+        const defaultAdmin: AppUser = {
           id: 'usr_rodrigo_ferrari',
           nome: 'Rodrigo Ferrari',
           email: 'rodrigo@swiftsail.co',
@@ -78,12 +88,27 @@ export function TenantProvider({
           cliente_nome: 'Swiftsail HQ (Master Admin)',
           status: 'ativo',
           modulos: ['midia', 'whatsapp', 'criativos', 'crm', 'financeiro'],
-        });
+        };
+        try {
+          localStorage.setItem('swiftsail_is_master_admin', 'true');
+          localStorage.setItem('swiftsail_user', JSON.stringify(defaultAdmin));
+        } catch {}
+        setCurrentUser(defaultAdmin);
       }
     } catch {}
   }, []);
 
-  const isMasterAdmin = !currentUser || currentUser.role === 'master_admin';
+  // É Master Admin se o perfil for master_admin, se for Rodrigo Ferrari, ou se tiver a tag de master no navegador
+  const isMasterAdmin = useMemo(() => {
+    if (!currentUser) return true;
+    if (currentUser.role === 'master_admin') return true;
+    if (currentUser.whatsapp === '41992332996' || currentUser.whatsapp === '5541992332996') return true;
+    if (currentUser.email === 'rodrigo@swiftsail.co') return true;
+    if (typeof window !== 'undefined' && localStorage.getItem('swiftsail_is_master_admin') === 'true') {
+      return true;
+    }
+    return false;
+  }, [currentUser]);
 
   // Workspaces permitidos: se for master_admin, vê todas as empresas.
   // Se for cliente_admin, vê SOMENTE os workspaces designados para sua conta.
@@ -190,6 +215,25 @@ export function TenantProvider({
   const switchToAdminHQ = () => {
     setSelectedClientId('ALL');
     setViewMode('admin');
+  };
+
+  const restoreMasterAdmin = () => {
+    const masterUser: AppUser = {
+      id: 'usr_rodrigo_ferrari',
+      nome: 'Rodrigo Ferrari',
+      email: 'rodrigo@swiftsail.co',
+      whatsapp: '41992332996',
+      role: 'master_admin',
+      cliente_id: null,
+      cliente_nome: 'Swiftsail HQ (Master Admin)',
+      status: 'ativo',
+      modulos: ['midia', 'whatsapp', 'criativos', 'crm', 'financeiro'],
+    };
+    try {
+      localStorage.setItem('swiftsail_user', JSON.stringify(masterUser));
+      localStorage.setItem('swiftsail_user_phone', '41992332996');
+    } catch {}
+    setCurrentUser(masterUser);
   };
 
   const activeClient = clients.find((c) => c.cliente_id === selectedClientId);
@@ -302,6 +346,7 @@ export function TenantProvider({
         selectClientAndSwitchToWorkspace,
         switchToAdminHQ,
         refreshUsers,
+        restoreMasterAdmin,
       }}
     >
       {children}

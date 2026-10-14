@@ -18,6 +18,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { OPENROUTER_MODELS } from '../ia/page';
+import { CATEGORY_AI_CATALOG, getCategoryCatalog, ModelOption } from '@/lib/ai/models-catalog';
 
 interface PromptConfig {
   id: string;
@@ -30,120 +31,6 @@ interface PromptConfig {
   maxTokens: number;
   systemPrompt: string;
 }
-
-export interface RecommendedModel {
-  id: string;
-  name: string;
-  badge: string;
-  reason: string;
-}
-
-export const BEST_MODELS_BY_FUNCTION: Record<string, { label: string; models: RecommendedModel[] }> = {
-  campaign_analysis: {
-    label: 'BI & Análise de Tráfego',
-    models: [
-      {
-        id: 'anthropic/claude-3.5-sonnet',
-        name: 'Claude 3.5 Sonnet',
-        badge: 'Top 1 Geral',
-        reason: 'Precisão matemática cirúrgica em CPA/ROAS, zero alucinação com métricas reais.',
-      },
-      {
-        id: 'deepseek/deepseek-r1',
-        name: 'DeepSeek R1',
-        badge: 'Raciocínio Forte',
-        reason: 'Excelente em cadeia de pensamento para correlações de funil e diagnóstico de gargalos.',
-      },
-      {
-        id: 'openai/gpt-4o',
-        name: 'GPT-4o',
-        badge: 'Síntese Executiva',
-        reason: 'Estruturação dinâmica de resumos executivos para tomadores de decisão.',
-      },
-      {
-        id: 'google/gemini-2.0-flash-001',
-        name: 'Gemini 2.0 Flash',
-        badge: 'Alta Velocidade',
-        reason: 'Respostas quase instantâneas com baixo custo para checagens diárias.',
-      },
-    ],
-  },
-  landing_pages: {
-    label: 'Site & Landing Pages (CRO)',
-    models: [
-      {
-        id: 'anthropic/claude-3.5-sonnet',
-        name: 'Claude 3.5 Sonnet',
-        badge: 'Top 1 Conversão',
-        reason: 'Melhor modelo para copy persuasiva, seções de alto impacto e quebra de objeções.',
-      },
-      {
-        id: 'openai/gpt-4o',
-        name: 'GPT-4o',
-        badge: 'Headlines Magnéticas',
-        reason: 'Criação ágil de promessas únicas de valor (UVPs) e ganchos de captura.',
-      },
-      {
-        id: 'deepseek/deepseek-chat',
-        name: 'DeepSeek V3',
-        badge: 'Custo-Benefício',
-        reason: 'Copy em português brasileiro natural com custo ultra acessível.',
-      },
-      {
-        id: 'meta-llama/llama-3.3-70b-instruct',
-        name: 'Llama 3.3 70B',
-        badge: 'Frameworks AIDA',
-        reason: 'Excelente adesão a regras de copy e formatações de landing page estruturadas.',
-      },
-    ],
-  },
-  creative_image: {
-    label: 'Foto & Criativos de Imagem',
-    models: [
-      {
-        id: 'openai/gpt-4o',
-        name: 'GPT-4o',
-        badge: 'Top 1 Visual',
-        reason: 'Superioridade em visão multimodal, direção de arte para banners e contraste de cores.',
-      },
-      {
-        id: 'anthropic/claude-3.5-sonnet',
-        name: 'Claude 3.5 Sonnet',
-        badge: 'Direção de Arte',
-        reason: 'Briefings conceituais hiperdetalhados para designers e psicologia das cores.',
-      },
-      {
-        id: 'google/gemini-2.0-flash-001',
-        name: 'Gemini 2.0 Flash',
-        badge: 'Prompts Criativos',
-        reason: 'Velocidade extrema para gerar centenas de ideias de imagens e variações visuais.',
-      },
-    ],
-  },
-  creative_video: {
-    label: 'Vídeo & Roteiros Dinâmicos',
-    models: [
-      {
-        id: 'anthropic/claude-3.5-sonnet',
-        name: 'Claude 3.5 Sonnet',
-        badge: 'Top 1 Retenção',
-        reason: 'Scripts com ganchos de 3 segundos que aumentam brutalmente o watch-time.',
-      },
-      {
-        id: 'openai/gpt-4o',
-        name: 'GPT-4o',
-        badge: 'Storytelling Viral',
-        reason: 'Roteiros de alta energia com linguagem coloquial e CTAs persuasivos.',
-      },
-      {
-        id: 'deepseek/deepseek-r1',
-        name: 'DeepSeek R1',
-        badge: 'Arco Dramático',
-        reason: 'Estruturação lógica de problemas e soluções para VSLs e vídeos de conversão.',
-      },
-    ],
-  },
-};
 
 const DEFAULT_PROMPTS: PromptConfig[] = [
   {
@@ -386,76 +273,189 @@ function AdminPromptsContent() {
         </div>
 
         {/* Modelo e Parâmetros */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Modelo OpenRouter */}
-          <div>
-            <label className="block text-xs font-bold text-[#0F172A] mb-1.5 flex items-center gap-1">
-              <Cpu className="w-3.5 h-3.5 text-[#0050FF]" />
-              <span>Modelo LLM (OpenRouter)</span>
-            </label>
-            <select
-              value={activePrompt.selectedModel}
-              onChange={(e) => handleUpdate('selectedModel', e.target.value)}
-              className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-semibold text-[#0F172A] focus:border-[#0050FF] focus:bg-white focus:outline-none transition shadow-2xs cursor-pointer"
-            >
-              {OPENROUTER_MODELS.map((group) => (
-                <optgroup key={group.provider} label={group.provider}>
-                  {group.models.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
+        {(() => {
+          const catalog = getCategoryCatalog(activePrompt.id);
+          const isKnownInCatalog =
+            catalog.recommendedModels.some((m) => m.id === activePrompt.selectedModel) ||
+            catalog.groups.some((g) => g.models.some((m) => m.id === activePrompt.selectedModel)) ||
+            OPENROUTER_MODELS.some((g) => g.models.some((m) => m.id === activePrompt.selectedModel));
 
-          {/* Temperatura */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-[#0F172A] flex items-center gap-1">
-                <Sliders className="w-3.5 h-3.5 text-[#0050FF]" />
-                <span>Temperatura</span>
-              </label>
-              <span className="text-xs font-bold text-[#0050FF] font-mono">
-                {activePrompt.temperature}
-              </span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={activePrompt.temperature}
-              onChange={(e) => handleUpdate('temperature', parseFloat(e.target.value))}
-              className="w-full accent-[#0050FF] cursor-pointer mt-2"
-            />
-            <div className="flex justify-between text-[10px] text-[#94A3B8] font-semibold mt-1">
-              <span>0.0 (Frio/Exato)</span>
-              <span>1.0 (Criativo)</span>
-            </div>
-          </div>
+          return (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Modelo OpenRouter / Motor de IA Customizado */}
+                <div className="md:col-span-1 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-[#0F172A] flex items-center gap-1">
+                      <Cpu className="w-3.5 h-3.5 text-[#0050FF]" />
+                      <span>Motor de IA ({catalog.categoryLabel})</span>
+                    </label>
+                    <span className="text-[10px] font-bold text-[#0050FF] bg-[#EFF4FF] px-2 py-0.5 rounded-full border border-[#BFDBFE]">
+                      Especializado
+                    </span>
+                  </div>
 
-          {/* Max Tokens */}
-          <div>
-            <label className="block text-xs font-bold text-[#0F172A] mb-1.5 flex items-center gap-1">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-[#0050FF]" />
-              <span>Limite de Tokens de Resposta</span>
-            </label>
-            <input
-              type="number"
-              min="512"
-              max="8192"
-              step="256"
-              value={activePrompt.maxTokens}
-              onChange={(e) => handleUpdate('maxTokens', parseInt(e.target.value) || 2048)}
-              className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-mono font-semibold text-[#0F172A] focus:border-[#0050FF] focus:bg-white focus:outline-none transition shadow-2xs"
-            />
-            <p className="text-[10px] text-[#64748B] mt-1">
-              Ex: 2048 (~1.500 palavras), 4096 (~3.000 palavras)
-            </p>
-          </div>
-        </div>
+                  <select
+                    value={isKnownInCatalog ? activePrompt.selectedModel : '__custom__'}
+                    onChange={(e) => {
+                      if (e.target.value !== '__custom__') {
+                        handleUpdate('selectedModel', e.target.value);
+                      }
+                    }}
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-semibold text-[#0F172A] focus:border-[#0050FF] focus:bg-white focus:outline-none transition shadow-2xs cursor-pointer"
+                  >
+                    {/* 1. Melhores Recomendações desta Função */}
+                    <optgroup label={`⭐ Recomendações de Topo para ${catalog.categoryLabel}`}>
+                      {catalog.recommendedModels.map((m) => (
+                        <option key={`rec-${m.id}`} value={m.id}>
+                          ⭐ {m.name} [{m.badge}]
+                        </option>
+                      ))}
+                    </optgroup>
+
+                    {/* 2. Grupos Especializados da Categoria (Vídeo, Imagem, CRO ou BI) */}
+                    {catalog.groups.map((group) => (
+                      <optgroup key={group.groupName} label={group.groupName}>
+                        {group.models.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+
+                    {/* 3. Todos os Modelos Gerais de Chat/LLM */}
+                    {OPENROUTER_MODELS.map((group) => (
+                      <optgroup key={`general-${group.provider}`} label={`🌐 ${group.provider}`}>
+                        {group.models.map((m) => (
+                          <option key={`gen-${m.id}`} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+
+                    {/* 4. Opção de Modelo Customizado */}
+                    <optgroup label="⚙️ Customizado">
+                      <option value="__custom__">Digitar ID de Modelo Personalizado...</option>
+                    </optgroup>
+                  </select>
+
+                  {/* Input caso seja modelo customizado */}
+                  {!isKnownInCatalog && (
+                    <div className="pt-1">
+                      <input
+                        type="text"
+                        value={activePrompt.selectedModel}
+                        onChange={(e) => handleUpdate('selectedModel', e.target.value)}
+                        placeholder="Ex: heygen/interactive-avatar ou openai/sora"
+                        className="w-full bg-white border border-[#0050FF] rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-[#0050FF] focus:outline-none shadow-2xs"
+                      />
+                      <p className="text-[10px] text-[#64748B] mt-0.5">
+                        ID manual ativo para o motor de IA.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Temperatura */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-[#0F172A] flex items-center gap-1">
+                      <Sliders className="w-3.5 h-3.5 text-[#0050FF]" />
+                      <span>Temperatura</span>
+                    </label>
+                    <span className="text-xs font-bold text-[#0050FF] font-mono">
+                      {activePrompt.temperature}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={activePrompt.temperature}
+                    onChange={(e) => handleUpdate('temperature', parseFloat(e.target.value))}
+                    className="w-full accent-[#0050FF] cursor-pointer mt-2"
+                  />
+                  <div className="flex justify-between text-[10px] text-[#94A3B8] font-semibold mt-1">
+                    <span>0.0 (Frio/Exato)</span>
+                    <span>1.0 (Criativo)</span>
+                  </div>
+                </div>
+
+                {/* Max Tokens */}
+                <div>
+                  <label className="block text-xs font-bold text-[#0F172A] mb-1.5 flex items-center gap-1">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-[#0050FF]" />
+                    <span>Limite de Tokens de Resposta</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="512"
+                    max="8192"
+                    step="256"
+                    value={activePrompt.maxTokens}
+                    onChange={(e) => handleUpdate('maxTokens', parseInt(e.target.value) || 2048)}
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-mono font-semibold text-[#0F172A] focus:border-[#0050FF] focus:bg-white focus:outline-none transition shadow-2xs"
+                  />
+                  <p className="text-[10px] text-[#64748B] mt-1">
+                    Ex: 2048 (~1.500 palavras), 4096 (~3.000 palavras)
+                  </p>
+                </div>
+              </div>
+
+              {/* Cards Interativos de Sugestão de Topo para esta Categoria */}
+              <div className="bg-[#EFF4FF]/40 border border-[#BFDBFE] rounded-xl p-3.5 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <span className="text-xs font-bold text-[#0050FF] flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#0050FF]" />
+                    <span>Melhores Motores & LLMs para {catalog.categoryLabel}:</span>
+                  </span>
+                  <span className="text-[10px] text-[#64748B]">Clique em uma sugestão para aplicar</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+                  {catalog.recommendedModels.map((rec) => {
+                    const isCurrent = activePrompt.selectedModel === rec.id;
+                    return (
+                      <button
+                        key={`rec-btn-${rec.id}`}
+                        type="button"
+                        onClick={() => handleUpdate('selectedModel', rec.id)}
+                        className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          isCurrent
+                            ? 'bg-white border-[#0050FF] ring-2 ring-[#0050FF]/20 shadow-xs'
+                            : 'bg-white/80 border-[#CBD5E1] hover:border-[#0050FF] hover:bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-xs font-bold text-[#0F172A] truncate" title={rec.name}>
+                            {rec.name.split(' (')[0]}
+                          </span>
+                          <span
+                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                              isCurrent
+                                ? 'bg-[#0050FF] text-white'
+                                : rec.isSpecialized
+                                ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {isCurrent ? 'Ativo' : rec.badge}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-[#64748B] leading-tight line-clamp-2" title={rec.description}>
+                          {rec.description}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          );
+        })()}
 
         {/* Editor de System Prompt */}
         <div className="space-y-1.5">
