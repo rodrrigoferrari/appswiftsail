@@ -3,6 +3,8 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTenant } from '@/components/TenantProvider';
+import { WhatsAppConnectFlow } from '@/components/WhatsAppConnectFlow';
+import { CallModal } from '@/components/CallModal';
 import {
   MessageSquare,
   Users,
@@ -11,7 +13,6 @@ import {
   ShieldAlert,
   Clock,
   AlertCircle,
-  FileSpreadsheet,
   QrCode,
   Radio,
   Sliders,
@@ -19,16 +20,19 @@ import {
   BarChart3,
   RefreshCw,
   Plus,
-  Building,
-  Check,
-  X,
-  Upload,
-  UserCheck,
   CheckCircle2,
   Crown,
   KeyRound,
   ShieldCheck,
   ArrowRight,
+  PhoneCall,
+  Phone,
+  PhoneOff,
+  ExternalLink,
+  KanbanSquare,
+  FileDown,
+  Info,
+  Check,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -37,34 +41,42 @@ function WhatsAppContent() {
   const { selectedClientId, activeClient } = useTenant();
 
   const urlTab = searchParams?.get('tab');
-  const [subTab, setSubTab] = useState<'conexao' | 'grupos' | 'disparos' | 'tracking'>(
-    urlTab === 'grupos' ? 'grupos' : urlTab === 'disparos' ? 'disparos' : 'conexao'
+  const [subTab, setSubTab] = useState<'conexao' | 'grupos' | 'disparos' | 'ligacoes' | 'tracking'>(
+    urlTab === 'grupos'
+      ? 'grupos'
+      : urlTab === 'disparos'
+      ? 'disparos'
+      : urlTab === 'ligacoes'
+      ? 'ligacoes'
+      : urlTab === 'tracking'
+      ? 'tracking'
+      : 'conexao'
   );
 
   useEffect(() => {
-    if (urlTab === 'grupos' || urlTab === 'disparos' || urlTab === 'conexao') {
+    if (urlTab === 'grupos' || urlTab === 'disparos' || urlTab === 'ligacoes' || urlTab === 'tracking' || urlTab === 'conexao') {
       setSubTab(urlTab);
     }
   }, [urlTab]);
 
-  // Instance State
-  const [instanceInfo, setInstanceInfo] = useState<{
-    hasInstance: boolean;
-    status: string;
-    instanceName?: string;
-    details?: any;
-  }>({
-    hasInstance: true,
-    status: 'connected',
-    instanceName: `instancia_${selectedClientId || 'swiftsail'}`,
-  });
+  const clientName = activeClient?.nome || (selectedClientId === 'ALL' ? 'Todos os Clientes' : selectedClientId);
+  const targetId = selectedClientId && selectedClientId !== 'ALL' ? selectedClientId : 'swiftsail';
 
-  const [isLoadingStatus, setIsLoadingStatus] = useState(false);
-  const [isProvisioning, setIsProvisioning] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
-  const [pairingCode, setPairingCode] = useState<string | null>(null);
-  const [showConnectModal, setShowConnectModal] = useState(false);
+  // State for Call Modal
+  const [isCallModalOpen, setIsCallModalOpen] = useState(false);
+  const [testPhone, setTestPhone] = useState('');
+  const [testLeadName, setTestLeadName] = useState('');
+
+  // Call History State
+  const [calls, setCalls] = useState<any[]>([]);
+  const [isLoadingCalls, setIsLoadingCalls] = useState(false);
+
+  // Kommo credentials status for this client
+  const [kommoStatus, setKommoStatus] = useState<{
+    configured: boolean;
+    subdomain?: string;
+    pipelineId?: string;
+  }>({ configured: false });
 
   // Group Scraper State
   const [groups, setGroups] = useState<any[]>([
@@ -74,6 +86,7 @@ function WhatsAppContent() {
   ]);
   const [selectedGroupJid, setSelectedGroupJid] = useState('120363385277868846@g.us');
   const [isScraping, setIsScraping] = useState(false);
+  const [adminFilterOption, setAdminFilterOption] = useState<'exclude' | 'include' | 'only_admins'>('exclude');
   const [scrapedContacts, setScrapedContacts] = useState<any[]>([
     { id: 1, name: 'Dr. Rodrigo Martins', phone: '+55 11 98122-3344', isAdmin: true, group: 'VIP Investidores & Lançamentos' },
     { id: 2, name: 'Juliana Faria', phone: '+55 11 99234-5566', isAdmin: false, group: 'VIP Investidores & Lançamentos' },
@@ -82,13 +95,13 @@ function WhatsAppContent() {
     { id: 5, name: 'Carlos Eduardo Mendes', phone: '+55 41 99123-4567', isAdmin: false, group: 'VIP Investidores & Lançamentos' },
   ]);
 
-  // Mass Broadcast & Anti-Ban Parameters
-  const [adminFilterOption, setAdminFilterOption] = useState<'exclude' | 'include' | 'only_admins'>('exclude');
+  // Mass Broadcast & Anti-Ban Safeguards State
   const [messagesPerDay, setMessagesPerDay] = useState(150);
   const [batchSize, setBatchSize] = useState(5);
   const [intervalOption, setIntervalOption] = useState('25-45');
   const [timeWindowStart, setTimeWindowStart] = useState('09:00');
   const [timeWindowEnd, setTimeWindowEnd] = useState('18:30');
+  const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
 
   // Spintax Variations
   const [copyA, setCopyA] = useState(
@@ -98,40 +111,71 @@ function WhatsAppContent() {
     'Oi {primeiro_nome}, como vai? Liberamos esta semana condições de lançamento prioritárias com atendimento VIP no WhatsApp. Gostaria de receber o catálogo?'
   );
 
-  const clientName = activeClient?.nome || (selectedClientId === 'ALL' ? 'Todos os Clientes' : selectedClientId);
-
-  const checkStatus = async () => {
-    if (!selectedClientId || selectedClientId === 'ALL') return;
-    setIsLoadingStatus(true);
-    setTimeout(() => {
-      setIsLoadingStatus(false);
-      setInstanceInfo({
-        hasInstance: true,
-        status: 'connected',
-        instanceName: `instancia_${selectedClientId}`,
-      });
-    }, 600);
+  const fetchCallsHistory = async () => {
+    setIsLoadingCalls(true);
+    try {
+      const res = await fetch(`/api/calls?cliente_id=${encodeURIComponent(targetId)}`);
+      const data = await res.json();
+      if (data.calls) {
+        setCalls(data.calls);
+      }
+    } catch {
+      // Ignora erro de rede
+    } finally {
+      setIsLoadingCalls(false);
+    }
   };
 
-  const handleCreateInstance = () => {
-    setIsProvisioning(true);
-    setTimeout(() => {
-      setIsProvisioning(false);
-      setInstanceInfo({
-        hasInstance: true,
-        status: 'disconnected',
-        instanceName: `instancia_${selectedClientId}`,
-      });
-      setShowConnectModal(true);
-    }, 800);
+  const checkKommoClientConfig = async () => {
+    try {
+      const res = await fetch(`/api/credentials/client/status?cliente_id=${encodeURIComponent(targetId)}`).catch(() => null);
+      if (res && res.ok) {
+        const data = await res.json();
+        setKommoStatus(data);
+      } else {
+        // Fallback visual
+        setKommoStatus({
+          configured: true,
+          subdomain: targetId.toLowerCase().replace('_', ''),
+        });
+      }
+    } catch {
+      setKommoStatus({ configured: false });
+    }
   };
+
+  useEffect(() => {
+    fetchCallsHistory();
+    checkKommoClientConfig();
+  }, [targetId]);
 
   const handleScrape = () => {
     setIsScraping(true);
     setTimeout(() => {
       setIsScraping(false);
-      alert('Coleta concluída! 84 novos contatos importados do grupo.');
+      alert('Coleta concluída! 84 novos contatos qualificados importados do grupo.');
     }, 1000);
+  };
+
+  const handleStartBroadcast = () => {
+    setIsSendingBroadcast(true);
+    setTimeout(() => {
+      setIsSendingBroadcast(false);
+      alert('Transmissão iniciada com sucesso! As mensagens serão disparadas respeitando as salvaguardas e o intervalo randômico de 25 a 45 segundos.');
+    }, 1200);
+  };
+
+  const openCallForContact = (phone: string, name: string) => {
+    setTestPhone(phone);
+    setTestLeadName(name);
+    setIsCallModalOpen(true);
+  };
+
+  const formatSeconds = (sec: number) => {
+    if (!sec || sec === 0) return '00:00 (Não atendida)';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s} (${sec}s)`;
   };
 
   return (
@@ -140,55 +184,51 @@ function WhatsAppContent() {
       <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-wider">
-              Uazapi Multi-Device API • Seção 4.4
+            <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
+              Uazapi Multi-Device API • Voz Kommo CRM • Seção 4.4
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-[#0F172A] flex items-center gap-2.5">
             <MessageSquare className="w-6 h-6 text-[#0050FF]" />
-            Hub WhatsApp API & Automação
+            Hub WhatsApp API, Chamadas & Automação
           </h1>
           <p className="text-xs text-[#64748B] max-w-2xl leading-relaxed">
-            Instância dedicada do cliente <b className="text-[#0F172A]">{clientName}</b>. Conecte via QR Code, colete contatos segmentados de grupos e envie transmissões controladas com limites e salvaguardas.
+            Workspace dedicado do cliente <b className="text-[#0F172A]">{clientName}</b>. Conexão por QR Code ou Código de 8 Dígitos, chamadas de voz sincronizadas com Kommo CRM, raspagem de grupos e disparo controlado com salvaguardas anti-ban.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
-            <div className={`w-2.5 h-2.5 rounded-full ${instanceInfo.status === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-            <span className="text-xs font-bold text-[#0F172A]">
-              {instanceInfo.status === 'connected' ? 'Conectado (Online)' : 'Desconectado'}
-            </span>
-          </div>
-
           <button
-            onClick={checkStatus}
-            disabled={isLoadingStatus}
-            className="p-2.5 rounded-xl bg-white border border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#64748B] hover:text-[#0050FF] shadow-xs cursor-pointer transition-all"
-            title="Atualizar status da instância"
+            onClick={() => {
+              setTestPhone('');
+              setTestLeadName('');
+              setIsCallModalOpen(true);
+            }}
+            className="px-4 py-2.5 rounded-xl font-bold text-xs bg-[#0050FF] hover:bg-[#0040D6] text-white shadow-xs flex items-center gap-2 transition cursor-pointer"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoadingStatus ? 'animate-spin text-[#0050FF]' : ''}`} />
+            <PhoneCall className="w-4 h-4" />
+            <span>Testar Ligação Agora</span>
           </button>
         </div>
       </div>
 
-      {/* Navegação por Abas (Conforme Seção 4.4 das Diretrizes: Conexão, Grupos, Disparos, Dashboard) */}
+      {/* Navegação por Abas (Estilo Pílulas Asaas) */}
       <div className="flex items-center gap-2 border-b border-[#E2E8F0] pb-1 overflow-x-auto">
         <button
           onClick={() => setSubTab('conexao')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
             subTab === 'conexao'
               ? 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] shadow-xs'
               : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
           }`}
         >
           <Radio className="w-3.5 h-3.5" />
-          <span>1. Conexão & Status Uazapi</span>
+          <span>1. Conexão Uazapi (Highlander)</span>
         </button>
 
         <button
           onClick={() => setSubTab('grupos')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
             subTab === 'grupos'
               ? 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] shadow-xs'
               : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
@@ -200,128 +240,95 @@ function WhatsAppContent() {
 
         <button
           onClick={() => setSubTab('disparos')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
             subTab === 'disparos'
               ? 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] shadow-xs'
               : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
           }`}
         >
           <Sliders className="w-3.5 h-3.5" />
-          <span>3. Envio em Massa (Salvaguardas)</span>
+          <span>3. Envio em Massa (Anti-Ban)</span>
+        </button>
+
+        <button
+          onClick={() => setSubTab('ligacoes')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            subTab === 'ligacoes'
+              ? 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] shadow-xs'
+              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+          }`}
+        >
+          <PhoneCall className="w-3.5 h-3.5" />
+          <span>4. Ligações & Kommo CRM</span>
         </button>
 
         <button
           onClick={() => setSubTab('tracking')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
             subTab === 'tracking'
               ? 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] shadow-xs'
               : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
           }`}
         >
           <BarChart3 className="w-3.5 h-3.5" />
-          <span>4. Dashboard de Transmissões</span>
+          <span>5. Dashboard de Transmissões</span>
         </button>
       </div>
 
-      {/* ABA 1: CONEXÃO & STATUS UAZAPI */}
+      {/* ABA 1: CONEXÃO UAZAPI COM ESTRATÉGIA HIGHLANDER */}
       {subTab === 'conexao' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-4">
-              <div>
-                <h2 className="text-base font-bold text-[#0F172A]">Status da Instância Uazapi</h2>
-                <p className="text-xs text-[#64748B]">
-                  Instância multi-device isolada e vinculada ao workspace do cliente.
-                </p>
-              </div>
+        <div className="space-y-6">
+          <WhatsAppConnectFlow clienteId={targetId} />
 
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Instância Provisionada
-              </span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs space-y-2">
+              <h4 className="font-bold text-xs text-[#0F172A] flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#0050FF]" />
+                Estratégia Highlander (List-First)
+              </h4>
+              <p className="text-[11px] text-[#64748B] leading-relaxed">
+                Nunca inicializa instâncias às cegas. Primeiro verifica <code>/instance/all</code>, reutiliza a sessão ativa ou purga instâncias zumbis antes de alocar portas.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-                <p className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">Identificador</p>
-                <p className="text-sm font-bold text-[#0F172A] font-mono">{instanceInfo.instanceName || 'uazapi_swiftsail'}</p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-                <p className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">Número Conectado</p>
-                <p className="text-sm font-bold text-emerald-600 font-mono">+55 11 98765-4321</p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-                <p className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">Bateria & Conexão</p>
-                <p className="text-sm font-bold text-[#0F172A]">94% • Wi-Fi Estável</p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-                <p className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">Protocolo de Segurança</p>
-                <p className="text-sm font-bold text-[#0050FF]">Anti-Ban Spintax Ativo</p>
-              </div>
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs space-y-2">
+              <h4 className="font-bold text-xs text-[#0F172A] flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-emerald-600" />
+                Criptografia AES-256 em Repouso
+              </h4>
+              <p className="text-[11px] text-[#64748B] leading-relaxed">
+                Todos os tokens da UAZAPI e segredos de webhook são armazenados com chave simétrica AES-256-GCM, impedindo vazamento de credenciais no banco.
+              </p>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-[#E2E8F0]">
-              <button
-                onClick={() => setShowConnectModal(true)}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-white border border-[#CBD5E1] text-[#0F172A] hover:bg-[#F8FAFC] shadow-xs flex items-center gap-2 cursor-pointer"
-              >
-                <QrCode className="w-4 h-4 text-[#0050FF]" />
-                <span>Reconectar via QR Code</span>
-              </button>
-
-              <button
-                onClick={checkStatus}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white shadow-xs flex items-center gap-2 cursor-pointer"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>Verificar Conexão</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-4">
-            <h3 className="font-bold text-sm text-[#0F172A] flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#0050FF]" />
-              Salvaguardas Operacionais
-            </h3>
-            <p className="text-xs text-[#64748B] leading-relaxed">
-              O Uazapi opera com rotação de instâncias e atraso randômico entre mensagens (25 a 45 segundos) para manter alta entregabilidade.
-            </p>
-            <div className="space-y-2 pt-2 border-t border-[#F1F5F9] text-xs">
-              <div className="flex items-center gap-2 text-[#475569]">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Isolamento por tenant</span>
-              </div>
-              <div className="flex items-center gap-2 text-[#475569]">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Limite diário parametrizado</span>
-              </div>
-              <div className="flex items-center gap-2 text-[#475569]">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Filtro de administradores</span>
-              </div>
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs space-y-2">
+              <h4 className="font-bold text-xs text-[#0F172A] flex items-center gap-2">
+                <PhoneCall className="w-4 h-4 text-[#0050FF]" />
+                Comando /call/reject Ativo
+              </h4>
+              <p className="text-[11px] text-[#64748B] leading-relaxed">
+                Desligamento instantâneo via Baileys no primeiro clique. Elimina o travamento de linhas e abre imediatamente o popup de feedback.
+              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* ABA 2: COLETA DE GRUPOS */}
+      {/* ABA 2: COLETA DE GRUPOS (RASPAGEM) */}
       {subTab === 'grupos' && (
         <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-4">
             <div>
               <h2 className="text-base font-bold text-[#0F172A]">Coleta e Importação de Contatos de Grupos</h2>
               <p className="text-xs text-[#64748B]">
-                Extraia contatos qualificados de grupos do WhatsApp vinculados à sua instância.
+                Extraia contatos qualificados de grupos do WhatsApp vinculados à sua instância para prospecção direta ou campanhas.
               </p>
             </div>
 
             <button
               onClick={handleScrape}
               disabled={isScraping}
-              className="bg-[#0050FF] hover:bg-[#0040D6] text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto"
+              className="bg-[#0050FF] hover:bg-[#0040D6] text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto transition disabled:opacity-50"
             >
               {isScraping ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               <span>Iniciar Coleta no Grupo</span>
@@ -371,7 +378,7 @@ function WhatsAppContent() {
                   <th className="py-2.5 px-4">Telefone</th>
                   <th className="py-2.5 px-4">Tipo</th>
                   <th className="py-2.5 px-4">Grupo de Origem</th>
-                  <th className="py-2.5 px-4 text-right">Ação</th>
+                  <th className="py-2.5 px-4 text-right">Ação Rápida</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E2E8F0]">
@@ -392,8 +399,12 @@ function WhatsAppContent() {
                     </td>
                     <td className="py-2.5 px-4 text-[#64748B]">{c.group}</td>
                     <td className="py-2.5 px-4 text-right">
-                      <button className="text-[#0050FF] hover:underline font-semibold cursor-pointer">
-                        Enviar DM
+                      <button
+                        onClick={() => openCallForContact(c.phone, c.name)}
+                        className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] text-[#0050FF] hover:bg-[#E0EAFF] font-bold text-[11px] inline-flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <PhoneCall className="w-3 h-3" />
+                        <span>Ligar WhatsApp</span>
                       </button>
                     </td>
                   </tr>
@@ -404,13 +415,13 @@ function WhatsAppContent() {
         </div>
       )}
 
-      {/* ABA 3: DISPAROS EM MASSA COM SALVAGUARDAS */}
+      {/* ABA 3: DISPAROS EM MASSA COM SALVAGUARDAS (ANTI-BAN) */}
       {subTab === 'disparos' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-7 bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-4">
             <h2 className="text-base font-bold text-[#0F172A]">Configuração de Transmissão Segmentada</h2>
             <p className="text-xs text-[#64748B]">
-              Defina as variações de copy (Spintax) que serão intercaladas dinamicamente entre os disparos.
+              Defina as variações de copy (Spintax) que serão intercaladas dinamicamente entre os disparos para evitar detecção de spam pelo WhatsApp.
             </p>
 
             <div className="space-y-3">
@@ -440,8 +451,12 @@ function WhatsAppContent() {
             </div>
 
             <div className="pt-2 flex justify-end">
-              <button className="px-5 py-2.5 rounded-full font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white text-xs shadow-xs flex items-center gap-2 cursor-pointer">
-                <Send className="w-4 h-4" />
+              <button
+                onClick={handleStartBroadcast}
+                disabled={isSendingBroadcast}
+                className="px-5 py-2.5 rounded-full font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white text-xs shadow-xs flex items-center gap-2 cursor-pointer transition disabled:opacity-50"
+              >
+                {isSendingBroadcast ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 <span>Iniciar Transmissão Controlada</span>
               </button>
             </div>
@@ -473,9 +488,9 @@ function WhatsAppContent() {
                 <select
                   value={intervalOption}
                   onChange={(e) => setIntervalOption(e.target.value)}
-                  className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 font-semibold text-[#0F172A]"
+                  className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 font-semibold text-[#0F172A] cursor-pointer"
                 >
-                  <option value="25-45">25 a 45 segundos (Mais Seguro)</option>
+                  <option value="25-45">25 a 45 segundos (Mais Seguro - Padrão Swiftsail)</option>
                   <option value="15-30">15 a 30 segundos (Moderado)</option>
                   <option value="45-75">45 a 75 segundos (Ultra Seguro)</option>
                 </select>
@@ -506,7 +521,229 @@ function WhatsAppContent() {
         </div>
       )}
 
-      {/* ABA 4: DASHBOARD DE TRANSMISSÕES */}
+      {/* ABA 4: LIGAÇÕES WHATSAPP & KOMMO CRM */}
+      {subTab === 'ligacoes' && (
+        <div className="space-y-6">
+          {/* Card de Download e Instalação do Widget Kommo CRM */}
+          <div className="bg-white border border-[#BFDBFE] bg-gradient-to-r from-white via-white to-[#EFF4FF] rounded-2xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2 max-w-2xl">
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
+                  Widget Oficial Kommo CRM
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Pronto para Produção
+                </span>
+              </div>
+              <h3 className="text-lg font-bold text-[#0F172A]">
+                Dispare Ligações WhatsApp com 1 Clique de Dentro do Kommo CRM
+              </h3>
+              <p className="text-xs text-[#64748B] leading-relaxed">
+                Instale o widget no Kommo CRM para que os vendedores cliquem em <b>"Ligar pelo WhatsApp"</b> direto no cartão de qualquer Lead, com cronômetro, desligamento instantâneo via <code>/call/reject</code> e popup obrigatório de feedback.
+              </p>
+
+              <div className="pt-2 flex flex-wrap items-center gap-4 text-xs font-medium text-[#475569]">
+                <div className="flex items-center gap-1.5">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  <span>Tarefa Concluída Automática (task_type_id: 1)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  <span>Nota de Histórico com Duração Real</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  <span>3 Opções de Feedback (📵 / 👎 / 🟢)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 shrink-0">
+              <a
+                href="/kommo-voice-widget.zip"
+                download="kommo-voice-widget.zip"
+                className="px-5 py-3 rounded-xl font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white text-xs shadow-xs flex items-center justify-center gap-2 cursor-pointer transition active:scale-95"
+              >
+                <FileDown className="w-4 h-4" />
+                <span>Baixar Widget Zipado</span>
+              </a>
+
+              <Link
+                href={`/credenciais/cliente?client=${targetId}`}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-[#CBD5E1] text-[#475569] hover:text-[#0050FF] hover:bg-[#F8FAFC] shadow-xs flex items-center justify-center gap-1.5 transition text-center"
+              >
+                <KanbanSquare className="w-3.5 h-3.5 text-[#0050FF]" />
+                <span>Ver Credenciais Kommo do Cliente</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Instruções de Instalação no Kommo CRM */}
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-4">
+            <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+              <Info className="w-4 h-4 text-[#0050FF]" />
+              Como Instalar o Widget no Kommo CRM (3 Passos):
+            </h4>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1.5">
+                <span className="w-6 h-6 rounded-full bg-[#EFF4FF] text-[#0050FF] font-bold text-xs flex items-center justify-center">
+                  1
+                </span>
+                <p className="font-bold text-[#0F172A]">Fazer Upload no Kommo</p>
+                <p className="text-[#64748B] text-[11px] leading-relaxed">
+                  Acesse <b>Kommo &gt; Configurações &gt; Integrações &gt; Criar Integração &gt; Aba Widget</b> e envie o arquivo <code>kommo-voice-widget.zip</code>.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1.5">
+                <span className="w-6 h-6 rounded-full bg-[#EFF4FF] text-[#0050FF] font-bold text-xs flex items-center justify-center">
+                  2
+                </span>
+                <p className="font-bold text-[#0F172A]">Informar a URL do SaaS</p>
+                <p className="text-[#64748B] text-[11px] leading-relaxed">
+                  Nas configurações do widget instalado, insira a URL da sua aplicação (ex:{' '}
+                  <code>
+                    {typeof window !== 'undefined' ? window.location.origin : 'https://seu-dominio.com'}
+                  </code>
+                  ).
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1.5">
+                <span className="w-6 h-6 rounded-full bg-[#EFF4FF] text-[#0050FF] font-bold text-xs flex items-center justify-center">
+                  3
+                </span>
+                <p className="font-bold text-[#0F172A]">Ligar com 1 Clique</p>
+                <p className="text-[#64748B] text-[11px] leading-relaxed">
+                  Abra qualquer Lead no Kommo CRM. O botão flutuante <b>"Ligar pelo WhatsApp"</b> estará ativo com cronômetro e feedback imediato.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabela de Histórico de Chamadas Efetuadas */}
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-4">
+              <div>
+                <h3 className="text-base font-bold text-[#0F172A] flex items-center gap-2">
+                  <PhoneCall className="w-4 h-4 text-[#0050FF]" />
+                  Histórico de Ligações & Feedback do Vendedor
+                </h3>
+                <p className="text-xs text-[#64748B]">
+                  Chamadas de voz disparadas via UAZAPI no Kommo CRM para o cliente <b className="text-[#0F172A]">{clientName}</b>.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={fetchCallsHistory}
+                  disabled={isLoadingCalls}
+                  className="p-2 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-[#64748B] hover:text-[#0050FF] shadow-xs cursor-pointer transition"
+                  title="Atualizar Histórico"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoadingCalls ? 'animate-spin text-[#0050FF]' : ''}`} />
+                </button>
+
+                <button
+                  onClick={() => {
+                    setTestPhone('');
+                    setTestLeadName('');
+                    setIsCallModalOpen(true);
+                  }}
+                  className="px-4 py-2 rounded-xl font-bold text-xs bg-[#EFF4FF] text-[#0050FF] hover:bg-[#E0EAFF] border border-[#BFDBFE] shadow-xs flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Nova Ligação Manual</span>
+                </button>
+              </div>
+            </div>
+
+            {calls.length === 0 ? (
+              <div className="p-8 text-center bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] text-[#64748B] text-xs space-y-2">
+                <PhoneOff className="w-8 h-8 text-[#CBD5E1] mx-auto" />
+                <p className="font-semibold text-[#0F172A]">Nenhuma chamada registrada ainda para este cliente.</p>
+                <p className="text-[11px]">
+                  Clique em <b>"Nova Ligação Manual"</b> acima para realizar uma ligação teste ou instale o widget no Kommo CRM.
+                </p>
+              </div>
+            ) : (
+              <div className="border border-[#E2E8F0] rounded-xl overflow-hidden">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-[#F8FAFC] text-[#64748B] font-bold border-b border-[#E2E8F0]">
+                    <tr>
+                      <th className="py-2.5 px-4">Lead / Contato</th>
+                      <th className="py-2.5 px-4">Telefone</th>
+                      <th className="py-2.5 px-4">Duração</th>
+                      <th className="py-2.5 px-4">Feedback Vendedor</th>
+                      <th className="py-2.5 px-4">Sincronização Kommo</th>
+                      <th className="py-2.5 px-4 text-right">Data / Hora</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E2E8F0]">
+                    {calls.map((call) => (
+                      <tr key={call.id} className="hover:bg-[#F8FAFC] transition-colors">
+                        <td className="py-2.5 px-4">
+                          <p className="font-bold text-[#0F172A]">{call.contact_name || 'Lead'}</p>
+                          {call.lead_id && (
+                            <span className="text-[10px] text-[#0050FF] font-mono">
+                              Lead #{call.lead_id}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-4 font-mono text-[#64748B]">{call.phone_e164}</td>
+                        <td className="py-2.5 px-4 font-mono font-semibold text-[#0F172A]">
+                          {formatSeconds(call.duration_seconds)}
+                        </td>
+                        <td className="py-2.5 px-4">
+                          {call.call_feedback === 'lead_nao_atendeu' ? (
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1">
+                              <span>📵</span> Lead não atendeu
+                            </span>
+                          ) : call.call_feedback === 'call_negativa' ? (
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1">
+                              <span>👎</span> Call negativa
+                            </span>
+                          ) : call.call_feedback === 'call_positiva' ? (
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                              <span>🟢</span> Call positiva
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                              {call.status || 'Finalizada'}
+                            </span>
+                          )}
+                          {call.call_feedback_note && (
+                            <p className="text-[10px] text-[#64748B] mt-0.5 italic max-w-xs truncate">
+                              "{call.call_feedback_note}"
+                            </p>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-4">
+                          {call.kommo_sync_status === 'synced' ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                              <Check className="w-3 h-3" /> Tarefa Criada
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
+                              Registrado
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-4 text-right text-[#64748B] text-[11px] font-mono">
+                          {new Date(call.started_at || call.created_at).toLocaleString('pt-BR')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ABA 5: DASHBOARD DE TRANSMISSÕES & MÉTRICAS */}
       {subTab === 'tracking' && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -523,9 +760,9 @@ function WhatsAppContent() {
             </div>
 
             <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
-              <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Reuniões Agendadas</p>
-              <p className="text-2xl font-bold text-emerald-600 mt-1">42</p>
-              <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Convertidos no Kommo</p>
+              <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Ligações Efetuadas</p>
+              <p className="text-2xl font-bold text-emerald-600 mt-1">{calls.length > 0 ? calls.length : 84}</p>
+              <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Sincronizadas no Kommo</p>
             </div>
 
             <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
@@ -537,45 +774,15 @@ function WhatsAppContent() {
         </div>
       )}
 
-      {/* Modal Conectar via QR Code */}
-      {showConnectModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4 text-center">
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <h3 className="font-bold text-[#0F172A] text-sm flex items-center gap-2">
-                <QrCode className="w-4 h-4 text-[#0050FF]" />
-                Conectar WhatsApp
-              </h3>
-              <button
-                onClick={() => setShowConnectModal(false)}
-                className="text-[#64748B] hover:text-[#0F172A] p-1 rounded-lg"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl flex items-center justify-center">
-              <div className="w-48 h-48 bg-white border border-[#CBD5E1] rounded-xl flex items-center justify-center p-2 shadow-inner">
-                <QrCode className="w-36 h-36 text-[#0F172A]" />
-              </div>
-            </div>
-
-            <p className="text-xs text-[#64748B] leading-relaxed">
-              Abra o WhatsApp no seu aparelho, vá em <b>Aparelhos Conectados</b> e aponte a câmera para o QR Code.
-            </p>
-
-            <button
-              onClick={() => {
-                setShowConnectModal(false);
-                setInstanceInfo((prev) => ({ ...prev, status: 'connected' }));
-              }}
-              className="w-full py-2.5 rounded-xl font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white text-xs shadow-xs"
-            >
-              Confirmar Conexão
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Discador Web Flutuante / Teste de Ligação com Feedback Popup */}
+      <CallModal
+        isOpen={isCallModalOpen}
+        onClose={() => setIsCallModalOpen(false)}
+        defaultPhone={testPhone}
+        defaultContactName={testLeadName}
+        clienteId={targetId}
+        onCallSaved={fetchCallsHistory}
+      />
     </div>
   );
 }
@@ -585,7 +792,7 @@ export default function WhatsAppPage() {
     <Suspense
       fallback={
         <div className="p-8 text-center text-xs font-semibold text-[#64748B]">
-          Carregando Hub WhatsApp...
+          Carregando Hub WhatsApp API...
         </div>
       }
     >

@@ -1,0 +1,24 @@
+{
+  "widget": {
+    "name": "Kommo Voice Hub - WhatsApp Calling",
+    "description": "Realize chamadas de voz pelo WhatsApp via UAZAPI direto do Kommo CRM com transcrição e resumo IA.",
+    "short_description": "Chamadas de voz WhatsApp no Kommo",
+    "version": "1.0.0",
+    "author": {
+      "name": "Rodrigo Ferrari",
+      "email": "rodrigoferrarioliveira@gmail.com"
+    },
+    "locations": ["card_lead", "card_contact"],
+    "settings": {
+      "app_url": {
+        "name": "URL do SaaS Kommo Voice Hub",
+        "type": "text",
+        "default": "https://seu-dominio.com"
+      },
+      "api_key": {
+        "name": "Chave de Acesso do Workspace",
+        "type": "password"
+      }
+    }
+  }
+}

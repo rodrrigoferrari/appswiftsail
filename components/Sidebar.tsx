@@ -25,6 +25,7 @@ import {
   Sliders,
   Send,
   Smartphone,
+  PhoneCall,
 } from 'lucide-react';
 
 import { useTenant } from './TenantProvider';
@@ -410,6 +411,18 @@ function SidebarContent() {
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>Envio em Massa & Stats</span>
+                  </Link>
+
+                  <Link
+                    href="/whatsapp?tab=ligacoes"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/whatsapp' && currentTab === 'ligacoes'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <PhoneCall className="w-3.5 h-3.5 text-[#0050FF]" />
+                    <span>Ligações & Kommo CRM</span>
                   </Link>
                 </div>
               )}
