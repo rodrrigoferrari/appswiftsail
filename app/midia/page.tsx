@@ -36,6 +36,7 @@ import {
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import CreativePreviewModal, { CreativePreviewItem } from '@/components/CreativePreviewModal';
+import GoogleAdDetailModal from '@/components/GoogleAdDetailModal';
 import LeadsDrilldownModal from '@/components/LeadsDrilldownModal';
 import DateRangePicker from '@/components/DateRangePicker';
 
@@ -52,6 +53,7 @@ function MidiaContent() {
   const [keywordsSearchFilter, setKeywordsSearchFilter] = useState('');
   const [assetGroupsSearchFilter, setAssetGroupsSearchFilter] = useState('');
   const [selectedCreativeModal, setSelectedCreativeModal] = useState<CreativePreviewItem | null>(null);
+  const [selectedGoogleAdModal, setSelectedGoogleAdModal] = useState<any | null>(null);
 
   useEffect(() => {
     const plat = searchParams?.get('plataforma');
@@ -721,8 +723,8 @@ function MidiaContent() {
 
                   const cleanActId = String(c.account_id || '').replace(/^act_/, '').trim();
                   const metaBillingUrl = cleanActId
-                    ? `https://business.facebook.com/latest/billing_hub/payment_settings/?payment_account_id=${cleanActId}&asset_id=${cleanActId}&nav_ref=billing_hub`
-                    : 'https://business.facebook.com/latest/billing_hub/payment_settings/';
+                    ? `https://adsmanager.facebook.com/ads/manager/billing/payment_settings?act=${cleanActId}`
+                    : 'https://adsmanager.facebook.com/ads/manager/billing/payment_settings';
 
                   return (
                     <div
@@ -2133,25 +2135,45 @@ function MidiaContent() {
                               </span>
                             </td>
 
-                            <td className="py-3 px-4 max-w-xs space-y-1">
+                            <td className="py-3 px-4 min-w-[280px] max-w-sm space-y-1.5">
                               {titulosList.length > 0 && (
                                 <div className="space-y-0.5">
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Títulos:</span>
-                                  <p className="text-[#0F172A] font-medium leading-relaxed truncate" title={titulosList.join(' • ')}>
-                                    {titulosList.join(' • ')}
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Títulos:</span>
+                                    <span className="text-[10px] font-semibold text-[#0050FF] bg-[#EFF4FF] px-1.5 py-0.5 rounded border border-[#BFDBFE]">
+                                      {titulosList.length} títulos
+                                    </span>
+                                  </div>
+                                  <p className="text-[#0F172A] font-medium leading-snug truncate" title={titulosList.join(' • ')}>
+                                    {titulosList.slice(0, 2).join(' • ')}
                                   </p>
                                 </div>
                               )}
                               {descList.length > 0 && (
                                 <div className="space-y-0.5">
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Descrições:</span>
-                                  <p className="text-[#475569] text-[11px] italic truncate" title={descList.join(' • ')}>
-                                    {descList.join(' • ')}
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Descrições:</span>
+                                    <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                      {descList.length} descrições
+                                    </span>
+                                  </div>
+                                  <p className="text-[#475569] text-[11px] italic leading-snug truncate" title={descList.join(' • ')}>
+                                    {descList[0]}
                                   </p>
                                 </div>
                               )}
-                              {titulosList.length === 0 && descList.length === 0 && (
+                              {titulosList.length === 0 && descList.length === 0 ? (
                                 <span className="text-[#94A3B8] font-mono text-[11px]">—</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedGoogleAdModal(ad)}
+                                  className="mt-1 w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#EFF4FF] hover:bg-[#DBEAFE] text-[#0050FF] border border-[#BFDBFE] transition-all shadow-2xs cursor-pointer group"
+                                  title="Abrir popup com todos os títulos e descrições completos e simulação de busca"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-[#0050FF] group-hover:scale-110 transition-transform" />
+                                  <span>Ver Títulos & Descrições ({titulosList.length + descList.length})</span>
+                                </button>
                               )}
                             </td>
 
@@ -2592,6 +2614,12 @@ function MidiaContent() {
       <CreativePreviewModal
         creative={selectedCreativeModal}
         onClose={() => setSelectedCreativeModal(null)}
+      />
+
+      {/* POPUP MODAL COM TÍTULOS E DESCRIÇÕES COMPLETOS DO GOOGLE ADS */}
+      <GoogleAdDetailModal
+        ad={selectedGoogleAdModal}
+        onClose={() => setSelectedGoogleAdModal(null)}
       />
 
       {/* POPUP MODAL COM LISTA DETALHADA DE LEADS E NOMES DE FORMULÁRIO */}

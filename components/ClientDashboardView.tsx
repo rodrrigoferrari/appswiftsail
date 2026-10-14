@@ -313,7 +313,7 @@ export default function ClientDashboardView({
           <div className="flex items-center gap-2 shrink-0">
             {criticalMetaAccounts.length === 1 ? (
               <a
-                href={`https://business.facebook.com/latest/billing_hub/payment_settings/?payment_account_id=${String(criticalMetaAccounts[0].account_id || '').replace(/^act_/, '').trim()}&asset_id=${String(criticalMetaAccounts[0].account_id || '').replace(/^act_/, '').trim()}&nav_ref=billing_hub`}
+                href={`https://adsmanager.facebook.com/ads/manager/billing/payment_settings?act=${String(criticalMetaAccounts[0].account_id || '').replace(/^act_/, '').trim()}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold shadow-xs transition-colors cursor-pointer"
@@ -375,8 +375,8 @@ export default function ClientDashboardView({
 
               const cleanActId = String(c.account_id || '').replace(/^act_/, '').trim();
               const metaBillingUrl = cleanActId
-                ? `https://business.facebook.com/latest/billing_hub/payment_settings/?payment_account_id=${cleanActId}&asset_id=${cleanActId}&nav_ref=billing_hub`
-                : 'https://business.facebook.com/latest/billing_hub/payment_settings/';
+                ? `https://adsmanager.facebook.com/ads/manager/billing/payment_settings?act=${cleanActId}`
+                : 'https://adsmanager.facebook.com/ads/manager/billing/payment_settings';
 
               return (
                 <div
