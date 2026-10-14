@@ -29,6 +29,9 @@ import {
   BarChart3,
   ChevronDown,
   ChevronRight,
+  CreditCard,
+  Wallet,
+  Link2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -43,8 +46,11 @@ function MidiaContent() {
   const [metaLevel, setMetaLevel] = useState<'tree' | 'campaigns' | 'adsets' | 'ads'>('tree');
   const [metaObjectiveFilter, setMetaObjectiveFilter] = useState<'all' | 'messages' | 'forms' | 'conversions' | 'reach' | 'traffic'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused'>('all');
-  const [googleSubTab, setGoogleSubTab] = useState<'campaigns' | 'search_terms'>('campaigns');
+  const [googleSubTab, setGoogleSubTab] = useState<'campaigns' | 'anuncios' | 'grupos_recursos' | 'palavras_chave' | 'search_terms'>('campaigns');
   const [searchTermFilter, setSearchTermFilter] = useState('');
+  const [adsSearchFilter, setAdsSearchFilter] = useState('');
+  const [keywordsSearchFilter, setKeywordsSearchFilter] = useState('');
+  const [assetGroupsSearchFilter, setAssetGroupsSearchFilter] = useState('');
   const [selectedCreativeModal, setSelectedCreativeModal] = useState<CreativePreviewItem | null>(null);
 
   useEffect(() => {
@@ -55,6 +61,12 @@ function MidiaContent() {
     }
     if (tab === 'termos') {
       setGoogleSubTab('search_terms');
+    } else if (tab === 'anuncios') {
+      setGoogleSubTab('anuncios');
+    } else if (tab === 'recursos') {
+      setGoogleSubTab('grupos_recursos');
+    } else if (tab === 'palavras') {
+      setGoogleSubTab('palavras_chave');
     }
   }, [searchParams]);
   const [leadsDrilldown, setLeadsDrilldown] = useState<{
@@ -112,7 +124,47 @@ function MidiaContent() {
   }, [targetId, dateRange]);
 
   const metaCampanhas = metaData?.campanhas || [];
+  const metaContas = (metaData?.contas && metaData.contas.length > 0)
+    ? metaData.contas
+    : activeClientAdAccounts.filter((a) => a.plataforma === 'meta');
   const googleCampanhas = googleData?.campanhas || [];
+  const googleAnuncios = googleData?.anuncios || [];
+  const googleGruposRecursos = googleData?.grupos_recursos || [];
+  const googlePalavrasChave = googleData?.palavras_chave || [];
+
+  const formatCartao = (digitos?: string | null) => {
+    if (!digitos) return '—';
+    return `•••• ${digitos}`;
+  };
+
+  const renderUrlsList = (urls: any, badgeText?: string) => {
+    const list = Array.isArray(urls) ? urls : urls ? [urls] : [];
+    if (list.length === 0) {
+      return <span className="text-[#94A3B8] font-mono text-[11px]">—</span>;
+    }
+    return (
+      <div className="flex flex-col gap-1 max-w-xs">
+        {badgeText && (
+          <span className="text-[9px] font-semibold text-[#0050FF] bg-[#EFF4FF] px-1.5 py-0.5 rounded border border-[#BFDBFE] w-fit">
+            {badgeText}
+          </span>
+        )}
+        {list.map((u: string, idx: number) => (
+          <a
+            key={idx}
+            href={u}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#0050FF] hover:underline font-mono text-[11px] truncate flex items-center gap-1 group"
+            title={u}
+          >
+            <span className="truncate">{u}</span>
+            <ExternalLink className="w-3 h-3 shrink-0 opacity-70 group-hover:opacity-100" />
+          </a>
+        ))}
+      </div>
+    );
+  };
 
   const formatBRL = (val: number | null | undefined) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val) || 0);
@@ -392,6 +444,37 @@ function MidiaContent() {
     });
   }, [googleCampanhas, statusFilter]);
 
+  const filteredGoogleAnuncios = useMemo(() => {
+    if (!adsSearchFilter.trim()) return googleAnuncios;
+    const term = adsSearchFilter.toLowerCase().trim();
+    return googleAnuncios.filter((a: any) =>
+      (a.campanha_nome || a.campanha || '').toLowerCase().includes(term) ||
+      (a.grupo_nome || a.grupo || '').toLowerCase().includes(term) ||
+      String(a.ad_id || '').includes(term) ||
+      (Array.isArray(a.titulos) ? a.titulos.join(' ') : String(a.titulos || '')).toLowerCase().includes(term)
+    );
+  }, [googleAnuncios, adsSearchFilter]);
+
+  const filteredGoogleGruposRecursos = useMemo(() => {
+    if (!assetGroupsSearchFilter.trim()) return googleGruposRecursos;
+    const term = assetGroupsSearchFilter.toLowerCase().trim();
+    return googleGruposRecursos.filter((g: any) =>
+      (g.nome || '').toLowerCase().includes(term) ||
+      (g.campanha_nome || '').toLowerCase().includes(term) ||
+      String(g.asset_group_id || '').includes(term)
+    );
+  }, [googleGruposRecursos, assetGroupsSearchFilter]);
+
+  const filteredGooglePalavrasChave = useMemo(() => {
+    if (!keywordsSearchFilter.trim()) return googlePalavrasChave;
+    const term = keywordsSearchFilter.toLowerCase().trim();
+    return googlePalavrasChave.filter((p: any) =>
+      (p.texto || '').toLowerCase().includes(term) ||
+      (p.campanha_nome || '').toLowerCase().includes(term) ||
+      (p.grupo_nome || '').toLowerCase().includes(term)
+    );
+  }, [googlePalavrasChave, keywordsSearchFilter]);
+
   // Geração hierárquica dinâmica 100% conectada às campanhas reais do Supabase
   const hierarchyData = useMemo(() => {
     if (!filteredMetaCampanhas || filteredMetaCampanhas.length === 0) return [];
@@ -603,6 +686,135 @@ function MidiaContent() {
       {/* ========================================================================= */}
       {activePlatformTab === 'meta' && (
         <div className="space-y-4">
+          {/* Informações Financeiras e Faturamento das Contas Meta (public.painel_contas_ads) */}
+          {metaContas.length > 0 && (
+            <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F1F5F9] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-[#EFF4FF] border border-[#BFDBFE] text-[#0050FF] flex items-center justify-center shrink-0">
+                    <Wallet className="w-4 h-4 text-[#0050FF]" />
+                  </span>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#0F172A] flex items-center gap-1.5">
+                      Faturamento & Contas Meta Ads
+                    </h3>
+                    <p className="text-[11px] text-[#64748B]">
+                      Saldo de contas pré-pagas, cartão e limite restante de gasto
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-[#64748B] font-medium bg-[#F8FAFC] px-2.5 py-1 rounded-full border border-[#E2E8F0] w-fit">
+                  <Clock className="w-3 h-3 text-[#0050FF]" />
+                  <span>Sync diário: Meta às 23:25 (BRT)</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {metaContas.map((c: any) => {
+                  const isPrePaga = c.tipo_pagamento === 'pre_paga';
+                  const isPosPaga = c.tipo_pagamento === 'pos_paga';
+                  const hasSaldo = c.saldo_disponivel !== null && c.saldo_disponivel !== undefined;
+                  const isSaldoBaixo = isPrePaga && hasSaldo && Number(c.saldo_disponivel) < 50;
+                  const hasLimite = c.limite_restante !== null && c.limite_restante !== undefined;
+                  const isLimiteBaixo = hasLimite && Number(c.limite_restante) < 50;
+                  const hasAlert = isSaldoBaixo || isLimiteBaixo;
+
+                  return (
+                    <div
+                      key={c.account_id || c.id}
+                      className={`p-3.5 rounded-xl border transition-all ${
+                        hasAlert
+                          ? 'bg-rose-50/70 border-rose-300 shadow-2xs'
+                          : 'bg-[#F8FAFC] border-[#E2E8F0]'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-[#0F172A] truncate" title={c.nome || c.account_name}>
+                            {c.nome || c.account_name}
+                          </p>
+                          <p className="text-[10px] text-[#64748B] font-mono truncate">
+                            ID: {c.account_id}
+                          </p>
+                        </div>
+
+                        {/* Badge Tipo Pagamento */}
+                        {isPrePaga ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200 shrink-0">
+                            Pré-Paga
+                          </span>
+                        ) : isPosPaga ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-50 text-violet-700 border border-violet-200 shrink-0">
+                            Pós-Paga
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 shrink-0">
+                            Meta Ads
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-2.5 pt-2 border-t border-[#E2E8F0]/70 space-y-1.5 text-xs">
+                        {/* Conta Pré-Paga: Saldo Disponível */}
+                        {isPrePaga && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-[#64748B]">Saldo Disponível:</span>
+                            <span className={`font-mono font-bold ${isSaldoBaixo ? 'text-rose-700' : 'text-emerald-700'}`}>
+                              {hasSaldo ? formatBRL(c.saldo_disponivel) : '—'}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Conta Pós-Paga: Cartão Final */}
+                        {isPosPaga && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-[#64748B] flex items-center gap-1">
+                              <CreditCard className="w-3 h-3 text-[#64748B]" /> Cartão:
+                            </span>
+                            <span className="font-mono font-bold text-[#0F172A]">
+                              {formatCartao(c.cartao_final)}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Limite Restante */}
+                        {hasLimite && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-[#64748B]">Limite Restante:</span>
+                            <span className={`font-mono font-bold ${isLimiteBaixo ? 'text-rose-700' : 'text-[#0F172A]'}`}>
+                              {formatBRL(c.limite_restante)}
+                            </span>
+                          </div>
+                        )}
+
+                        {!isPrePaga && !isPosPaga && !hasLimite && (
+                          <p className="text-[10px] text-[#94A3B8] italic">
+                            Aguardando primeira sincronização de pagamento.
+                          </p>
+                        )}
+
+                        {/* Alerta em Vermelho quando saldo < 50 ou limite < 50 */}
+                        {isSaldoBaixo && (
+                          <div className="mt-1.5 p-1.5 rounded-lg bg-rose-100 border border-rose-300 text-[10px] font-bold text-rose-800 flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                            <span>Alerta: Saldo disponível crítico (&lt; R$ 50,00).</span>
+                          </div>
+                        )}
+
+                        {isLimiteBaixo && !isSaldoBaixo && (
+                          <div className="mt-1.5 p-1.5 rounded-lg bg-rose-100 border border-rose-300 text-[10px] font-bold text-rose-800 flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                            <span>Alerta: Limite restante crítico (&lt; R$ 50,00).</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Barra de Níveis Hierárquicos & Filtro de Objetivo Adaptativo */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-3">
             {/* Níveis da Estrutura Meta */}
@@ -1667,33 +1879,68 @@ function MidiaContent() {
       {/* ========================================================================= */}
       {activePlatformTab === 'google' && (
         <div className="space-y-4">
-          {/* Subtabs Google: Campanhas vs Termos de Busca */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-3">
-            <div className="flex bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs gap-1">
+          {/* Subtabs Google: Campanhas, Anúncios & Destinos, PMax Recursos, Palavras-chave, Termos de Busca */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-3">
+            <div className="flex flex-wrap bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs gap-1">
               <button
                 onClick={() => setGoogleSubTab('campaigns')}
-                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   googleSubTab === 'campaigns'
                     ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
                     : 'text-[#64748B] hover:text-[#0F172A]'
                 }`}
               >
-                <span>📂</span> Campanhas Google ({googleCampanhas.length})
+                <span>📂</span> Campanhas ({filteredGoogleCampanhas.length})
+              </button>
+              <button
+                onClick={() => setGoogleSubTab('anuncios')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  googleSubTab === 'anuncios'
+                    ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
+                    : 'text-[#64748B] hover:text-[#0F172A]'
+                }`}
+              >
+                <span>📢</span> Anúncios & Destinos ({googleAnuncios.length})
+              </button>
+              <button
+                onClick={() => setGoogleSubTab('grupos_recursos')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  googleSubTab === 'grupos_recursos'
+                    ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
+                    : 'text-[#64748B] hover:text-[#0F172A]'
+                }`}
+              >
+                <span>⚡</span> PMax Recursos ({googleGruposRecursos.length})
+              </button>
+              <button
+                onClick={() => setGoogleSubTab('palavras_chave')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  googleSubTab === 'palavras_chave'
+                    ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
+                    : 'text-[#64748B] hover:text-[#0F172A]'
+                }`}
+              >
+                <span>🎯</span> Palavras-chave ({googlePalavrasChave.length})
               </button>
               <button
                 onClick={() => setGoogleSubTab('search_terms')}
-                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   googleSubTab === 'search_terms'
                     ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
                     : 'text-[#64748B] hover:text-[#0F172A]'
                 }`}
               >
-                <span>🔍</span> Relatório de Termos de Busca ({filteredSearchTerms.length})
+                <span>🔍</span> Termos de Busca ({filteredSearchTerms.length})
               </button>
             </div>
 
-            <div className="text-xs text-[#64748B] font-mono">
-              Gasto Total Google: <b className="text-[#0F172A]">{formatBRL(Number(googleData?.totais?.gasto || 0))}</b>
+            <div className="flex flex-wrap items-center gap-3 text-xs">
+              <span className="text-[10px] text-[#64748B] font-medium bg-[#F8FAFC] px-2.5 py-1 rounded-full border border-[#E2E8F0]">
+                Sync diário: Google às 23:35 (BRT)
+              </span>
+              <div className="text-[#64748B] font-mono">
+                Gasto Total Google: <b className="text-[#0F172A]">{formatBRL(Number(googleData?.totais?.gasto || 0))}</b>
+              </div>
             </div>
           </div>
 
@@ -1764,7 +2011,348 @@ function MidiaContent() {
             </div>
           )}
 
-          {/* Subtab 2: Relatório de Termos de Busca Reais (Search Terms Report) */}
+          {/* Subtab 2: Anúncios do Google Ads (public.painel_google_anuncios) */}
+          {googleSubTab === 'anuncios' && (
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden space-y-4">
+              <div className="p-4 border-b border-[#E2E8F0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                    <span>📢</span> Anúncios do Google Ads & Destinos (URLs Finais)
+                  </h3>
+                  <p className="text-xs text-[#64748B]">
+                    Títulos, descrições, URL de destino final e modelo de rastreamento de cada anúncio
+                  </p>
+                </div>
+
+                <div className="relative w-full sm:w-72">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#94A3B8]" />
+                  <input
+                    type="text"
+                    value={adsSearchFilter}
+                    onChange={(e) => setAdsSearchFilter(e.target.value)}
+                    placeholder="Filtrar por anúncio, campanha ou título..."
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl pl-8 pr-3 py-1.5 text-xs text-[#0F172A] focus:outline-none focus:border-[#0050FF]"
+                  />
+                </div>
+              </div>
+
+              {filteredGoogleAnuncios.length === 0 ? (
+                <div className="p-8 text-center text-[#64748B] text-xs">
+                  {loading ? 'Carregando anúncios...' : 'Nenhum anúncio Google encontrado para este cliente.'}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4">Campanha / Grupo</th>
+                        <th className="py-3 px-4">Anúncio</th>
+                        <th className="py-3 px-4">Títulos & Descrições</th>
+                        <th className="py-3 px-4">URL Final (Destino)</th>
+                        <th className="py-3 px-4">URL Mobile</th>
+                        <th className="py-3 px-4">Rastreamento</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E2E8F0] bg-white">
+                      {filteredGoogleAnuncios.map((ad: any, idx: number) => {
+                        const titulosList = Array.isArray(ad.titulos) ? ad.titulos : ad.titulos ? [ad.titulos] : [];
+                        const descList = Array.isArray(ad.descricoes) ? ad.descricoes : ad.descricoes ? [ad.descricoes] : [];
+                        const isEnabled = String(ad.status).toUpperCase() === 'ENABLED';
+
+                        return (
+                          <tr key={ad.ad_id || idx} className="hover:bg-[#F8FAFC] transition-colors">
+                            <td className="py-3 px-4">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 ${
+                                  isEnabled
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                                }`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                {isEnabled ? 'Ativo' : ad.status || 'Pausado'}
+                              </span>
+                            </td>
+
+                            <td className="py-3 px-4 max-w-xs">
+                              <p className="font-bold text-[#0F172A] truncate" title={ad.campanha_nome || ad.campanha}>
+                                {ad.campanha_nome || ad.campanha || 'Campanha'}
+                              </p>
+                              <p className="text-[11px] text-[#64748B] truncate" title={ad.grupo_nome || ad.grupo}>
+                                📁 {ad.grupo_nome || ad.grupo || 'Grupo'}
+                              </p>
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <p className="font-mono text-[#0F172A] font-bold">ID: {ad.ad_id}</p>
+                              <span className="text-[10px] font-semibold text-[#0050FF] bg-[#EFF4FF] px-2 py-0.5 rounded border border-[#BFDBFE]">
+                                {ad.tipo || 'RESPONSIVE_SEARCH_AD'}
+                              </span>
+                            </td>
+
+                            <td className="py-3 px-4 max-w-xs space-y-1">
+                              {titulosList.length > 0 && (
+                                <div className="space-y-0.5">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Títulos:</span>
+                                  <p className="text-[#0F172A] font-medium leading-relaxed truncate" title={titulosList.join(' • ')}>
+                                    {titulosList.join(' • ')}
+                                  </p>
+                                </div>
+                              )}
+                              {descList.length > 0 && (
+                                <div className="space-y-0.5">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Descrições:</span>
+                                  <p className="text-[#475569] text-[11px] italic truncate" title={descList.join(' • ')}>
+                                    {descList.join(' • ')}
+                                  </p>
+                                </div>
+                              )}
+                              {titulosList.length === 0 && descList.length === 0 && (
+                                <span className="text-[#94A3B8] font-mono text-[11px]">—</span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-4">
+                              {renderUrlsList(ad.urls_finais)}
+                            </td>
+
+                            <td className="py-3 px-4">
+                              {renderUrlsList(ad.urls_mobile)}
+                            </td>
+
+                            <td className="py-3 px-4 max-w-[180px]">
+                              {ad.tracking_url_template ? (
+                                <span
+                                  className="font-mono text-[10px] bg-[#F1F5F9] border border-[#CBD5E1] px-2 py-1 rounded text-[#0F172A] truncate block"
+                                  title={ad.tracking_url_template}
+                                >
+                                  {ad.tracking_url_template}
+                                </span>
+                              ) : (
+                                <span className="text-[#94A3B8] font-mono text-[11px]">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Subtab 3: Grupos de Recursos Performance Max (public.painel_google_grupos_recursos) */}
+          {googleSubTab === 'grupos_recursos' && (
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden space-y-4">
+              <div className="p-4 border-b border-[#E2E8F0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                    <span>⚡</span> Grupos de Recursos (Performance Max — PMax)
+                  </h3>
+                  <p className="text-xs text-[#64748B]">
+                    Status de veiculação, força do anúncio (Ad Strength) e URLs finais configuradas
+                  </p>
+                </div>
+
+                <div className="relative w-full sm:w-72">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#94A3B8]" />
+                  <input
+                    type="text"
+                    value={assetGroupsSearchFilter}
+                    onChange={(e) => setAssetGroupsSearchFilter(e.target.value)}
+                    placeholder="Filtrar grupos de recursos ou campanha..."
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl pl-8 pr-3 py-1.5 text-xs text-[#0F172A] focus:outline-none focus:border-[#0050FF]"
+                  />
+                </div>
+              </div>
+
+              {filteredGoogleGruposRecursos.length === 0 ? (
+                <div className="p-8 text-center text-[#64748B] text-xs">
+                  {loading ? 'Carregando grupos de recursos...' : 'Nenhum grupo de recursos PMax encontrado para este cliente.'}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4">Campanha</th>
+                        <th className="py-3 px-4">Grupo de Recursos</th>
+                        <th className="py-3 px-4">Força do Anúncio (Strength)</th>
+                        <th className="py-3 px-4">URLs Finais (Destino)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E2E8F0] bg-white">
+                      {filteredGoogleGruposRecursos.map((gr: any, idx: number) => {
+                        const isEnabled = String(gr.status).toUpperCase() === 'ENABLED';
+                        const strength = String(gr.ad_strength || '').toUpperCase();
+
+                        return (
+                          <tr key={gr.asset_group_id || idx} className="hover:bg-[#F8FAFC] transition-colors">
+                            <td className="py-3 px-4">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 ${
+                                  isEnabled
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                                }`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                {isEnabled ? 'Ativo' : gr.status || 'Pausado'}
+                              </span>
+                            </td>
+
+                            <td className="py-3 px-4 font-bold text-[#0F172A]">
+                              {gr.campanha_nome || 'Campanha PMax'}
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <p className="font-bold text-[#0050FF]">{gr.nome || 'Grupo de Recursos'}</p>
+                              <span className="text-[10px] text-[#64748B] font-mono">ID: {gr.asset_group_id}</span>
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <span
+                                className={`px-2.5 py-1 rounded-md text-[10px] font-bold border ${
+                                  strength === 'EXCELLENT'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : strength === 'GOOD'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : strength === 'AVERAGE'
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                    : strength === 'POOR'
+                                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                                }`}
+                              >
+                                {strength || 'PENDENTE'}
+                              </span>
+                            </td>
+
+                            <td className="py-3 px-4">
+                              {renderUrlsList(gr.urls_finais)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Subtab 4: Palavras-chave do Google Ads (public.painel_google_palavras_chave) */}
+          {googleSubTab === 'palavras_chave' && (
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden space-y-4">
+              <div className="p-4 border-b border-[#E2E8F0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                    <span>🎯</span> Palavras-chave do Google Ads & Destinos
+                  </h3>
+                  <p className="text-xs text-[#64748B]">
+                    Correspondência, qualidade e URL de destino (quando vazia, herda o link do anúncio do grupo)
+                  </p>
+                </div>
+
+                <div className="relative w-full sm:w-72">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#94A3B8]" />
+                  <input
+                    type="text"
+                    value={keywordsSearchFilter}
+                    onChange={(e) => setKeywordsSearchFilter(e.target.value)}
+                    placeholder="Filtrar por palavra-chave, campanha ou grupo..."
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl pl-8 pr-3 py-1.5 text-xs text-[#0F172A] focus:outline-none focus:border-[#0050FF]"
+                  />
+                </div>
+              </div>
+
+              {filteredGooglePalavrasChave.length === 0 ? (
+                <div className="p-8 text-center text-[#64748B] text-xs">
+                  {loading ? 'Carregando palavras-chave...' : 'Nenhuma palavra-chave encontrada para este cliente.'}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4">Palavra-chave</th>
+                        <th className="py-3 px-4">Correspondência</th>
+                        <th className="py-3 px-4">Campanha / Grupo</th>
+                        <th className="py-3 px-4">Índice de Qualidade</th>
+                        <th className="py-3 px-4">URL de Destino Final</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E2E8F0] bg-white">
+                      {filteredGooglePalavrasChave.map((pk: any, idx: number) => {
+                        const isEnabled = String(pk.status).toUpperCase() === 'ENABLED';
+                        const isHerdado = pk.origem_url === 'herdada_grupo';
+
+                        return (
+                          <tr key={pk.criterion_id || idx} className="hover:bg-[#F8FAFC] transition-colors">
+                            <td className="py-3 px-4">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 ${
+                                  isEnabled
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                                }`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                {isEnabled ? 'Ativa' : pk.status || 'Pausada'}
+                              </span>
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <p className="font-bold text-[#0F172A] font-mono">{pk.texto}</p>
+                              <span className="text-[10px] text-[#64748B] font-mono">ID: {pk.criterion_id}</span>
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <span className="px-2 py-0.5 rounded font-mono font-semibold text-[10px] bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1]">
+                                {pk.match_type || 'BROAD'}
+                              </span>
+                            </td>
+
+                            <td className="py-3 px-4 max-w-xs">
+                              <p className="font-bold text-[#0F172A] truncate" title={pk.campanha_nome}>
+                                {pk.campanha_nome || 'Campanha'}
+                              </p>
+                              <p className="text-[11px] text-[#64748B] truncate" title={pk.grupo_nome}>
+                                📁 {pk.grupo_nome || 'Grupo'}
+                              </p>
+                            </td>
+
+                            <td className="py-3 px-4">
+                              {pk.quality_score ? (
+                                <span className="font-bold text-[#0F172A] font-mono bg-[#F8FAFC] px-2 py-0.5 rounded border border-[#E2E8F0]">
+                                  {pk.quality_score}/10
+                                </span>
+                              ) : (
+                                <span className="text-[#94A3B8] font-mono text-[11px]">—</span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-4">
+                              {renderUrlsList(
+                                pk.urls_finais,
+                                isHerdado ? '🔗 Destino herdado do grupo' : undefined
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Subtab 5: Relatório de Termos de Busca Reais (Search Terms Report) */}
           {googleSubTab === 'search_terms' && (
             <div className="space-y-4">
               {/* KPI Cards dos Termos de Busca Reais */}

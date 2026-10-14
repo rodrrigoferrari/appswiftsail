@@ -21,6 +21,7 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertTriangle,
+  AlertCircle,
   RefreshCw,
   Search,
   MessageSquare,
@@ -136,6 +137,14 @@ export default function ClientDashboardView({
   // Contas ativas do cliente
   const metaAccounts = activeClientAdAccounts.filter((a) => a.plataforma === 'meta');
   const googleAccounts = activeClientAdAccounts.filter((a) => a.plataforma === 'google');
+
+  // Alerta em vermelho quando saldo_disponivel < 50 ou limite_restante < 50 nas contas Meta
+  const criticalMetaAccounts = metaAccounts.filter((a) => {
+    const isPrePaga = a.tipo_pagamento === 'pre_paga';
+    const isSaldoBaixo = isPrePaga && a.saldo_disponivel !== null && a.saldo_disponivel !== undefined && Number(a.saldo_disponivel) < 50;
+    const isLimiteBaixo = a.limite_restante !== null && a.limite_restante !== undefined && Number(a.limite_restante) < 50;
+    return isSaldoBaixo || isLimiteBaixo;
+  });
 
   // Format currency helpers
   const formatBRL = (val: number) =>
@@ -276,6 +285,25 @@ export default function ClientDashboardView({
           <span>
             Investimento, leads e métricas indisponíveis: {unavailable}
           </span>
+        </div>
+      )}
+
+      {/* Alerta em Vermelho para Contas Meta com Saldo ou Limite Crítico (< R$ 50) */}
+      {criticalMetaAccounts.length > 0 && (
+        <div className="p-3.5 rounded-xl text-xs font-semibold flex flex-col sm:flex-row sm:items-center justify-between gap-2 border bg-rose-50 text-rose-800 border-rose-300 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>
+              <strong>Alerta Financeiro Meta Ads:</strong> Conta{' '}
+              {criticalMetaAccounts.map((a) => a.account_name).join(', ')} com saldo disponível ou limite restante abaixo de R$ 50,00.
+            </span>
+          </div>
+          <a
+            href="/midia?plataforma=meta"
+            className="text-[11px] font-bold text-rose-700 underline hover:text-rose-900 shrink-0"
+          >
+            Ver Faturamento Meta Ads &rarr;
+          </a>
         </div>
       )}
 

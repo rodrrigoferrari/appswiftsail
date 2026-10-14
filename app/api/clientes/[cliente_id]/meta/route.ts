@@ -265,6 +265,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       { gasto: 0, leads: 0, conversas_iniciadas: 0, impressoes: 0, cliques: 0 }
     );
 
+    // 4. Carrega informações de faturamento e contas Meta de painel_contas_ads
+    // tipo_pagamento, saldo_disponivel, cartao_final, limite_restante
+    let contas: any[] = [];
+    try {
+      const { data: contasData } = await supabaseAdmin
+        .from('painel_contas_ads')
+        .select('cliente_id,plataforma,account_id,nome,status,moeda,tipo_pagamento,saldo_disponivel,cartao_final,limite_restante')
+        .eq('plataforma', 'meta')
+        .in('cliente_id', ids);
+      contas = contasData || [];
+    } catch {
+      // Graceful fallback
+    }
+
     return NextResponse.json({
       success: true,
       cliente_id,
@@ -276,6 +290,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
         custo_por_conversa: t.conversas_iniciadas > 0 ? Number((t.gasto / t.conversas_iniciadas).toFixed(2)) : 0,
       },
       campanhas,
+      contas,
     });
   } catch (err: unknown) {
     return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Erro interno' }, { status: 500 });

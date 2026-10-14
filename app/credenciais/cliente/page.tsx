@@ -258,14 +258,53 @@ export default function ClientCredentialsPage() {
                     <p className="text-[#94A3B8]">Nenhuma conta mapeada</p>
                   ) : (
                     <>
-                      {metaAccounts.map((a) => (
-                        <div key={a.id} className="text-[#0050FF] truncate">
-                          • [Meta] {a.account_name} ({a.account_id})
-                        </div>
-                      ))}
+                      {metaAccounts.map((a) => {
+                        const isPrePaga = a.tipo_pagamento === 'pre_paga';
+                        const isPosPaga = a.tipo_pagamento === 'pos_paga';
+                        const isSaldoBaixo = isPrePaga && a.saldo_disponivel !== null && a.saldo_disponivel !== undefined && Number(a.saldo_disponivel) < 50;
+                        const isLimiteBaixo = a.limite_restante !== null && a.limite_restante !== undefined && Number(a.limite_restante) < 50;
+                        const hasAlert = isSaldoBaixo || isLimiteBaixo;
+
+                        return (
+                          <div
+                            key={a.id}
+                            className={`p-2 rounded-lg border transition-all ${
+                              hasAlert ? 'bg-rose-50/70 border-rose-300' : 'bg-white border-[#E2E8F0]'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between text-[#0050FF]">
+                              <span className="font-semibold truncate">• [Meta] {a.account_name}</span>
+                              <span className="text-[10px] text-[#64748B] font-mono">({a.account_id})</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[10px]">
+                              {isPrePaga && (
+                                <span className={`font-semibold ${isSaldoBaixo ? 'text-rose-700 font-bold' : 'text-emerald-700'}`}>
+                                  Pré-paga: {a.saldo_disponivel !== null && a.saldo_disponivel !== undefined ? `R$ ${Number(a.saldo_disponivel).toFixed(2)}` : '—'}
+                                </span>
+                              )}
+                              {isPosPaga && a.cartao_final && (
+                                <span className="text-[#475569] font-semibold">
+                                  Cartão: •••• {a.cartao_final}
+                                </span>
+                              )}
+                              {a.limite_restante !== null && a.limite_restante !== undefined && (
+                                <span className={`${isLimiteBaixo ? 'text-rose-700 font-bold' : 'text-[#64748B]'}`}>
+                                  Limite rest.: R$ {Number(a.limite_restante).toFixed(2)}
+                                </span>
+                              )}
+                              {hasAlert && (
+                                <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-bold text-[9px] border border-rose-200">
+                                  ⚠️ Crítico &lt; R$ 50
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                       {googleAccounts.map((a) => (
-                        <div key={a.id} className="text-sky-700 truncate">
-                          • [Google] {a.account_name} ({a.account_id})
+                        <div key={a.id} className="p-2 rounded-lg bg-white border border-[#E2E8F0] text-sky-700 flex items-center justify-between">
+                          <span className="font-semibold truncate">• [Google] {a.account_name}</span>
+                          <span className="text-[10px] text-[#64748B] font-mono">({a.account_id})</span>
                         </div>
                       ))}
                     </>

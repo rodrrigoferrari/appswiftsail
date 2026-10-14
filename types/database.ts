@@ -31,11 +31,15 @@ export interface GroupAdAccount {
   account_id: string;
   account_name: string;
   ativo: boolean;
+  tipo_pagamento?: 'pre_paga' | 'pos_paga' | string | null;
+  saldo_disponivel?: number | null;
+  cartao_final?: string | null;
+  limite_restante?: number | null;
   created_at?: string;
   updated_at?: string;
 }
 
-// painel.contas_ads (Cleide): conta de anúncio já amarrada ao cliente_id
+// painel.contas_ads: conta de anúncio já amarrada ao cliente_id com dados de faturamento Meta
 export interface ContaAdsPainel {
   cliente_id: string;
   plataforma: 'meta' | 'google' | string;
@@ -43,6 +47,59 @@ export interface ContaAdsPainel {
   nome: string;
   status?: string | number | null;
   moeda?: string | null;
+  tipo_pagamento?: 'pre_paga' | 'pos_paga' | string | null;
+  saldo_disponivel?: number | null;
+  cartao_final?: string | null;
+  limite_restante?: number | null;
+}
+
+// painel.google_anuncios: uma linha por anúncio do Google Ads com links de destino
+export interface GoogleAnuncioPainel {
+  cliente_id: string;
+  customer_id?: string;
+  campanha_id?: string;
+  campanha_nome?: string;
+  campanha?: string;
+  grupo_id?: string;
+  grupo_nome?: string;
+  grupo?: string;
+  ad_id: string;
+  tipo: string | null;
+  status: string | null;
+  titulos?: string[] | string | null;
+  descricoes?: string[] | string | null;
+  urls_finais?: string[] | string | null;
+  urls_mobile?: string[] | string | null;
+  tracking_url_template?: string | null;
+}
+
+// painel.google_grupos_recursos (Performance Max)
+export interface GoogleGrupoRecursoPainel {
+  cliente_id: string;
+  customer_id?: string;
+  campanha_id?: string;
+  campanha_nome?: string;
+  asset_group_id: string;
+  nome: string;
+  status: string | null;
+  ad_strength?: string | null;
+  urls_finais?: string[] | string | null;
+}
+
+// painel.google_palavras_chave: palavras-chave e destinos
+export interface GooglePalavraChavePainel {
+  cliente_id: string;
+  customer_id?: string;
+  campanha_id?: string;
+  campanha_nome?: string;
+  grupo_id?: string;
+  grupo_nome?: string;
+  criterion_id: string;
+  texto: string;
+  match_type: string | null;
+  status: string | null;
+  quality_score?: number | null;
+  urls_finais?: string[] | string | null;
 }
 
 // painel.kommo_etapas (Cleide): etapas do pipeline com classificação conta_como

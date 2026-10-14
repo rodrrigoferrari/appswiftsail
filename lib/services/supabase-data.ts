@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { Cliente, ContaAdsPainel } from '@/types/database';
+import { Cliente, ContaAdsPainel, GoogleAnuncioPainel } from '@/types/database';
 
 /**
  * Busca clientes com status 'ativo' diretamente da tabela pública clientes.
@@ -26,16 +26,99 @@ export async function getClientes(): Promise<Cliente[]> {
 
 /**
  * Consulta contas de anúncio ativas de public.painel_contas_ads.
+ * Traz as 4 novas colunas: tipo_pagamento, saldo_disponivel, cartao_final e limite_restante.
  */
-export async function getContasAdsPainel(): Promise<ContaAdsPainel[] | null> {
+export async function getContasAdsPainel(clienteId?: string): Promise<ContaAdsPainel[] | null> {
   try {
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('painel_contas_ads')
-      .select('cliente_id,plataforma,account_id,nome,status,moeda');
-    if (error) return null;
+      .select('cliente_id,plataforma,account_id,nome,status,moeda,tipo_pagamento,saldo_disponivel,cartao_final,limite_restante');
+
+    if (clienteId && clienteId !== 'ALL') {
+      query = query.eq('cliente_id', clienteId.toUpperCase());
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error fetching painel_contas_ads:', error);
+      return null;
+    }
     return (data || []) as ContaAdsPainel[];
   } catch {
     return null;
+  }
+}
+
+/**
+ * Consulta anúncios do Google Ads em public.painel_google_anuncios.
+ * Uma linha por anúncio com link de destino (urls_finais), urls_mobile e tracking_url_template.
+ */
+export async function getGoogleAnuncios(clienteId?: string): Promise<GoogleAnuncioPainel[]> {
+  try {
+    let query = supabaseAdmin
+      .from('painel_google_anuncios')
+      .select('cliente_id,customer_id,campanha_id,campanha_nome,grupo_id,grupo_nome,ad_id,tipo,status,titulos,descricoes,urls_finais,urls_mobile,tracking_url_template');
+
+    if (clienteId && clienteId !== 'ALL') {
+      query = query.eq('cliente_id', clienteId.toUpperCase());
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error fetching painel_google_anuncios:', error);
+      return [];
+    }
+    return (data || []) as GoogleAnuncioPainel[];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Consulta grupos de recursos do Google Ads (Performance Max) em public.painel_google_grupos_recursos.
+ */
+export async function getGoogleGruposRecursos(clienteId?: string): Promise<any[]> {
+  try {
+    let query = supabaseAdmin
+      .from('painel_google_grupos_recursos')
+      .select('cliente_id,customer_id,campanha_id,campanha_nome,asset_group_id,nome,status,ad_strength,urls_finais');
+
+    if (clienteId && clienteId !== 'ALL') {
+      query = query.eq('cliente_id', clienteId.toUpperCase());
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error fetching painel_google_grupos_recursos:', error);
+      return [];
+    }
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Consulta palavras-chave do Google Ads em public.painel_google_palavras_chave.
+ */
+export async function getGooglePalavrasChave(clienteId?: string): Promise<any[]> {
+  try {
+    let query = supabaseAdmin
+      .from('painel_google_palavras_chave')
+      .select('cliente_id,customer_id,campanha_id,campanha_nome,grupo_id,grupo_nome,criterion_id,texto,match_type,status,quality_score,urls_finais');
+
+    if (clienteId && clienteId !== 'ALL') {
+      query = query.eq('cliente_id', clienteId.toUpperCase());
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error fetching painel_google_palavras_chave:', error);
+      return [];
+    }
+    return data || [];
+  } catch {
+    return [];
   }
 }
 

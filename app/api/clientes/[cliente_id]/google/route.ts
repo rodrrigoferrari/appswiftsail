@@ -183,7 +183,71 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       })
       .sort((a, b) => b.gasto - a.gasto || b.cliques - a.cliques || b.impressoes - a.impressoes);
 
-    // 4. Última atualização da fonte Google em painel_sync_rodadas
+    // 5. Consulta public.painel_google_anuncios (uma linha por anúncio do Google Ads)
+    let anuncios: any[] = [];
+    try {
+      anuncios = await fetchAll<any>((a, b) =>
+        supabaseAdmin
+          .from('painel_google_anuncios')
+          .select('cliente_id,customer_id,campanha_id,campanha_nome,grupo_id,grupo_nome,ad_id,tipo,status,titulos,descricoes,urls_finais,urls_mobile,tracking_url_template')
+          .in('cliente_id', ids)
+          .range(a, b)
+      );
+    } catch (errAnuncios) {
+      console.warn('[painel_google_anuncios warning]:', errAnuncios);
+    }
+
+    // Mapeia URL de destino do anúncio por grupo para herança da palavra-chave
+    const grupoDestinoMap = new Map<string, string[]>();
+    for (const ad of anuncios) {
+      const urls = Array.isArray(ad.urls_finais) ? ad.urls_finais : ad.urls_finais ? [ad.urls_finais] : [];
+      if (urls.length > 0) {
+        if (ad.grupo_id && !grupoDestinoMap.has(ad.grupo_id)) grupoDestinoMap.set(ad.grupo_id, urls);
+        if (ad.grupo_nome && !grupoDestinoMap.has(ad.grupo_nome)) grupoDestinoMap.set(ad.grupo_nome, urls);
+      }
+    }
+
+    // 6. Consulta public.painel_google_grupos_recursos (Performance Max)
+    let gruposRecursos: any[] = [];
+    try {
+      gruposRecursos = await fetchAll<any>((a, b) =>
+        supabaseAdmin
+          .from('painel_google_grupos_recursos')
+          .select('cliente_id,customer_id,campanha_id,campanha_nome,asset_group_id,nome,status,ad_strength,urls_finais')
+          .in('cliente_id', ids)
+          .range(a, b)
+      );
+    } catch (errGrupos) {
+      console.warn('[painel_google_grupos_recursos warning]:', errGrupos);
+    }
+
+    // 7. Consulta public.painel_google_palavras_chave (com herança de URLs do anúncio se vazio)
+    let palavrasChave: any[] = [];
+    try {
+      const rawPalavras = await fetchAll<any>((a, b) =>
+        supabaseAdmin
+          .from('painel_google_palavras_chave')
+          .select('cliente_id,customer_id,campanha_id,campanha_nome,grupo_id,grupo_nome,criterion_id,texto,match_type,status,quality_score,urls_finais')
+          .in('cliente_id', ids)
+          .range(a, b)
+      );
+
+      palavrasChave = rawPalavras.map((p) => {
+        const rawUrls = Array.isArray(p.urls_finais) ? p.urls_finais : p.urls_finais ? [p.urls_finais] : [];
+        const hasOwnUrl = rawUrls.length > 0;
+        const herdado = !hasOwnUrl ? (grupoDestinoMap.get(p.grupo_id) || grupoDestinoMap.get(p.grupo_nome) || null) : null;
+
+        return {
+          ...p,
+          urls_finais: hasOwnUrl ? rawUrls : herdado,
+          origem_url: hasOwnUrl ? 'propria' : herdado ? 'herdada_grupo' : 'nenhuma',
+        };
+      });
+    } catch (errPalavras) {
+      console.warn('[painel_google_palavras_chave warning]:', errPalavras);
+    }
+
+    // 8. Última atualização da fonte Google em painel_sync_rodadas
     let atualizadoEm: string | null = null;
     try {
       const { data: syncRow } = await supabaseAdmin
@@ -223,6 +287,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       },
       campanhas,
       termos_busca: termosBusca,
+      anuncios,
+      grupos_recursos: gruposRecursos,
+      palavras_chave: palavrasChave,
     });
   } catch (err: unknown) {
     return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Erro interno' }, { status: 500 });

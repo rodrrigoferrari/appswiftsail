@@ -209,6 +209,10 @@ export function TenantProvider({
           account_id: c.account_id,
           account_name: c.nome,
           ativo: true,
+          tipo_pagamento: c.tipo_pagamento,
+          saldo_disponivel: c.saldo_disponivel,
+          cartao_final: c.cartao_final,
+          limite_restante: c.limite_restante,
         }))
     : legacyAdAccounts;
 
