@@ -204,8 +204,10 @@ export interface AppUser {
   id: string;
   nome: string;
   email: string;
+  whatsapp?: string;
   role: UserRole;
   cliente_id?: string | null;
+  cliente_ids?: string[];
   cliente_nome?: string | null;
   status: 'ativo' | 'convidado' | 'bloqueado';
   modulos: UserModulePermission[];
@@ -218,8 +220,10 @@ export interface UserInvite {
   id: string;
   nome: string;
   email: string;
+  whatsapp?: string;
   role: UserRole;
   cliente_id?: string | null;
+  cliente_ids?: string[];
   cliente_nome?: string | null;
   modulos: UserModulePermission[];
   token: string;

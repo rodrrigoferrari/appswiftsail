@@ -31,6 +31,10 @@ import {
   Globe,
   Target,
   Layers,
+  BrainCircuit,
+  Image as ImageIcon,
+  Video,
+  Cpu,
 } from 'lucide-react';
 
 import { useTenant } from './TenantProvider';
@@ -57,6 +61,7 @@ function SidebarContent() {
     google: false,
     whatsapp: false,
     credenciais: false,
+    prompts: false,
     design: false,
     crm: false,
   });
@@ -83,8 +88,14 @@ function SidebarContent() {
       setOpenSubmenus((prev) => ({ ...prev, crm: true }));
     } else if (pathname === '/criativos') {
       setOpenSubmenus((prev) => ({ ...prev, design: true }));
-    } else if (pathname.startsWith('/credenciais')) {
+    } else if (
+      pathname.startsWith('/credenciais') ||
+      pathname === '/admin/notificacoes' ||
+      pathname === '/admin/openrouter'
+    ) {
       setOpenSubmenus((prev) => ({ ...prev, credenciais: true }));
+    } else if (pathname.startsWith('/admin/prompts') || pathname === '/admin/ia') {
+      setOpenSubmenus((prev) => ({ ...prev, prompts: true }));
     }
   }, [pathname, currentPlataforma]);
 
@@ -216,53 +227,144 @@ function SidebarContent() {
               </div>
             </Link>
 
-            {/* Notificações de Serviço (WhatsApp) */}
-            <Link
-              href="/admin/notificacoes"
-              className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
-                pathname === '/admin/notificacoes'
-                  ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold shadow-xs'
-                  : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <MessageSquare className={`w-4 h-4 ${pathname === '/admin/notificacoes' ? 'text-[#0050FF]' : 'text-emerald-600'}`} />
-                <span>Notificações de Serviço</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />
-            </Link>
+            {/* Credenciais & Integrações com Submenus (Notificações, Kommo, OpenRouter) */}
+            <div className="pt-1">
+              <button
+                onClick={() => toggleSubmenu('credenciais')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                  pathname === '/admin/notificacoes' || pathname === '/admin/openrouter' || pathname.startsWith('/credenciais')
+                    ? 'text-[#0050FF] font-semibold bg-[#EFF4FF]/50'
+                    : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <KeyRound className="w-4 h-4 text-[#0050FF]" />
+                  <span>Credenciais & Integrações</span>
+                </div>
+                {openSubmenus.credenciais ? (
+                  <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
+                )}
+              </button>
 
-            {/* Integrações & CRM por Cliente */}
-            <Link
-              href="/credenciais/cliente"
-              className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
-                pathname === '/credenciais/cliente'
-                  ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold shadow-xs'
-                  : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Sliders className={`w-4 h-4 ${pathname === '/credenciais/cliente' ? 'text-[#0050FF]' : 'text-[#64748B]'}`} />
-                <span>Integrações por Cliente</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />
-            </Link>
+              {openSubmenus.credenciais && (
+                <div className="ml-4 pl-3 border-l-2 border-[#E2E8F0] space-y-1 mt-1">
+                  {/* Notificações (Uazapi) */}
+                  <Link
+                    href="/admin/notificacoes"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/admin/notificacoes'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Notificações</span>
+                  </Link>
 
-            {/* Módulo de IA (Tokens & Calibração de Prompts) */}
-            <Link
-              href="/admin/ia"
-              className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
-                pathname === '/admin/ia'
-                  ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold shadow-xs'
-                  : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Bot className={`w-4 h-4 ${pathname === '/admin/ia' ? 'text-[#0050FF]' : 'text-[#64748B]'}`} />
-                <span>Módulo de IA & Prompts</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />
-            </Link>
+                  {/* Kommo (Vincular Clientes) */}
+                  <Link
+                    href="/credenciais/cliente"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/credenciais/cliente'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <KanbanSquare className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>Kommo</span>
+                  </Link>
+
+                  {/* OpenRouter (Token & Consumo) */}
+                  <Link
+                    href="/admin/openrouter"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/admin/openrouter'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <Cpu className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                    <span>OpenRouter</span>
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Novo Menu de Prompts com Submenus Referentes a Cada Um Deles */}
+            <div className="pt-1">
+              <button
+                onClick={() => toggleSubmenu('prompts')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                  pathname.startsWith('/admin/prompts') || pathname === '/admin/ia'
+                    ? 'text-[#0050FF] font-semibold bg-[#EFF4FF]/50'
+                    : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  <span>Prompts</span>
+                </div>
+                {openSubmenus.prompts ? (
+                  <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
+                )}
+              </button>
+
+              {openSubmenus.prompts && (
+                <div className="ml-4 pl-3 border-l-2 border-[#E2E8F0] space-y-1 mt-1">
+                  <Link
+                    href="/admin/prompts?prompt=campaign_analysis"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/admin/prompts' && searchParams?.get('prompt') === 'campaign_analysis'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <BrainCircuit className="w-3.5 h-3.5 text-[#0050FF] shrink-0" />
+                    <span>Análise de Tráfego & BI</span>
+                  </Link>
+
+                  <Link
+                    href="/admin/prompts?prompt=creative_image"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/admin/prompts' && searchParams?.get('prompt') === 'creative_image'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <ImageIcon className="w-3.5 h-3.5 text-pink-600 shrink-0" />
+                    <span>Criativos de Imagem</span>
+                  </Link>
+
+                  <Link
+                    href="/admin/prompts?prompt=creative_video"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/admin/prompts' && searchParams?.get('prompt') === 'creative_video'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <Video className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>Criativos de Vídeo</span>
+                  </Link>
+
+                  <Link
+                    href="/admin/prompts?prompt=landing_pages"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/admin/prompts' && searchParams?.get('prompt') === 'landing_pages'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <Globe className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Landing Pages</span>
+                  </Link>
+                </div>
+              )}
+            </div>
 
             {/* Membros & Convites da Equipe Master */}
             <Link

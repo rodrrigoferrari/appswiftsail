@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import {
   Users,
@@ -18,6 +18,8 @@ import {
   Search,
   ExternalLink,
   Send,
+  MessageSquare,
+  Phone,
 } from 'lucide-react';
 import { UserRole, UserModulePermission } from '@/types/database';
 
@@ -30,12 +32,7 @@ const ROLE_CONFIG: Record<string, { label: string; badgeClass: string; desc: str
   cliente_admin: {
     label: '🏢 Cliente (Workspace)',
     badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    desc: 'Gestor da empresa cliente com acesso ao seu próprio workspace',
-  },
-  cliente_membro: {
-    label: '👤 Cliente (Membro de Equipe)',
-    badgeClass: 'bg-slate-100 text-[#475569] border-[#E2E8F0]',
-    desc: 'Equipe comercial ou operacional com acesso aos dados do cliente',
+    desc: 'Gestor da empresa cliente com acesso aos workspaces atribuídos',
   },
 };
 
@@ -48,7 +45,7 @@ const ALL_MODULES: { id: UserModulePermission; label: string; icon: string }[] =
 ];
 
 export default function AdminUsuariosPage() {
-  const { clients, users, invites, refreshUsers, selectClientAndSwitchToWorkspace } = useTenant();
+  const { clients, users, invites, refreshUsers, selectClientAndSwitchToWorkspace, activeClient, viewMode } = useTenant();
 
   const [activeTab, setActiveTab] = useState<'users' | 'invites'>('users');
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,18 +55,72 @@ export default function AdminUsuariosPage() {
   // Modal State
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [inviteSuccessData, setInviteSuccessData] = useState<{ link: string; name: string; email: string } | null>(null);
+  const [inviteSuccessData, setInviteSuccessData] = useState<{
+    link: string;
+    name: string;
+    whatsapp?: string;
+    email?: string;
+    whatsappMessage?: string;
+    clientNames?: string;
+  } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // New Invite Form State
+  // New Invite Form State: Nome e WhatsApp obrigatórios
   const [formName, setFormName] = useState('');
+  const [formWhatsapp, setFormWhatsapp] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formRole, setFormRole] = useState<UserRole>('cliente_admin');
-  const [formClientId, setFormClientId] = useState(clients[0]?.cliente_id || 'dabol');
-  const [formModules, setFormModules] = useState<UserModulePermission[]>(['midia', 'whatsapp', 'crm']);
+  const [formSelectedClientIds, setFormSelectedClientIds] = useState<string[]>([]);
+  const [formModules, setFormModules] = useState<UserModulePermission[]>([
+    'midia',
+    'whatsapp',
+    'crm',
+    'criativos',
+    'financeiro',
+  ]);
   const [formFeedback, setFormFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const isClientRole = formRole === 'cliente_admin' || formRole === 'cliente_membro';
+  // Detecta se está na view do cliente
+  const isClientView = viewMode === 'client' && Boolean(activeClient);
+
+  // Sincroniza clientes selecionados ao abrir o modal
+  useEffect(() => {
+    if (showInviteModal) {
+      if (isClientView && activeClient) {
+        setFormSelectedClientIds([activeClient.cliente_id]);
+        setFormRole('cliente_admin');
+      } else if (clients.length > 0 && formSelectedClientIds.length === 0) {
+        setFormSelectedClientIds([clients[0].cliente_id]);
+      }
+    }
+  }, [showInviteModal, isClientView, activeClient]);
+
+  const handleToggleClientSelection = (clientId: string) => {
+    // Se estiver na view do cliente, não permite alterar
+    if (isClientView) return;
+
+    if (formSelectedClientIds.includes(clientId)) {
+      if (formSelectedClientIds.length === 1) {
+        alert('Selecione pelo menos 1 empresa para o convite de cliente.');
+        return;
+      }
+      setFormSelectedClientIds(formSelectedClientIds.filter((id) => id !== clientId));
+    } else {
+      setFormSelectedClientIds([...formSelectedClientIds, clientId]);
+    }
+  };
+
+  const handleSelectAllClients = () => {
+    if (isClientView) return;
+    setFormSelectedClientIds(clients.map((c) => c.cliente_id));
+  };
+
+  const handleDeselectAllClients = () => {
+    if (isClientView) return;
+    if (clients.length > 0) {
+      setFormSelectedClientIds([clients[0].cliente_id]);
+    }
+  };
 
   const handleToggleModule = (mod: UserModulePermission) => {
     if (formModules.includes(mod)) {
@@ -81,26 +132,35 @@ export default function AdminUsuariosPage() {
 
   const handleCreateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName || !formEmail) {
-      setFormFeedback({ type: 'error', text: 'Preencha o nome e o e-mail do usuário.' });
+    if (!formName.trim() || !formWhatsapp.trim()) {
+      setFormFeedback({ type: 'error', text: 'Preencha o Nome Completo e o WhatsApp do membro.' });
+      return;
+    }
+
+    if (formRole === 'cliente_admin' && formSelectedClientIds.length === 0) {
+      setFormFeedback({ type: 'error', text: 'Selecione ao menos uma empresa para este convite.' });
       return;
     }
 
     setIsSubmitting(true);
     setFormFeedback(null);
 
-    const targetClient = clients.find((c) => c.cliente_id === formClientId);
+    const selectedClientsList = clients.filter((c) => formSelectedClientIds.includes(c.cliente_id));
+    const selectedNames = selectedClientsList.map((c) => c.nome);
 
     try {
       const res = await fetch('/api/users/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nome: formName,
-          email: formEmail,
+          nome: formName.trim(),
+          whatsapp: formWhatsapp.trim(),
+          email: formEmail.trim() || undefined,
           role: formRole,
-          cliente_id: isClientRole ? formClientId : 'AGENCY',
-          cliente_nome: isClientRole ? targetClient?.nome : 'Swiftsail HQ',
+          cliente_id: formRole === 'master_admin' ? 'AGENCY' : formSelectedClientIds[0] || 'AGENCY',
+          cliente_ids: formRole === 'master_admin' ? [] : formSelectedClientIds,
+          cliente_nome: formRole === 'master_admin' ? 'Swiftsail HQ' : selectedNames.join(', '),
+          cliente_nomes: selectedNames,
           modulos: formModules,
         }),
       });
@@ -109,12 +169,16 @@ export default function AdminUsuariosPage() {
       if (data.success) {
         setInviteSuccessData({
           link: data.link_ativacao,
-          name: formName,
-          email: formEmail,
+          name: formName.trim(),
+          whatsapp: data.clean_whatsapp || formWhatsapp.trim(),
+          email: formEmail.trim() || undefined,
+          whatsappMessage: data.whatsapp_message,
+          clientNames: selectedNames.join(', '),
         });
         await refreshUsers();
         // Reset inputs
         setFormName('');
+        setFormWhatsapp('');
         setFormEmail('');
       } else {
         setFormFeedback({ type: 'error', text: data.error || 'Erro ao criar convite.' });
@@ -166,8 +230,13 @@ export default function AdminUsuariosPage() {
     const matchesSearch =
       u.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.whatsapp && u.whatsapp.includes(searchTerm)) ||
       (u.cliente_nome && u.cliente_nome.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesClient = clientFilter === 'ALL' || u.cliente_id === clientFilter || (clientFilter === 'AGENCY' && !u.cliente_id);
+    const matchesClient =
+      clientFilter === 'ALL' ||
+      u.cliente_id === clientFilter ||
+      (u.cliente_ids && u.cliente_ids.includes(clientFilter)) ||
+      (clientFilter === 'AGENCY' && !u.cliente_id);
     const matchesRole = roleFilter === 'ALL' || u.role === roleFilter;
     return matchesSearch && matchesClient && matchesRole;
   });
@@ -175,8 +244,13 @@ export default function AdminUsuariosPage() {
   const filteredInvites = invites.filter((i) => {
     const matchesSearch =
       i.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      i.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesClient = clientFilter === 'ALL' || i.cliente_id === clientFilter || (clientFilter === 'AGENCY' && !i.cliente_id);
+      i.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (i.whatsapp && i.whatsapp.includes(searchTerm));
+    const matchesClient =
+      clientFilter === 'ALL' ||
+      i.cliente_id === clientFilter ||
+      (i.cliente_ids && i.cliente_ids.includes(clientFilter)) ||
+      (clientFilter === 'AGENCY' && !i.cliente_id);
     return matchesSearch && matchesClient;
   });
 
@@ -351,7 +425,17 @@ export default function AdminUsuariosPage() {
                             </div>
                             <div>
                               <p className="font-bold text-[#0F172A]">{user.nome}</p>
-                              <p className="text-[11px] text-[#64748B] font-mono">{user.email}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {user.whatsapp && (
+                                  <span className="text-[11px] text-emerald-700 font-mono font-semibold flex items-center gap-1">
+                                    <Phone className="w-3 h-3 text-emerald-600" />
+                                    {user.whatsapp}
+                                  </span>
+                                )}
+                                {user.email && (
+                                  <span className="text-[11px] text-[#64748B] font-mono">{user.email}</span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -419,17 +503,23 @@ export default function AdminUsuariosPage() {
                               </button>
                             )}
 
-                            <button
-                              onClick={() => handleToggleUserStatus(user.id)}
-                              className="p-1.5 rounded-lg bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer shadow-xs"
-                              title={user.status === 'ativo' ? 'Bloquear Usuário' : 'Ativar Usuário'}
-                            >
-                              {user.status === 'ativo' ? (
-                                <Lock className="w-3.5 h-3.5 text-amber-500" />
-                              ) : (
-                                <Unlock className="w-3.5 h-3.5 text-emerald-600" />
-                              )}
-                            </button>
+                            {user.role !== 'master_admin' ? (
+                              <button
+                                onClick={() => handleToggleUserStatus(user.id)}
+                                className="p-1.5 rounded-lg bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer shadow-xs"
+                                title={user.status === 'ativo' ? 'Bloquear Usuário' : 'Ativar Usuário'}
+                              >
+                                {user.status === 'ativo' ? (
+                                  <Lock className="w-3.5 h-3.5 text-amber-500" />
+                                ) : (
+                                  <Unlock className="w-3.5 h-3.5 text-emerald-600" />
+                                )}
+                              </button>
+                            ) : (
+                              <span className="p-1.5 text-[10px] font-bold text-[#0050FF] bg-[#EFF4FF] border border-[#BFDBFE] rounded-lg">
+                                Master
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -478,7 +568,17 @@ export default function AdminUsuariosPage() {
                         <td className="p-4">
                           <div>
                             <p className="font-bold text-[#0F172A]">{invite.nome}</p>
-                            <p className="text-[11px] text-[#64748B] font-mono">{invite.email}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {invite.whatsapp && (
+                                <span className="text-[11px] text-emerald-700 font-mono font-semibold flex items-center gap-1">
+                                  <Phone className="w-3 h-3 text-emerald-600" />
+                                  {invite.whatsapp}
+                                </span>
+                              )}
+                              {invite.email && (
+                                <span className="text-[11px] text-[#64748B] font-mono">{invite.email}</span>
+                              )}
+                            </div>
                           </div>
                         </td>
 
@@ -497,17 +597,33 @@ export default function AdminUsuariosPage() {
                         </td>
 
                         <td className="p-4">
-                          <button
-                            onClick={() => copyToClipboard(invite.link_ativacao, invite.id)}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono border transition-all cursor-pointer ${
-                              isCopied
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                                : 'bg-[#F8FAFC] border-[#CBD5E1] text-[#0050FF] hover:bg-white'
-                            }`}
-                          >
-                            {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                            <span>{isCopied ? 'Link Copiado!' : 'Copiar Link'}</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => copyToClipboard(invite.link_ativacao, invite.id)}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono border transition-all cursor-pointer ${
+                                isCopied
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                  : 'bg-[#F8FAFC] border-[#CBD5E1] text-[#0050FF] hover:bg-white'
+                              }`}
+                            >
+                              {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                              <span>{isCopied ? 'Link Copiado!' : 'Copiar Link'}</span>
+                            </button>
+
+                            {invite.whatsapp && (
+                              <a
+                                href={`https://wa.me/55${invite.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(
+                                  `Olá ${invite.nome}! Seu convite para a plataforma Swiftsail foi liberado com acesso ao(s) workspace(s): ${invite.cliente_nome || 'Swiftsail'}. Ative seu acesso pelo link: ${invite.link_ativacao}`
+                                )}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer shadow-xs"
+                                title="Enviar convite pelo WhatsApp"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                              </a>
+                            )}
+                          </div>
                         </td>
 
                         <td className="p-4 font-mono text-[11px] text-[#64748B]">{invite.expira_em}</td>
@@ -573,8 +689,13 @@ export default function AdminUsuariosPage() {
                     <span>Convite gerado com sucesso!</span>
                   </div>
                   <p className="text-xs text-[#0F172A]">
-                    O convite para <b>{inviteSuccessData.name}</b> ({inviteSuccessData.email}) foi criado e já está pronto para ativação.
+                    O convite para <b>{inviteSuccessData.name}</b> foi gerado com acesso liberado a: <b>{inviteSuccessData.clientNames || 'Swiftsail HQ'}</b>.
                   </p>
+                  {inviteSuccessData.whatsapp && (
+                    <p className="text-[11px] text-emerald-800 font-mono">
+                      WhatsApp: {inviteSuccessData.whatsapp}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -590,15 +711,50 @@ export default function AdminUsuariosPage() {
                     />
                     <button
                       onClick={() => copyToClipboard(inviteSuccessData.link, 'modal_link')}
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white flex items-center gap-1.5 transition-colors whitespace-nowrap shadow-xs cursor-pointer"
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-[#EFF4FF] hover:bg-[#E0EAFF] text-[#0050FF] border border-[#BFDBFE] flex items-center gap-1.5 transition-colors whitespace-nowrap shadow-xs cursor-pointer"
                     >
                       {copiedId === 'modal_link' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      <span>{copiedId === 'modal_link' ? 'Copiado!' : 'Copiar'}</span>
+                      <span>{copiedId === 'modal_link' ? 'Copiado!' : 'Copiar Link'}</span>
                     </button>
                   </div>
-                  <p className="text-[11px] text-[#64748B]">
-                    💡 Você pode colar este link diretamente no grupo de WhatsApp do cliente ou enviar por e-mail.
+                </div>
+
+                {/* Disparo Direto pelo WhatsApp */}
+                <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
+                      <MessageSquare className="w-4 h-4 text-emerald-600" />
+                      Disparo Imediato via WhatsApp
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (inviteSuccessData.whatsappMessage) {
+                          copyToClipboard(inviteSuccessData.whatsappMessage, 'modal_msg');
+                        }
+                      }}
+                      className="text-[11px] font-bold text-[#0050FF] hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>{copiedId === 'modal_msg' ? 'Mensagem Copiada!' : 'Copiar Mensagem'}</span>
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-[#475569] font-mono bg-white p-2.5 rounded-lg border border-[#E2E8F0] leading-relaxed">
+                    {inviteSuccessData.whatsappMessage}
                   </p>
+
+                  <a
+                    href={`https://api.whatsapp.com/send?phone=${inviteSuccessData.whatsapp}&text=${encodeURIComponent(
+                      inviteSuccessData.whatsappMessage || inviteSuccessData.link
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2.5 px-3 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Enviar Convite pelo WhatsApp Agora</span>
+                  </a>
                 </div>
 
                 <div className="flex justify-end pt-3 border-t border-[#F1F5F9]">
@@ -629,7 +785,7 @@ export default function AdminUsuariosPage() {
                   </div>
                 )}
 
-                {/* Name & Email */}
+                {/* Name & WhatsApp */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-semibold text-[#475569] mb-1">Nome Completo *</label>
@@ -644,23 +800,40 @@ export default function AdminUsuariosPage() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-[#475569] mb-1">E-mail de Acesso *</label>
+                    <label className="block font-semibold text-[#475569] mb-1 flex items-center gap-1">
+                      <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Número de WhatsApp *</span>
+                    </label>
                     <input
-                      type="email"
+                      type="text"
                       required
-                      value={formEmail}
-                      onChange={(e) => setFormEmail(e.target.value)}
-                      placeholder="ex: joao@cliente.com.br"
-                      className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-[#0F172A] focus:outline-none focus:border-[#0050FF] focus:bg-white transition-colors"
+                      value={formWhatsapp}
+                      onChange={(e) => setFormWhatsapp(e.target.value)}
+                      placeholder="ex: 5511999998888"
+                      className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-[#0F172A] font-mono focus:outline-none focus:border-[#0050FF] focus:bg-white transition-colors"
                     />
                   </div>
                 </div>
 
-                {/* Role Selector: Apenas Admin e Cliente conforme Seção 2 */}
+                {/* Email Opcional */}
+                <div>
+                  <label className="block font-semibold text-[#475569] mb-1">
+                    E-mail (Opcional)
+                  </label>
+                  <input
+                    type="email"
+                    value={formEmail}
+                    onChange={(e) => setFormEmail(e.target.value)}
+                    placeholder="ex: joao@cliente.com.br"
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-[#0F172A] focus:outline-none focus:border-[#0050FF] focus:bg-white transition-colors"
+                  />
+                </div>
+
+                {/* Role Selector: Apenas 2 Hierarquias (Admin Agência e Cliente Workspace) */}
                 <div>
                   <label className="block font-semibold text-[#475569] mb-1.5">Hierarquia de Acesso *</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {(Object.keys(ROLE_CONFIG) as UserRole[]).map((r) => {
+                    {(['master_admin', 'cliente_admin'] as UserRole[]).map((r) => {
                       const isSelected = formRole === r;
                       return (
                         <div
@@ -673,11 +846,11 @@ export default function AdminUsuariosPage() {
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-xs">{ROLE_CONFIG[r].label}</span>
+                            <span className="font-bold text-xs">{ROLE_CONFIG[r]?.label}</span>
                             {isSelected && <Check className="w-3.5 h-3.5 text-[#0050FF]" />}
                           </div>
                           <p className="text-[10px] text-[#64748B] mt-1 line-clamp-2 leading-relaxed">
-                            {ROLE_CONFIG[r].desc}
+                            {ROLE_CONFIG[r]?.desc}
                           </p>
                         </div>
                       );
@@ -685,26 +858,88 @@ export default function AdminUsuariosPage() {
                   </div>
                 </div>
 
-                {/* Client Assignment (if client role) */}
-                {isClientRole && (
-                  <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1.5">
-                    <label className="block font-bold text-[#0F172A]">
-                      🏢 Atribuir ao Workspace do Cliente:
-                    </label>
-                    <select
-                      value={formClientId}
-                      onChange={(e) => setFormClientId(e.target.value)}
-                      className="w-full bg-white border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#0050FF] cursor-pointer shadow-xs"
-                    >
-                      {clients.map((c) => (
-                        <option key={c.cliente_id} value={c.cliente_id}>
-                          {c.nome} ({c.cliente_id})
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-[10px] text-[#64748B]">
-                      Este usuário terá acesso restrito exclusivamente aos dados deste cliente.
-                    </p>
+                {/* Workspaces Assignment (Quando role for Cliente Workspace) */}
+                {formRole === 'cliente_admin' && (
+                  <div className="space-y-2">
+                    {/* CASO 1: TRAVADO NA EMPRESA QUANDO DENTRO DA VIEW DO CLIENTE */}
+                    {isClientView && activeClient ? (
+                      <div className="p-3.5 bg-[#EFF4FF]/40 border border-[#BFDBFE] rounded-xl flex items-center justify-between shadow-2xs">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-lg bg-white border border-[#BFDBFE] flex items-center justify-center text-[#0050FF] shadow-2xs">
+                            <Building className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-xs text-[#0F172A]">{activeClient.nome}</p>
+                            <p className="text-[10px] text-[#64748B]">Workspace fixado para esta empresa</p>
+                          </div>
+                        </div>
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-[#0050FF] bg-white border border-[#BFDBFE] px-2.5 py-1 rounded-full shadow-2xs">
+                          <Lock className="w-3 h-3" />
+                          Workspace Travado
+                        </span>
+                      </div>
+                    ) : (
+                      /* CASO 2: LIBERADO E COM MULTI-EMPRESAS QUANDO NO ADMIN */
+                      <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#CBD5E1] space-y-2.5 shadow-2xs">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-[#E2E8F0] pb-2">
+                          <div>
+                            <label className="font-bold text-xs text-[#0F172A] flex items-center gap-1.5">
+                              <Building className="w-3.5 h-3.5 text-[#0050FF]" />
+                              <span>Empresas Vinculadas ao Convite (Múltipla Seleção):</span>
+                            </label>
+                            <span className="text-[10px] text-[#0050FF] font-semibold">
+                              {formSelectedClientIds.length} de {clients.length} empresas selecionadas
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                            <button
+                              type="button"
+                              onClick={handleSelectAllClients}
+                              className="text-[10px] font-bold text-[#0050FF] bg-white border border-[#BFDBFE] px-2 py-0.5 rounded hover:bg-[#EFF4FF] cursor-pointer"
+                            >
+                              Marcar Todas
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleDeselectAllClients}
+                              className="text-[10px] font-bold text-[#64748B] bg-white border border-[#CBD5E1] px-2 py-0.5 rounded hover:bg-slate-50 cursor-pointer"
+                            >
+                              Limpar
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                          {clients.map((c) => {
+                            const isSelected = formSelectedClientIds.includes(c.cliente_id);
+                            return (
+                              <button
+                                type="button"
+                                key={c.cliente_id}
+                                onClick={() => handleToggleClientSelection(c.cliente_id)}
+                                className={`p-2 rounded-lg border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-[#EFF4FF] border-[#BFDBFE] text-[#0050FF] shadow-2xs'
+                                    : 'bg-white border-[#E2E8F0] text-[#475569] hover:bg-slate-50'
+                                }`}
+                              >
+                                <span className="font-semibold text-xs truncate">{c.nome}</span>
+                                <div
+                                  className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 ${
+                                    isSelected
+                                      ? 'bg-[#0050FF] border-[#0050FF] text-white'
+                                      : 'border-[#CBD5E1] bg-white'
+                                  }`}
+                                >
+                                  {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
