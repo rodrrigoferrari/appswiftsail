@@ -146,9 +146,24 @@ export async function getUazapiCredentialsForClient(
     if (instData && instData.length > 0) {
       try {
         const parsed = JSON.parse(instData[0].content);
-        if (parsed.token) instanceToken = parsed.token;
         if (parsed.instance_name) instanceName = parsed.instance_name;
         if (parsed.server_url) serverUrl = parsed.server_url;
+        
+        // Verifica se a instância salva no Supabase está realmente conectada
+        if (parsed.token) {
+          const cleanUrl = (parsed.server_url || serverUrl).replace(/\/+$/, '');
+          const statusRes = await fetch(`${cleanUrl}/instance/status`, {
+            headers: { token: parsed.token },
+            cache: 'no-store',
+          }).catch(() => null);
+
+          if (statusRes && statusRes.ok) {
+            const statusJson = await statusRes.json();
+            if (statusJson.status?.connected === true || statusJson.instance?.status === 'connected') {
+              instanceToken = parsed.token;
+            }
+          }
+        }
       } catch {}
     }
 
@@ -183,7 +198,7 @@ export async function getUazapiCredentialsForClient(
           const instances = await res.json();
           if (Array.isArray(instances)) {
             const cleanTarget = targetClient.toLowerCase().replace(/[^a-z0-9]/g, '');
-            // Prioridade 1: Match por nome do cliente na instância (ex: dabol, adriatica)
+            // Prioridade 1: Match por nome do cliente na instância e que esteja conectada
             const matched = instances.find((inst: any) => {
               const cleanName = (inst.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
               return (cleanName.includes(cleanTarget) || cleanTarget.includes(cleanName)) && inst.status === 'connected';

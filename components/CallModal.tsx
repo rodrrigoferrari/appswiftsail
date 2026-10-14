@@ -22,6 +22,7 @@ interface CallModalProps {
   defaultLeadId?: string;
   defaultContactId?: string;
   clienteId?: string;
+  instanceToken?: string;
   onCallSaved?: () => void;
 }
 
@@ -33,6 +34,7 @@ export function CallModal({
   defaultLeadId = '',
   defaultContactId = '',
   clienteId = 'swiftsail',
+  instanceToken,
   onCallSaved,
 }: CallModalProps) {
   const [phone, setPhone] = useState(defaultPhone);
@@ -90,6 +92,7 @@ export function CallModal({
           leadId: defaultLeadId || null,
           contactId: defaultContactId || null,
           cliente_id: clienteId,
+          instance_token: instanceToken,
         }),
       });
 

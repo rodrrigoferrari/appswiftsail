@@ -65,6 +65,8 @@ export async function POST(req: NextRequest) {
     // 1. Obter credenciais UAZAPI da instância deste cliente
     const uazCreds = await getUazapiCredentialsForClient(targetWorkspace);
 
+    const effectiveToken = body.instance_token || uazCreds.instanceToken;
+
     // 2. Salvar chamada com status "initiated"
     const call = await saveCallRecord({
       workspace_id: targetWorkspace,
@@ -78,19 +80,51 @@ export async function POST(req: NextRequest) {
       started_at: new Date().toISOString(),
     });
 
-    // 3. Se tivermos token de instância, disparar chamada na UAZAPI (/call/make)
+    // 3. Se não tivermos linha conectada, avisar imediatamente
+    if (!effectiveToken) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Nenhuma linha WhatsApp conectada encontrada. Conecte pelo QR Code antes de efetuar a chamada.',
+        },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // 4. Disparar chamada na UAZAPI (/call/make)
     let providerCallId: string | null = null;
-    if (uazCreds.instanceToken) {
-      try {
-        const uazapi = new UazapiClient(uazCreds.instanceToken, uazCreds.serverUrl);
-        const callRes = await uazapi.startVoiceCall(phoneE164);
-        providerCallId = callRes?.id || callRes?.callId || callRes?.key?.id || callRes?.data?.id || null;
-        if (providerCallId) {
-          await updateCallRecord(call.id, { uazapi_call_id: providerCallId });
-        }
-      } catch (uazErr: any) {
-        console.warn('[UAZAPI Voice Call Trigger Warning]:', uazErr.message);
+    let uazResponseData: any = null;
+
+    try {
+      const uazapi = new UazapiClient(effectiveToken, uazCreds.serverUrl);
+      const callRes = await uazapi.startVoiceCall(phoneE164);
+      uazResponseData = callRes;
+
+      if (callRes?.error || (callRes?.code && callRes.code >= 400)) {
+        await updateCallRecord(call.id, { status: 'failed' });
+        return NextResponse.json(
+          {
+            success: false,
+            error: callRes.error || callRes.message || 'Linha WhatsApp não conseguiu completar a chamada.',
+          },
+          { status: 400, headers: corsHeaders }
+        );
       }
+
+      providerCallId = callRes?.call?.id || callRes?.id || callRes?.callId || callRes?.key?.id || callRes?.data?.id || null;
+      if (providerCallId) {
+        await updateCallRecord(call.id, { uazapi_call_id: providerCallId });
+      }
+    } catch (uazErr: any) {
+      console.warn('[UAZAPI Voice Call Trigger Warning]:', uazErr.message);
+      await updateCallRecord(call.id, { status: 'failed' });
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Falha de conexão com a UAZAPI: ${uazErr.message}`,
+        },
+        { status: 400, headers: corsHeaders }
+      );
     }
 
     return NextResponse.json(

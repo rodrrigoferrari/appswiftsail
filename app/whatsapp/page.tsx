@@ -85,6 +85,9 @@ function WhatsAppContent() {
   // Group Scraper & Multi-Instance State
   const [availableInstances, setAvailableInstances] = useState<Array<{ name: string; status: string; token: string }>>([]);
   const [selectedInstanceToken, setSelectedInstanceToken] = useState<string>('');
+  const selectedInstanceObj = availableInstances.find((i) => i.token === selectedInstanceToken);
+  const selectedInstanceName = selectedInstanceObj?.name || 'Linha WhatsApp';
+  const selectedInstanceStatus = selectedInstanceObj?.status || 'disconnected';
   const [groups, setGroups] = useState<any[]>([]);
   const [selectedGroupJid, setSelectedGroupJid] = useState('');
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
@@ -105,12 +108,19 @@ function WhatsAppContent() {
   const [timeWindowStart, setTimeWindowStart] = useState('09:00');
   const [timeWindowEnd, setTimeWindowEnd] = useState('18:30');
   const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
+  const [broadcastProgress, setBroadcastProgress] = useState<{
+    current: number;
+    total: number;
+    success: number;
+    failed: number;
+  } | null>(null);
+  const [totalSentBroadcasts, setTotalSentBroadcasts] = useState<number>(0);
 
-  // Spintax Variations (Até 6 variações dinâmicas de mensagem)
+  // Spintax Variations (Até 6 variações dinâmicas de mensagem usando apenas {primeiro_nome})
   const [copies, setCopies] = useState<string[]>([
-    'Olá {primeiro_nome}, tudo bem? Sou da equipe da {cliente}. Notei que você também está no grupo {grupo_origem} e gostaria de compartilhar nossa oportunidade exclusiva de investimento.',
-    'Oi {primeiro_nome}, como vai? Liberamos esta semana condições de lançamento prioritárias com atendimento VIP no WhatsApp. Gostaria de receber o catálogo?',
-    'Olá {primeiro_nome}! Passando rapidamente para compartilhar uma condição especial que preparamos para membros do {grupo_origem}. Posso te enviar o material?',
+    'Olá {primeiro_nome}, tudo bem? Sou da equipe comercial. Gostaria de compartilhar uma condição exclusiva de lançamento com você.',
+    'Oi {primeiro_nome}, como vai? Liberamos esta semana condições prioritárias com atendimento VIP no WhatsApp. Gostaria de receber o catálogo?',
+    'Olá {primeiro_nome}! Passando rapidamente para compartilhar uma oportunidade especial que preparamos. Posso te enviar o material?',
   ]);
 
   const copyLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
@@ -120,7 +130,7 @@ function WhatsAppContent() {
     const nextLetter = copyLetters[copies.length];
     setCopies((prev) => [
       ...prev,
-      `Olá {primeiro_nome}, tudo bem? [Variação ${nextLetter}] Temos uma oportunidade exclusiva para você da equipe ${clientName}. Gostaria de conhecer?`,
+      `Olá {primeiro_nome}, tudo bem? [Variação ${nextLetter}] Gostaria de compartilhar uma oportunidade exclusiva. Posso te enviar os detalhes?`,
     ]);
   };
 
@@ -426,21 +436,86 @@ function WhatsAppContent() {
   // Destinatários ativos para o disparador
   const activeRecipients = recipientSource === 'scraped' ? scrapedContacts : spreadsheetContacts;
 
-  const handleStartBroadcast = () => {
+  const handleStartBroadcast = async () => {
     if (activeRecipients.length === 0) {
       alert('Nenhum contato selecionado para envio. Colete participantes de um grupo ou importe uma planilha.');
       return;
     }
 
+    const validCopies = copies.filter((c) => c.trim().length > 0);
+    if (validCopies.length === 0) {
+      alert('Preencha ao menos uma variação de mensagem para iniciar o disparo.');
+      return;
+    }
+
+    const confirmSend = confirm(
+      `Confirma o início da transmissão para ${activeRecipients.length} contatos usando a linha ${selectedInstanceName || 'WhatsApp'}?`
+    );
+    if (!confirmSend) return;
+
     setIsSendingBroadcast(true);
-    setTimeout(() => {
-      setIsSendingBroadcast(false);
-      alert(
-        `Transmissão controlada iniciada com sucesso para ${activeRecipients.length} contatos!\n` +
-        `Origem: ${recipientSource === 'scraped' ? 'Contatos Coletados do Grupo' : `Planilha (${spreadsheetFileName})`}\n` +
-        `As ${copies.length} variações de mensagem serão rotacionadas com o intervalo de ${intervalOption}s.`
-      );
-    }, 1500);
+    setBroadcastProgress({ current: 0, total: activeRecipients.length, success: 0, failed: 0 });
+
+    let sentCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < activeRecipients.length; i++) {
+      const recipient = activeRecipients[i];
+      const rawName = recipient.name || 'Amigo';
+      // Extrai somente o primeiro nome
+      const firstName = rawName.trim().split(' ')[0] || 'Amigo';
+
+      // Rotaciona as variações de copy configuradas
+      const template = validCopies[i % validCopies.length];
+      const messageToSend = template.replace(/\{primeiro_nome\}/gi, firstName);
+
+      try {
+        const res = await fetch('/api/uazapi', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'send_message',
+            cliente_id: targetId,
+            phone: recipient.phone,
+            message: messageToSend,
+            instance_token: selectedInstanceToken || undefined,
+          }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          sentCount++;
+        } else {
+          failCount++;
+          console.warn(`[Broadcast Fail] ${recipient.phone}:`, data.error);
+        }
+      } catch (err) {
+        failCount++;
+        console.error(`[Broadcast Error] ${recipient.phone}:`, err);
+      }
+
+      setBroadcastProgress({
+        current: i + 1,
+        total: activeRecipients.length,
+        success: sentCount,
+        failed: failCount,
+      });
+
+      // Intervalo de segurança anti-ban entre disparos
+      if (i < activeRecipients.length - 1) {
+        await new Promise((r) => setTimeout(r, 1200));
+      }
+    }
+
+    setIsSendingBroadcast(false);
+    setTotalSentBroadcasts((prev) => prev + sentCount);
+
+    alert(
+      `Transmissão concluída com sucesso!\n` +
+      `Mensagens enviadas: ${sentCount}\n` +
+      `Falhas: ${failCount}\n` +
+      `Linha utilizada: ${selectedInstanceName || 'WhatsApp'}`
+    );
   };
 
   const openCallForContact = (phone: string, name: string) => {
@@ -1064,7 +1139,7 @@ function WhatsAppContent() {
                       className="w-full bg-white border border-[#CBD5E1] rounded-xl p-3 text-xs text-[#0F172A] focus:outline-none focus:border-[#0050FF] transition"
                     />
 
-                    {/* Botões de Tags Rápidas de Spintax */}
+                    {/* Botão de Tag Rápida de Spintax: Apenas Primeiro Nome */}
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
                       <span className="text-[10px] font-semibold text-[#64748B] flex items-center gap-1">
                         <Tag className="w-3 h-3 text-[#0050FF]" /> Inserir Tag:
@@ -1072,29 +1147,39 @@ function WhatsAppContent() {
                       <button
                         type="button"
                         onClick={() => insertTagIntoCopy(idx, '{primeiro_nome}')}
-                        className="px-2 py-0.5 rounded-md bg-white border border-[#CBD5E1] text-[10px] font-mono text-[#0050FF] hover:bg-[#EFF4FF] cursor-pointer"
+                        className="px-2.5 py-1 rounded-md bg-[#EFF4FF] border border-[#BFDBFE] text-[10px] font-mono font-semibold text-[#0050FF] hover:bg-[#DBEAFE] cursor-pointer transition shadow-2xs"
                       >
                         {'{primeiro_nome}'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertTagIntoCopy(idx, '{cliente}')}
-                        className="px-2 py-0.5 rounded-md bg-white border border-[#CBD5E1] text-[10px] font-mono text-emerald-700 hover:bg-emerald-50 cursor-pointer"
-                      >
-                        {'{cliente}'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertTagIntoCopy(idx, '{grupo_origem}')}
-                        className="px-2 py-0.5 rounded-md bg-white border border-[#CBD5E1] text-[10px] font-mono text-amber-700 hover:bg-amber-50 cursor-pointer"
-                      >
-                        {'{grupo_origem}'}
                       </button>
                     </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* Barra de Progresso Real do Disparo */}
+            {broadcastProgress && (
+              <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-[#0F172A] flex items-center gap-2">
+                    {isSendingBroadcast && <RefreshCw className="w-3.5 h-3.5 text-[#0050FF] animate-spin" />}
+                    Progresso do Disparo: {broadcastProgress.current} de {broadcastProgress.total}
+                  </span>
+                  <span className="text-[11px] font-mono text-[#64748B]">
+                    <span className="text-emerald-600 font-bold">{broadcastProgress.success} enviados</span> •{' '}
+                    <span className="text-rose-600 font-bold">{broadcastProgress.failed} falhas</span>
+                  </span>
+                </div>
+                <div className="w-full bg-[#E2E8F0] h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-[#0050FF] h-full transition-all duration-300 rounded-full"
+                    style={{
+                      width: `${Math.round((broadcastProgress.current / Math.max(1, broadcastProgress.total)) * 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-[#F1F5F9]">
               <span className="text-[11px] text-[#64748B]">
@@ -1108,7 +1193,9 @@ function WhatsAppContent() {
               >
                 {isSendingBroadcast ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 <span>
-                  {activeRecipients.length > 0
+                  {isSendingBroadcast
+                    ? `Disparando (${broadcastProgress?.current || 0}/${broadcastProgress?.total || activeRecipients.length})...`
+                    : activeRecipients.length > 0
                     ? `Iniciar Transmissão (${activeRecipients.length} Contatos)`
                     : 'Selecione os Destinatários Acima'}
                 </span>
@@ -1407,20 +1494,26 @@ function WhatsAppContent() {
         </div>
       )}
 
-      {/* ABA 5: DASHBOARD DE TRANSMISSÕES & MÉTRICAS */}
+      {/* ABA 5: DASHBOARD DE TRANSMISSÕES & MÉTRICAS REAIS */}
       {subTab === 'tracking' && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
               <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Total Disparado</p>
-              <p className="text-2xl font-bold text-[#0F172A] mt-1">1.420</p>
-              <p className="text-[11px] text-emerald-600 font-medium mt-0.5">98.6% entregues</p>
+              <p className="text-2xl font-bold text-[#0F172A] mt-1">{totalSentBroadcasts}</p>
+              <p className="text-[11px] text-emerald-600 font-medium mt-0.5">
+                {totalSentBroadcasts > 0 ? 'Transmitidas nesta sessão' : 'Nenhum envio recente'}
+              </p>
             </div>
 
             <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
-              <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Respostas SDR</p>
-              <p className="text-2xl font-bold text-[#0050FF] mt-1">318</p>
-              <p className="text-[11px] text-[#64748B] font-medium mt-0.5">22.4% taxa de resposta</p>
+              <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Linhas Conectadas</p>
+              <p className="text-2xl font-bold text-[#0050FF] mt-1">
+                {availableInstances.filter((i) => i.status === 'connected' || (i as any).connectionStatus === 'open').length}
+              </p>
+              <p className="text-[11px] text-[#64748B] font-medium mt-0.5">
+                De {availableInstances.length} instâncias mapeadas
+              </p>
             </div>
 
             <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
@@ -1430,9 +1523,13 @@ function WhatsAppContent() {
             </div>
 
             <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
-              <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Saúde do Número</p>
-              <p className="text-2xl font-bold text-emerald-600 mt-1">100%</p>
-              <p className="text-[11px] text-[#64748B] font-medium mt-0.5">0 bloqueios registrados</p>
+              <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Status da Linha</p>
+              <p className={`text-2xl font-bold mt-1 ${selectedInstanceStatus === 'connected' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                {selectedInstanceStatus === 'connected' ? 'Ativa' : 'Desconectada'}
+              </p>
+              <p className="text-[11px] text-[#64748B] font-medium mt-0.5 truncate">
+                {selectedInstanceName || 'WhatsApp'}
+              </p>
             </div>
           </div>
         </div>
@@ -1445,6 +1542,7 @@ function WhatsAppContent() {
         defaultPhone={testPhone}
         defaultContactName={testLeadName}
         clienteId={targetId}
+        instanceToken={selectedInstanceToken}
         onCallSaved={fetchCallsHistory}
       />
     </div>
