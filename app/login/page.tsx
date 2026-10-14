@@ -1,56 +1,169 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Smartphone, ArrowRight, ShieldCheck, Crown, Building, CheckCircle2 } from 'lucide-react';
-import { useTenant } from '@/components/TenantProvider';
-import { getClientSlug } from '@/lib/clientSlug';
-import Link from 'next/link';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
+import {
+  MessageSquare,
+  ArrowRight,
+  ShieldCheck,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  Phone,
+  KeyRound,
+  ArrowLeft,
+  Sparkles,
+} from 'lucide-react';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
-  const { clients } = useTenant();
-  const [phone, setPhone] = useState('');
+  const searchParams = useSearchParams();
+
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const [ddi, setDdi] = useState('+55');
+  const [localNumber, setLocalNumber] = useState('');
+  const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [successMsg, setSuccessMsg] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [infoMessage, setInfoMessage] = useState('');
+  const [countdown, setCountdown] = useState(0);
 
-  // Formata o telefone dinamicamente no padrão brasileiro (XX) 9XXXX-XXXX
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let digits = e.target.value.replace(/\D/g, '');
-    if (digits.length > 11) digits = digits.slice(0, 11);
+  // Preenche telefone se vier na URL (?phone=...)
+  useEffect(() => {
+    const queryPhone = searchParams.get('phone') || searchParams.get('whatsapp');
+    if (queryPhone) {
+      let clean = queryPhone.replace(/\D/g, '');
+      if (clean.startsWith('55') && clean.length > 11) {
+        clean = clean.slice(2);
+      }
+      setLocalNumber(formatPhone(clean));
+    }
+  }, [searchParams]);
 
-    let formatted = digits;
-    if (digits.length > 2) {
-      formatted = `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  // Contagem regressiva para reenvio
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
     }
-    if (digits.length > 7) {
-      formatted = `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }, [countdown]);
+
+  const formatPhone = (digits: string) => {
+    let clean = digits.replace(/\D/g, '').slice(0, 11);
+    if (clean.length > 7) {
+      return `(${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7)}`;
     }
-    setPhone(formatted);
+    if (clean.length > 2) {
+      return `(${clean.slice(0, 2)}) ${clean.slice(2)}`;
+    }
+    return clean;
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handlePhoneInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalNumber(formatPhone(e.target.value));
+  };
+
+  const getFullPhone = () => {
+    const rawLocal = localNumber.replace(/\D/g, '');
+    const cleanDdi = ddi.replace(/\D/g, '');
+    return `${cleanDdi}${rawLocal}`;
+  };
+
+  // Etapa 1: Solicitar código OTP via WhatsApp
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const rawDigits = phone.replace(/\D/g, '');
-    if (rawDigits.length < 10) {
-      alert('Por favor, informe seu celular com DDD (mínimo 10 dígitos).');
+    const rawLocal = localNumber.replace(/\D/g, '');
+    if (rawLocal.length < 10) {
+      setErrorMessage('Por favor, informe seu celular com DDD (ex: 41 99233-2996).');
       return;
     }
 
     setIsLoading(true);
-    // Salva no localStorage para simulação de sessão
-    try {
-      localStorage.setItem('swiftsail_user_phone', rawDigits);
-    } catch {}
+    setErrorMessage('');
+    setInfoMessage('');
 
-    setTimeout(() => {
+    try {
+      const fullPhone = getFullPhone();
+      const res = await fetch('/api/auth/request-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: fullPhone }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Falha ao solicitar código no WhatsApp.');
+      }
+
+      setStep('otp');
+      setCountdown(60);
+      setInfoMessage(
+        data.message || 'Código enviado! Verifique as mensagens no seu WhatsApp com o botão de cópia.'
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao enviar código de acesso.';
+      setErrorMessage(msg);
+    } finally {
       setIsLoading(false);
-      setSuccessMsg(true);
-      // Redireciona para o admin ou cliente por padrão
-      setTimeout(() => {
-        router.push('/admin');
-      }, 700);
-    }, 600);
+    }
+  };
+
+  // Etapa 2: Validar o código OTP e gravar a sessão no navegador
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanCode = otp.replace(/\D/g, '').trim();
+    if (cleanCode.length !== 6) {
+      setErrorMessage('Digite o código de 6 dígitos recebido.');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage('');
+
+    try {
+      const fullPhone = getFullPhone();
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: fullPhone, code: cleanCode }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Código incorreto ou expirado.');
+      }
+
+      // Grava sessão no cliente Supabase via SSR
+      if (data.session && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        try {
+          const supabase = createBrowserClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+          );
+          await supabase.auth.setSession(data.session);
+        } catch (sessionErr) {
+          console.warn('[Supabase Session Warning]:', sessionErr);
+        }
+      }
+
+      // Salva identificação local de backup
+      try {
+        localStorage.setItem('swiftsail_user_phone', fullPhone);
+        if (data.user) {
+          localStorage.setItem('swiftsail_user', JSON.stringify(data.user));
+        }
+      } catch {}
+
+      // Redireciona para o destino baseado no perfil
+      const destination = data.redirectTo || (data.user?.role === 'master_admin' ? '/admin' : '/client');
+      router.push(destination);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao validar código.';
+      setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -63,137 +176,233 @@ export default function LoginPage() {
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-[#0F172A]">SWIFTSAIL</h1>
           <p className="text-xs font-semibold text-[#0050FF] uppercase tracking-wider">
-            Enterprise OS • Portal de Acesso
+            Enterprise OS • Login Passwordless via WhatsApp
           </p>
         </div>
 
-        {/* Main Login Card */}
+        {/* Main Card */}
         <div className="bg-white border border-[#E2E8F0] p-6 sm:p-8 rounded-3xl shadow-sm space-y-6">
-          <div className="space-y-1">
-            <h2 className="text-lg font-bold text-[#0F172A]">Identificação</h2>
-            <p className="text-xs text-[#64748B]">
-              Informe seu celular com DDD para acessar a plataforma.
-            </p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-1.5">
-              <label htmlFor="celular" className="block text-xs font-bold text-[#334155] uppercase tracking-wider">
-                Celular com DDD
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#94A3B8]">
-                  <Smartphone className="w-4 h-4 text-[#0050FF]" />
-                </div>
-                <input
-                  id="celular"
-                  type="tel"
-                  placeholder="(11) 98765-4321"
-                  value={phone}
-                  onChange={handlePhoneChange}
-                  autoFocus
-                  required
-                  className="w-full pl-10 pr-4 py-3 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-sm font-semibold text-[#0F172A] placeholder-[#94A3B8] focus:bg-white focus:outline-none focus:border-[#0050FF] focus:ring-2 focus:ring-[#0050FF]/20 transition-all"
-                />
-              </div>
-              <p className="text-[11px] text-[#94A3B8]">
-                Apenas números com DDD (ex: 11 98888-7777).
-              </p>
+          {errorMessage && (
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-800">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <span>{errorMessage}</span>
             </div>
+          )}
 
-            {successMsg && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs font-semibold text-emerald-800">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Identificação validada! Entrando na plataforma...</span>
+          {infoMessage && (
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-800">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <span>{infoMessage}</span>
+            </div>
+          )}
+
+          {step === 'phone' ? (
+            /* ETAPA 1: SOLICITAR CÓDIGO */
+            <form onSubmit={handleRequestOtp} className="space-y-4">
+              <div className="space-y-1">
+                <h2 className="text-lg font-bold text-[#0F172A]">Acesso à Plataforma</h2>
+                <p className="text-xs text-[#64748B]">
+                  Informe seu número de WhatsApp. Enviaremos um código de verificação instantâneo com botão de cópia.
+                </p>
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={isLoading || successMsg}
-              className="w-full py-3 px-4 rounded-xl font-bold text-xs bg-[#0050FF] hover:bg-[#0040D6] active:bg-[#0038B8] text-white flex items-center justify-center gap-2 transition-all shadow-xs disabled:opacity-60 cursor-pointer"
-            >
-              {isLoading ? (
-                <span>Validando acesso...</span>
-              ) : (
-                <>
-                  <span>Acessar Plataforma</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
+              <div className="space-y-1.5">
+                <label htmlFor="celular" className="block text-xs font-bold text-[#334155] uppercase tracking-wider">
+                  WhatsApp com DDD
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={ddi}
+                    onChange={(e) => setDdi(e.target.value)}
+                    className="w-24 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-2 py-3 text-xs font-semibold text-[#0F172A] focus:bg-white focus:outline-none focus:border-[#0050FF]"
+                  >
+                    <option value="+55">🇧🇷 +55</option>
+                    <option value="+1">🇺🇸 +1</option>
+                    <option value="+351">🇵🇹 +351</option>
+                  </select>
 
-          {/* Atalhos Rápidos para Testar Todas as Views */}
-          <div className="pt-4 border-t border-[#F1F5F9] space-y-3">
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#94A3B8]">
+                      <Phone className="w-4 h-4 text-[#0050FF]" />
+                    </div>
+                    <input
+                      id="celular"
+                      type="tel"
+                      placeholder="(41) 99233-2996"
+                      value={localNumber}
+                      onChange={handlePhoneInputChange}
+                      autoFocus
+                      required
+                      className="w-full pl-10 pr-4 py-3 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-sm font-semibold text-[#0F172A] placeholder-[#94A3B8] focus:bg-white focus:outline-none focus:border-[#0050FF] focus:ring-2 focus:ring-[#0050FF]/20 transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Botão de Preenchimento Rápido para Rodrigo Ferrari */}
+              <button
+                type="button"
+                onClick={() => {
+                  setDdi('+55');
+                  setLocalNumber('(41) 99233-2996');
+                }}
+                className="w-full py-2 px-3 bg-[#F8FAFC] hover:bg-[#EFF4FF] border border-[#E2E8F0] hover:border-[#BFDBFE] rounded-xl text-[11px] font-semibold text-[#475569] hover:text-[#0050FF] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#0050FF]" />
+                <span>Usar número Rodrigo Ferrari (Admin): 41 99233-2996</span>
+              </button>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3.5 px-4 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-2 transition-all shadow-xs disabled:opacity-60 cursor-pointer"
+              >
+                {isLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Disparando código no WhatsApp...</span>
+                  </>
+                ) : (
+                  <>
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Receber Código no WhatsApp</span>
+                  </>
+                )}
+              </button>
+            </form>
+          ) : (
+            /* ETAPA 2: VALIDAR CÓDIGO OTP */
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-[#0F172A]">Digite o Código</h2>
+                  <span className="text-[11px] font-mono font-bold text-[#0050FF] bg-[#EFF4FF] px-2 py-0.5 rounded-full border border-[#BFDBFE]">
+                    {getFullPhone()}
+                  </span>
+                </div>
+                <p className="text-xs text-[#64748B]">
+                  Insira o código de 6 dígitos enviado para o seu WhatsApp.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#94A3B8]">
+                    <KeyRound className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                    autoFocus
+                    required
+                    className="w-full pl-10 pr-4 py-3 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-center text-xl font-mono font-bold tracking-[0.4em] text-[#0F172A] focus:bg-white focus:outline-none focus:border-[#0050FF] focus:ring-2 focus:ring-[#0050FF]/20 transition-all"
+                  />
+                </div>
+                <p className="text-[11px] text-[#94A3B8] text-center">
+                  Válido por 5 minutos. Use o botão &quot;Copiar Código&quot; no WhatsApp.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading || otp.length !== 6}
+                className="w-full py-3.5 px-4 rounded-xl font-bold text-xs bg-[#0050FF] hover:bg-[#0040D6] text-white flex items-center justify-center gap-2 transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+              >
+                {isLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Validando e autenticando...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Confirmar e Entrar</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('phone');
+                    setOtp('');
+                    setErrorMessage('');
+                  }}
+                  className="text-xs text-[#64748B] hover:text-[#0F172A] flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Alterar número</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={countdown > 0 || isLoading}
+                  onClick={handleRequestOtp}
+                  className="text-xs font-semibold text-[#0050FF] hover:underline disabled:text-[#94A3B8] disabled:no-underline cursor-pointer"
+                >
+                  {countdown > 0 ? `Reenviar em ${countdown}s` : 'Reenviar código'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Atalhos Rápidos para Testar Visões Diretas */}
+          <div className="pt-4 border-t border-[#F1F5F9] space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
-                Ambiente de Testes (URLs Diretas)
+                Acesso Direto (Ambiente Dev)
               </span>
               <span className="text-[10px] bg-[#EFF4FF] text-[#0050FF] font-bold px-2 py-0.5 rounded-full border border-[#BFDBFE]">
                 Livre
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <Link
-                href="/admin"
-                className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#0050FF] hover:bg-[#EFF4FF]/40 transition-all flex flex-col items-center text-center gap-1.5 group cursor-pointer"
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => router.push('/admin')}
+                className="p-2.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#0050FF] hover:bg-[#EFF4FF]/40 text-left transition-all cursor-pointer"
               >
-                <div className="w-7 h-7 rounded-lg bg-white border border-[#E2E8F0] flex items-center justify-center text-[#0050FF] shadow-xs">
-                  <Crown className="w-3.5 h-3.5" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-[#0F172A] block">Visão Admin</span>
-                  <span className="text-[10px] text-[#64748B]">/admin</span>
-                </div>
-              </Link>
+                <span className="text-xs font-bold text-[#0F172A] block">👑 Admin HQ</span>
+                <span className="text-[10px] text-[#64748B]">Painel Geral</span>
+              </button>
 
-              <Link
-                href="/client"
-                className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#0050FF] hover:bg-[#EFF4FF]/40 transition-all flex flex-col items-center text-center gap-1.5 group cursor-pointer"
+              <button
+                type="button"
+                onClick={() => router.push('/client')}
+                className="p-2.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#0050FF] hover:bg-[#EFF4FF]/40 text-left transition-all cursor-pointer"
               >
-                <div className="w-7 h-7 rounded-lg bg-white border border-[#E2E8F0] flex items-center justify-center text-[#0050FF] shadow-xs">
-                  <Building className="w-3.5 h-3.5" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-[#0F172A] block">Visão Cliente</span>
-                  <span className="text-[10px] text-[#64748B]">/client</span>
-                </div>
-              </Link>
+                <span className="text-xs font-bold text-[#0F172A] block">🏢 Cliente</span>
+                <span className="text-[10px] text-[#64748B]">Workspace</span>
+              </button>
             </div>
-
-            {/* Testes diretos por cliente */}
-            {clients && clients.length > 0 && (
-              <div className="pt-2">
-                <p className="text-[10px] font-semibold text-[#64748B] mb-1.5">
-                  Testar direto por cliente cadastrado:
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {clients.slice(0, 4).map((c) => {
-                    const slug = getClientSlug(c);
-                    return (
-                      <Link
-                        key={c.cliente_id}
-                        href={`/client/${slug}`}
-                        className="px-2.5 py-1 rounded-lg bg-[#F1F5F9] hover:bg-[#EFF4FF] border border-[#E2E8F0] hover:border-[#BFDBFE] text-[10px] font-semibold text-[#334155] hover:text-[#0050FF] transition-all"
-                      >
-                        {c.nome === 'EMOVERE' ? 'Emovere' : c.nome}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
         {/* Security Footer */}
         <div className="flex items-center justify-center gap-2 text-[11px] text-[#94A3B8]">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Swiftsail OS • Governança Segura Multi-tenant</span>
+          <span>Swiftsail OS • Autenticação Passwordless via WhatsApp & Supabase Auth</span>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+          <div className="w-8 h-8 border-2 border-[#0050FF] border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }

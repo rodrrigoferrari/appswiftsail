@@ -30,10 +30,10 @@ export async function POST(request: Request) {
       ? cliente_nomes.join(', ')
       : cliente_nome || (assignedIds.length > 0 ? assignedIds.join(', ') : 'Swiftsail HQ');
 
-    // Generate unique activation token
+    // Generate unique activation token and direct link to WhatsApp OTP login
     const randomHex = Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
     const token = `inv_${role}_${randomHex}`;
-    const link_ativacao = `https://app.swiftsail.co/convite/${token}`;
+    const link_ativacao = `https://app.swiftsail.co/login?phone=${cleanWhatsapp}&invite=${token}`;
 
     const newInvite: UserInvite & { whatsapp?: string; cliente_ids?: string[] } = {
       id: `inv_${Date.now()}`,
