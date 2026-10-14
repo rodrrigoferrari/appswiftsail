@@ -290,7 +290,7 @@ export default function ClientDashboardView({
 
       {/* Alerta em Vermelho para Contas Meta com Saldo ou Limite Crítico (< R$ 50) */}
       {criticalMetaAccounts.length > 0 && (
-        <div className="p-3.5 rounded-xl text-xs font-semibold flex flex-col sm:flex-row sm:items-center justify-between gap-2 border bg-rose-50 text-rose-800 border-rose-300 shadow-2xs">
+        <div className="p-3.5 rounded-xl text-xs font-semibold flex flex-col md:flex-row md:items-center justify-between gap-3 border bg-rose-50 text-rose-800 border-rose-300 shadow-2xs">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>
@@ -298,12 +298,30 @@ export default function ClientDashboardView({
               {criticalMetaAccounts.map((a) => a.account_name).join(', ')} com saldo disponível ou limite restante abaixo de R$ 50,00.
             </span>
           </div>
-          <a
-            href="/midia?plataforma=meta"
-            className="text-[11px] font-bold text-rose-700 underline hover:text-rose-900 shrink-0"
-          >
-            Ver Faturamento Meta Ads &rarr;
-          </a>
+          <div className="flex items-center gap-2 shrink-0">
+            {criticalMetaAccounts.map((acc) => {
+              const cleanId = String(acc.account_id || '').replace(/^act_/, '').trim();
+              return (
+                <a
+                  key={acc.id}
+                  href={`https://business.facebook.com/billing_hub/payment_settings?act=${cleanId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold shadow-xs transition-colors cursor-pointer"
+                  title={`Abrir página de abastecimento da conta ${acc.account_name} diretamente na Meta`}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Abastecer na Meta</span>
+                </a>
+              );
+            })}
+            <a
+              href="/midia?plataforma=meta"
+              className="text-[11px] font-bold text-rose-700 underline hover:text-rose-900"
+            >
+              Ver Faturamento &rarr;
+            </a>
+          </div>
         </div>
       )}
 
