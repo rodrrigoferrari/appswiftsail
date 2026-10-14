@@ -69,11 +69,11 @@ export default function AdminHQPage() {
 
         <div className="flex flex-wrap items-center gap-2.5">
           <Link
-            href="/credenciais/admin"
+            href="/admin/notificacoes"
             className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#F8FAFC] hover:bg-[#EFF4FF] text-[#0F172A] hover:text-[#0050FF] border border-[#E2E8F0] hover:border-[#BFDBFE] flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
           >
-            <KeyRound className="w-3.5 h-3.5 text-[#0050FF]" />
-            <span>Credenciais Globais</span>
+            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Notificações de Serviço</span>
           </Link>
 
           <Link

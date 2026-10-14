@@ -216,67 +216,37 @@ function SidebarContent() {
               </div>
             </Link>
 
-            {/* Credenciais Admin (com Submenu de Notificações e Integrações CRM por Cliente) */}
-            <div className="pt-1">
-              <button
-                onClick={() => toggleSubmenu('credenciais')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                  pathname.startsWith('/credenciais')
-                    ? 'text-[#0050FF] font-semibold bg-[#EFF4FF]/50'
-                    : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <KeyRound className="w-4 h-4 text-[#0050FF]" />
-                  <span>Credenciais & Integrações</span>
-                </div>
-                {openSubmenus.credenciais ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
-                ) : (
-                  <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
-                )}
-              </button>
+            {/* Notificações de Serviço (WhatsApp) */}
+            <Link
+              href="/admin/notificacoes"
+              className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
+                pathname === '/admin/notificacoes'
+                  ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold shadow-xs'
+                  : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <MessageSquare className={`w-4 h-4 ${pathname === '/admin/notificacoes' ? 'text-[#0050FF]' : 'text-emerald-600'}`} />
+                <span>Notificações de Serviço</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />
+            </Link>
 
-              {openSubmenus.credenciais && (
-                <div className="ml-4 pl-3 border-l-2 border-[#E2E8F0] space-y-1 mt-1">
-                  <Link
-                    href="/credenciais/admin"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/credenciais/admin' && (!currentTab || currentTab !== 'uazapi')
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Master Admin (Globais)</span>
-                  </Link>
-
-                  <Link
-                    href="/credenciais/admin?tab=uazapi"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/credenciais/admin' && currentTab === 'uazapi'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <Radio className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Notificações Uazapi</span>
-                  </Link>
-
-                  <Link
-                    href="/credenciais/cliente"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/credenciais/cliente'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <Sliders className="w-3.5 h-3.5" />
-                    <span>Integrações & CRM por Cliente</span>
-                  </Link>
-                </div>
-              )}
-            </div>
+            {/* Integrações & CRM por Cliente */}
+            <Link
+              href="/credenciais/cliente"
+              className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
+                pathname === '/credenciais/cliente'
+                  ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold shadow-xs'
+                  : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Sliders className={`w-4 h-4 ${pathname === '/credenciais/cliente' ? 'text-[#0050FF]' : 'text-[#64748B]'}`} />
+                <span>Integrações por Cliente</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />
+            </Link>
 
             {/* Módulo de IA (Tokens & Calibração de Prompts) */}
             <Link
