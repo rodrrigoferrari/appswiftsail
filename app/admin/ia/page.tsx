@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Bot,
   Sparkles,
@@ -32,11 +32,34 @@ interface FeatureAIConfig {
 
 export default function AdminIAPage() {
   const [tokens, setTokens] = useState({
-    openai_key: 'sk-proj-••••••••••••••••••••••••••••••',
-    anthropic_key: 'sk-ant-••••••••••••••••••••••••••••••',
-    gemini_key: 'AIzaSy••••••••••••••••••••••••••••••',
-    openrouter_key: 'sk-or-v1-••••••••••••••••••••••••••••••',
+    openai_key: '',
+    anthropic_key: '',
+    gemini_key: '',
+    openrouter_key: '',
   });
+
+  const [existingAdminCreds, setExistingAdminCreds] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    async function loadCreds() {
+      try {
+        const res = await fetch('/api/credentials');
+        const data = await res.json();
+        if (data.success && data.credentials) {
+          setExistingAdminCreds(data.credentials);
+          setTokens({
+            openai_key: data.credentials.openai_key || '',
+            anthropic_key: data.credentials.anthropic_key || '',
+            gemini_key: data.credentials.gemini_key || '',
+            openrouter_key: data.credentials.openrouter_api_key || '',
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load credentials in AdminIAPage', err);
+      }
+    }
+    loadCreds();
+  }, []);
 
   const [features, setFeatures] = useState<FeatureAIConfig[]>([
     {
@@ -102,13 +125,33 @@ export default function AdminIAPage() {
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      const payload = {
+        ...existingAdminCreds,
+        openai_key: tokens.openai_key,
+        anthropic_key: tokens.anthropic_key,
+        gemini_key: tokens.gemini_key,
+        openrouter_api_key: tokens.openrouter_key,
+      };
+
+      const res = await fetch('/api/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credentials: payload }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setExistingAdminCreds(payload);
+        setSavedFeedback(true);
+        setTimeout(() => setSavedFeedback(false), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to save AI credentials', err);
+    } finally {
       setIsSaving(false);
-      setSavedFeedback(true);
-      setTimeout(() => setSavedFeedback(false), 3000);
-    }, 600);
+    }
   };
 
   const getCategoryIcon = (category: string) => {

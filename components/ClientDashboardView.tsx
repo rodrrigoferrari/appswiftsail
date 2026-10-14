@@ -35,6 +35,10 @@ import {
   Activity,
   Palette,
   Check,
+  Bot,
+  Send,
+  Copy,
+  RotateCcw,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -71,6 +75,75 @@ export default function ClientDashboardView({
   const [asaasData, setAsaasData] = useState<any>(null);
   const [syncStatus, setSyncStatus] = useState<any>(null);
   const [unavailable, setUnavailable] = useState<string | null>(null);
+
+  // AI Assistant State (Anthropic Claude 3.5 Sonnet)
+  const [aiQuestion, setAiQuestion] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResponse, setAiResponse] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [copiedResponse, setCopiedResponse] = useState(false);
+
+  const handleAskAI = async (customPrompt?: string) => {
+    const questionToSend = (customPrompt || aiQuestion).trim();
+    if (!questionToSend || aiLoading) return;
+
+    if (customPrompt) {
+      setAiQuestion(customPrompt);
+    }
+
+    setAiLoading(true);
+    setAiError(null);
+    setAiResponse(null);
+
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clienteId: client?.cliente_id || selectedClientId,
+          clienteNome: clientName,
+          pergunta: questionToSend,
+          dateRange: dateRange,
+          metricsContext: {
+            investimento_total: totalSpend,
+            gasto_meta: metaSpend,
+            gasto_google: googleSpend,
+            conversas_whatsapp: metaConversas,
+            cadastros_leads: metaCadastros,
+            conversoes_google: googleConversions,
+            total_oportunidades: totalOportunidades,
+            custo_medio_por_oportunidade: custoPorOportunidade,
+            crm_total_leads: totalLeadsKommo,
+            crm_leads_ganhos: leadsGanhos,
+            crm_leads_abertos: leadsAbertos,
+            crm_leads_perdidos: leadsPerdidos,
+            crm_taxa_conversao: `${taxaConversaoCrm.toFixed(1)}%`,
+            contas_conectadas: activeClientAdAccounts.map((a) => `${a.plataforma}: ${a.account_name}`),
+            asaas_recebido_liquido: asaasData?.totais?.recebido_liquido || 0,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.resposta) {
+        setAiResponse(data.resposta);
+      } else {
+        setAiError(data.error || 'Não foi possível obter resposta da IA.');
+      }
+    } catch (err: any) {
+      console.error('Error asking AI:', err);
+      setAiError('Falha ao comunicar com o assistente de IA.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleCopyAiResponse = () => {
+    if (!aiResponse) return;
+    navigator.clipboard.writeText(aiResponse);
+    setCopiedResponse(true);
+    setTimeout(() => setCopiedResponse(false), 2500);
+  };
 
   useEffect(() => {
     async function fetchRealMetrics() {
@@ -404,6 +477,187 @@ export default function ClientDashboardView({
             </p>
           )}
         </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* SEÇÃO: PERGUNTAR PARA IA (ANTHROPIC CLAUDE - RESTRITO AO CLIENTE) */}
+      {/* ========================================================================= */}
+      <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F1F5F9] pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center shrink-0">
+              <Bot className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                Perguntar para IA • Agente Especialista
+              </h3>
+              <p className="text-xs text-[#64748B]">
+                Consultoria analítica em tempo real alimentada por IA e restrita aos dados de <strong className="text-[#0F172A]">{clientName}</strong>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1.5 w-fit">
+              <Sparkles className="w-3 h-3 text-purple-600" />
+              <span>Anthropic Claude 3.5 Sonnet</span>
+            </span>
+            <span className="text-[10px] text-[#64748B] font-mono bg-[#F8FAFC] px-2 py-1 rounded-md border border-[#E2E8F0] hidden md:inline">
+              Foco: {clientName}
+            </span>
+          </div>
+        </div>
+
+        {/* Sugestões Rápidas de Perguntas */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-bold text-[#64748B] mr-1">Sugestões rápidas:</span>
+          {[
+            '💡 Como foi a eficiência do investimento neste período?',
+            '📊 Qual canal gerou mais oportunidades: Meta ou Google?',
+            '💬 Como podemos baratear o custo por conversa no WhatsApp?',
+            '🎯 Qual é o diagnóstico das etapas e perdas no funil do CRM?',
+          ].map((sugestao, idx) => (
+            <button
+              key={idx}
+              type="button"
+              disabled={aiLoading}
+              onClick={() => handleAskAI(sugestao)}
+              className="text-[11px] bg-[#F8FAFC] hover:bg-[#EFF4FF] hover:text-[#0050FF] text-[#475569] border border-[#E2E8F0] hover:border-[#BFDBFE] px-3 py-1.5 rounded-full transition-all cursor-pointer font-medium text-left"
+            >
+              {sugestao}
+            </button>
+          ))}
+        </div>
+
+        {/* Formulário de Pergunta */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleAskAI();
+          }}
+          className="flex flex-col sm:flex-row items-stretch gap-2.5 pt-1"
+        >
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={aiQuestion}
+              onChange={(e) => setAiQuestion(e.target.value)}
+              placeholder={`Pergunte algo sobre o tráfego, campanhas ou vendas de ${clientName}...`}
+              disabled={aiLoading}
+              className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-4 py-3 text-xs sm:text-sm text-[#0F172A] placeholder-[#94A3B8] focus:bg-white focus:border-[#0050FF] focus:outline-none transition-all pr-10 shadow-2xs"
+            />
+            {aiQuestion && !aiLoading && (
+              <button
+                type="button"
+                onClick={() => setAiQuestion('')}
+                className="absolute right-3 top-3 text-[#94A3B8] hover:text-[#0F172A] text-xs cursor-pointer"
+                title="Limpar texto"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={aiLoading || !aiQuestion.trim()}
+            className="px-6 py-3 rounded-xl bg-[#0050FF] hover:bg-[#0040D6] disabled:bg-[#94A3B8] text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer disabled:cursor-not-allowed shrink-0"
+          >
+            {aiLoading ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Analisando Dados...</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                <span>Perguntar para IA</span>
+              </>
+            )}
+          </button>
+        </form>
+
+        {/* Mensagem de Erro com Ação se faltar a Chave */}
+        {aiError && (
+          <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{aiError}</span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                href="/admin/ia"
+                className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold shadow-xs transition-colors"
+              >
+                Configurar Token no Admin &rarr;
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Resposta Gerada pela IA */}
+        {aiResponse && (
+          <div className="p-5 rounded-2xl bg-[#F8FAFC] border border-[#CBD5E1] space-y-3.5 shadow-2xs animate-in fade-in duration-300">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-purple-100 border border-purple-300 text-purple-700 flex items-center justify-center font-bold text-xs">
+                  AI
+                </span>
+                <div>
+                  <h4 className="text-xs font-bold text-[#0F172A]">Diagnóstico Especialista Swiftsail</h4>
+                  <p className="text-[10px] text-[#64748B]">
+                    Dados avaliados: {dateRange.label} • Escopo exclusivo: {clientName}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleCopyAiResponse}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white hover:bg-[#EFF4FF] text-[#475569] hover:text-[#0050FF] border border-[#CBD5E1] hover:border-[#BFDBFE] flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                  title="Copiar texto da análise"
+                >
+                  {copiedResponse ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      <span className="text-emerald-600">Copiado!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      <span>Copiar</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAiResponse(null);
+                    setAiQuestion('');
+                  }}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white hover:bg-rose-50 text-[#64748B] hover:text-rose-700 border border-[#CBD5E1] hover:border-rose-200 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                  title="Fechar resposta"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Nova Pergunta</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Texto Formatado */}
+            <div className="text-xs sm:text-sm text-[#1E293B] leading-relaxed whitespace-pre-wrap font-sans space-y-2">
+              {aiResponse}
+            </div>
+
+            <div className="pt-2 border-t border-[#E2E8F0] flex items-center justify-between text-[10px] text-[#64748B]">
+              <span>Geração baseada em métricas reais do banco de dados Cleide.</span>
+              <span className="italic">Respostas isoladas sem compartilhamento entre workspaces.</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ========================================================================= */}

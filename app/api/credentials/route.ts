@@ -45,7 +45,8 @@ export async function GET() {
         asaas_api_key: '',
         asaas_environment: 'production',
         openrouter_api_key: '',
-        ai_default_model: 'deepseek/deepseek-v4-pro',
+        anthropic_key: '',
+        ai_default_model: 'claude-3-5-sonnet-20241022',
         ...credentials,
       },
     });

@@ -31,7 +31,8 @@ export default function AdminCredentialsPage() {
     google_developer_token: '',
     asaas_api_key: '',
     openrouter_api_key: '',
-    ai_default_model: 'deepseek/deepseek-v4-pro',
+    anthropic_key: '',
+    ai_default_model: 'claude-3-5-sonnet-20241022',
   });
 
   const [showKeys, setShowKeys] = useState<{ [key: string]: boolean }>({});
@@ -462,6 +463,31 @@ export default function AdminCredentialsPage() {
               </div>
 
               <div className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-[#475569] font-semibold mb-1">
+                    Anthropic API Key (Claude 3.5 Sonnet / Haiku)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showKeys['anthropic'] ? 'text' : 'password'}
+                      value={adminCreds.anthropic_key}
+                      onChange={(e) => setAdminCreds({ ...adminCreds, anthropic_key: e.target.value })}
+                      placeholder="sk-ant-api03-..."
+                      className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 pr-10 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleShow('anthropic')}
+                      className="absolute right-3 top-2.5 text-[#64748B] hover:text-[#0F172A]"
+                    >
+                      {showKeys['anthropic'] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[#64748B] mt-1">
+                    Utilizada pelo botão &quot;Perguntar para IA&quot; nos dashboards dos clientes.
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-[#475569] font-semibold mb-1">Chave de API OpenRouter / xAI</label>
                   <input
