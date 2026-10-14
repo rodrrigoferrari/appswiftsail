@@ -28,8 +28,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Localizar usuário no sistema
+    // 2. Localizar usuário no sistema ou nos convites persistidos
     let appUser = await findUserByPhone(cleanPhone);
+
+    // Se não estiver em profiles, busca nos convites pendentes
+    if (!appUser) {
+      const { findInviteByPhone } = await import('@/lib/services/user-invites-service');
+      const pendingInvite = await findInviteByPhone(cleanPhone);
+      if (pendingInvite) {
+        appUser = {
+          id: `usr_${Date.now()}`,
+          nome: pendingInvite.nome,
+          email: pendingInvite.email,
+          whatsapp: cleanPhone,
+          role: pendingInvite.role,
+          cliente_id: pendingInvite.cliente_id,
+          cliente_ids: pendingInvite.cliente_ids,
+          cliente_nome: pendingInvite.cliente_nome,
+          status: 'ativo',
+          modulos: pendingInvite.modulos,
+        };
+      }
+    }
 
     // Fallback especial para Rodrigo Ferrari (Master Admin) se bater com o número
     if (!appUser) {
@@ -127,15 +147,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Tenta atualizar/inserir na tabela profiles caso ela exista no Supabase
+    // Tenta atualizar/inserir na tabela profiles com cliente_id e cliente_ids
     try {
       await supabaseAdmin.from('profiles').upsert({
         id: userId,
-        phone: cleanPhone,
+        phone: cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`,
         name: appUser.nome,
         role: appUser.role,
+        cliente_id: appUser.cliente_id,
+        cliente_ids: appUser.cliente_ids || (appUser.cliente_id ? [appUser.cliente_id] : []),
       });
-    } catch {}
+    } catch (profErr) {
+      console.warn('[verify-otp] Erro ao gravar profile no Supabase:', profErr);
+    }
 
     // 4. Criar Sessão JWT Legítima (Password Sign-In descartável temporário)
     const tempPassword = `otp-${Math.random().toString(36).slice(-8)}${Math.random().toString(36).slice(-8)}`;
@@ -163,8 +187,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Determina redirecionamento baseado no perfil do usuário
-    const redirectTo = appUser.role === 'master_admin' ? '/admin' : '/client';
+    // Determina redirecionamento inteligente baseado no perfil do usuário
+    let redirectTo = '/client';
+    if (appUser.role === 'master_admin') {
+      redirectTo = '/admin';
+    } else if (appUser.cliente_id) {
+      const slug = appUser.cliente_id.toLowerCase().replace(/_/g, '-');
+      redirectTo = `/client/${slug}`;
+    }
 
     return NextResponse.json({
       success: true,

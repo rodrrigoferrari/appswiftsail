@@ -1,50 +1,62 @@
 import { NextResponse } from 'next/server';
 import {
-  getUsersStore,
-  getInvitesStore,
-  removeUserFromStore,
-  removeInviteFromStore,
+  listAllUsers,
+  listAllInvites,
+  deleteInvite,
+  deleteUser,
+} from '@/lib/services/user-invites-service';
+import {
   updateUserStatus,
   updateUserInStore,
+  getUsersStore,
 } from '@/lib/services/users-store';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const clienteId = searchParams.get('cliente_id');
-  const role = searchParams.get('role');
+  try {
+    const { searchParams } = new URL(request.url);
+    const clienteId = searchParams.get('cliente_id');
+    const role = searchParams.get('role');
 
-  const allUsers = getUsersStore();
-  const allInvites = getInvitesStore();
+    // Busca dados persistidos no Supabase unificados com cache
+    const allUsers = await listAllUsers();
+    const allInvites = await listAllInvites();
 
-  let filteredUsers = [...allUsers];
-  let filteredInvites = [...allInvites];
+    let filteredUsers = [...allUsers];
+    let filteredInvites = [...allInvites];
 
-  if (clienteId && clienteId !== 'ALL') {
-    filteredUsers = filteredUsers.filter(
-      (u) => u.cliente_id === clienteId || (u.cliente_ids && u.cliente_ids.includes(clienteId))
-    );
-    filteredInvites = filteredInvites.filter(
-      (i) => i.cliente_id === clienteId || (i.cliente_ids && i.cliente_ids.includes(clienteId))
+    if (clienteId && clienteId !== 'ALL') {
+      filteredUsers = filteredUsers.filter(
+        (u) => u.cliente_id === clienteId || (u.cliente_ids && u.cliente_ids.includes(clienteId))
+      );
+      filteredInvites = filteredInvites.filter(
+        (i) => i.cliente_id === clienteId || (i.cliente_ids && i.cliente_ids.includes(clienteId))
+      );
+    }
+
+    if (role) {
+      filteredUsers = filteredUsers.filter((u) => u.role === role);
+      filteredInvites = filteredInvites.filter((i) => i.role === role);
+    }
+
+    return NextResponse.json({
+      success: true,
+      users: filteredUsers,
+      invites: filteredInvites,
+      stats: {
+        totalUsers: allUsers.length,
+        activeUsers: allUsers.filter((u) => u.status === 'ativo').length,
+        pendingInvites: allInvites.filter((i) => i.status === 'pendente').length,
+        agencyMembers: allUsers.filter((u) => !u.cliente_id && (!u.cliente_ids || u.cliente_ids.length === 0)).length,
+        clientMembers: allUsers.filter((u) => !!u.cliente_id || (u.cliente_ids && u.cliente_ids.length > 0)).length,
+      },
+    });
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { success: false, error: err instanceof Error ? err.message : 'Erro ao listar usuários' },
+      { status: 500 }
     );
   }
-
-  if (role) {
-    filteredUsers = filteredUsers.filter((u) => u.role === role);
-    filteredInvites = filteredInvites.filter((i) => i.role === role);
-  }
-
-  return NextResponse.json({
-    success: true,
-    users: filteredUsers,
-    invites: filteredInvites,
-    stats: {
-      totalUsers: allUsers.length,
-      activeUsers: allUsers.filter((u) => u.status === 'ativo').length,
-      pendingInvites: allInvites.filter((i) => i.status === 'pendente').length,
-      agencyMembers: allUsers.filter((u) => !u.cliente_id && (!u.cliente_ids || u.cliente_ids.length === 0)).length,
-      clientMembers: allUsers.filter((u) => !!u.cliente_id || (u.cliente_ids && u.cliente_ids.length > 0)).length,
-    },
-  });
 }
 
 export async function PATCH(request: Request) {
@@ -52,7 +64,7 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { userId, action, modulos, status } = body;
 
-    const allUsers = getUsersStore();
+    const allUsers = await listAllUsers();
     const targetUser = allUsers.find((u) => u.id === userId);
     if (!targetUser) {
       return NextResponse.json({ success: false, error: 'Usuário não encontrado' }, { status: 404 });
@@ -81,18 +93,19 @@ export async function PATCH(request: Request) {
 
       const updated = updateUserInStore(userId, updatedFields);
 
-      // Sincroniza no Supabase profiles se possível
+      // Sincroniza diretamente na tabela public.profiles do Supabase
       try {
-        const { supabaseAdmin } = await import('@/lib/supabase/admin');
         await supabaseAdmin.from('profiles').upsert({
           id: userId,
-          phone: cleanPhone,
+          phone: cleanPhone ? (cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`) : targetUser.whatsapp,
           name: updated?.nome || targetUser.nome,
           role: updated?.role || targetUser.role,
           cliente_id: updated?.cliente_id,
           cliente_ids: updated?.cliente_ids,
         });
-      } catch {}
+      } catch (profErr) {
+        console.warn('[PATCH /api/users] Erro ao sincronizar profiles no Supabase:', profErr);
+      }
 
       return NextResponse.json({
         success: true,
@@ -100,6 +113,8 @@ export async function PATCH(request: Request) {
         user: updated || targetUser,
       });
     }
+
+    return NextResponse.json({ success: true, user: targetUser });
   } catch (err: unknown) {
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : 'Erro interno' },
@@ -119,10 +134,10 @@ export async function DELETE(request: Request) {
     }
 
     if (type === 'invite') {
-      removeInviteFromStore(id);
+      await deleteInvite(id);
       return NextResponse.json({ success: true, message: 'Convite revogado com sucesso' });
     } else {
-      removeUserFromStore(id);
+      await deleteUser(id);
       return NextResponse.json({ success: true, message: 'Usuário removido com sucesso' });
     }
   } catch (err: unknown) {

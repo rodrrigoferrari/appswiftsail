@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { UserInvite, UserRole, UserModulePermission } from '@/types/database';
-import { addInviteToStore } from '@/lib/services/users-store';
+import { persistInvite } from '@/lib/services/user-invites-service';
 
 export async function POST(request: Request) {
   try {
@@ -73,8 +73,8 @@ Seu acesso ao workspace *${newInvite.cliente_nome}* foi liberado!
 
 Qualquer dúvida, estamos à disposição!`;
 
-    // Armazena no store unificado
-    addInviteToStore(newInvite);
+    // Armazena no store unificado e persiste no Supabase
+    await persistInvite(newInvite);
 
     return NextResponse.json({
       success: true,
