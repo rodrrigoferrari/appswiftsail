@@ -1989,84 +1989,16 @@ function MidiaContent() {
       {/* ========================================================================= */}
       {activePlatformTab === 'google' && (
         <div className="space-y-4">
-          {/* Subtabs Google: exibir apenas se não estiver em Faturamento & Contas */}
+          {/* Barra de Status Google: exibir apenas se não estiver em Faturamento & Contas */}
           {googleSubTab !== 'contas' && (
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-3">
-              <div className="flex flex-wrap bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs gap-1">
-                <button
-                  onClick={() => {
-                    setGoogleSubTab('campaigns');
-                    router.push('/midia?plataforma=google&tab=campaigns');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    googleSubTab === 'campaigns'
-                      ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                      : 'text-[#64748B] hover:text-[#0F172A]'
-                  }`}
-                >
-                  <span>📂</span> Campanhas ({filteredGoogleCampanhas.length})
-                </button>
-                <button
-                  onClick={() => {
-                    setGoogleSubTab('anuncios');
-                    router.push('/midia?plataforma=google&tab=anuncios');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    googleSubTab === 'anuncios'
-                      ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                      : 'text-[#64748B] hover:text-[#0F172A]'
-                  }`}
-                >
-                  <span>📢</span> Anúncios & Destinos ({filteredGoogleAnuncios.length})
-                </button>
-                <button
-                  onClick={() => {
-                    setGoogleSubTab('grupos_recursos');
-                    router.push('/midia?plataforma=google&tab=recursos');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    googleSubTab === 'grupos_recursos'
-                      ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                      : 'text-[#64748B] hover:text-[#0F172A]'
-                  }`}
-                >
-                  <span>⚡</span> PMax Recursos ({filteredGoogleGruposRecursos.length})
-                </button>
-                <button
-                  onClick={() => {
-                    setGoogleSubTab('palavras_chave');
-                    router.push('/midia?plataforma=google&tab=palavras');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    googleSubTab === 'palavras_chave'
-                      ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                    : 'text-[#64748B] hover:text-[#0F172A]'
-                  }`}
-                >
-                  <span>🎯</span> Palavras-chave ({filteredGooglePalavrasChave.length})
-                </button>
-                <button
-                  onClick={() => {
-                    setGoogleSubTab('search_terms');
-                    router.push('/midia?plataforma=google&tab=termos');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    googleSubTab === 'search_terms'
-                      ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                      : 'text-[#64748B] hover:text-[#0F172A]'
-                  }`}
-                >
-                  <span>🔍</span> Termos de Busca ({filteredSearchTerms.length})
-                </button>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 text-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-3 text-xs">
+              <div className="flex items-center gap-2">
                 <span className="text-[10px] text-[#64748B] font-medium bg-[#F8FAFC] px-2.5 py-1 rounded-full border border-[#E2E8F0]">
                   Sync diário: Google às 23:35 (BRT)
                 </span>
-                <div className="text-[#64748B] font-mono">
-                  Gasto Total Google: <b className="text-[#0F172A]">{formatBRL(Number(googleData?.totais?.gasto || 0))}</b>
-                </div>
+              </div>
+              <div className="text-[#64748B] font-mono">
+                Gasto Total Google: <b className="text-[#0F172A]">{formatBRL(Number(googleData?.totais?.gasto || 0))}</b>
               </div>
             </div>
           )}
