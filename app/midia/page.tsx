@@ -447,35 +447,59 @@ function MidiaContent() {
   }, [googleCampanhas, statusFilter]);
 
   const filteredGoogleAnuncios = useMemo(() => {
-    if (!adsSearchFilter.trim()) return googleAnuncios;
-    const term = adsSearchFilter.toLowerCase().trim();
-    return googleAnuncios.filter((a: any) =>
-      (a.campanha_nome || a.campanha || '').toLowerCase().includes(term) ||
-      (a.grupo_nome || a.grupo || '').toLowerCase().includes(term) ||
-      String(a.ad_id || '').includes(term) ||
-      (Array.isArray(a.titulos) ? a.titulos.join(' ') : String(a.titulos || '')).toLowerCase().includes(term)
-    );
-  }, [googleAnuncios, adsSearchFilter]);
+    return googleAnuncios.filter((a: any) => {
+      if (statusFilter !== 'all') {
+        const s = String(a.status || '').toUpperCase();
+        const isPaused = s.includes('PAUS');
+        if (statusFilter === 'active' && isPaused) return false;
+        if (statusFilter === 'paused' && !isPaused) return false;
+      }
+      if (!adsSearchFilter.trim()) return true;
+      const term = adsSearchFilter.toLowerCase().trim();
+      return (
+        (a.campanha_nome || a.campanha || '').toLowerCase().includes(term) ||
+        (a.grupo_nome || a.grupo || '').toLowerCase().includes(term) ||
+        String(a.ad_id || '').includes(term) ||
+        (Array.isArray(a.titulos) ? a.titulos.join(' ') : String(a.titulos || '')).toLowerCase().includes(term)
+      );
+    });
+  }, [googleAnuncios, adsSearchFilter, statusFilter]);
 
   const filteredGoogleGruposRecursos = useMemo(() => {
-    if (!assetGroupsSearchFilter.trim()) return googleGruposRecursos;
-    const term = assetGroupsSearchFilter.toLowerCase().trim();
-    return googleGruposRecursos.filter((g: any) =>
-      (g.nome || '').toLowerCase().includes(term) ||
-      (g.campanha_nome || '').toLowerCase().includes(term) ||
-      String(g.asset_group_id || '').includes(term)
-    );
-  }, [googleGruposRecursos, assetGroupsSearchFilter]);
+    return googleGruposRecursos.filter((g: any) => {
+      if (statusFilter !== 'all') {
+        const s = String(g.status || '').toUpperCase();
+        const isPaused = s.includes('PAUS');
+        if (statusFilter === 'active' && isPaused) return false;
+        if (statusFilter === 'paused' && !isPaused) return false;
+      }
+      if (!assetGroupsSearchFilter.trim()) return true;
+      const term = assetGroupsSearchFilter.toLowerCase().trim();
+      return (
+        (g.nome || '').toLowerCase().includes(term) ||
+        (g.campanha_nome || '').toLowerCase().includes(term) ||
+        String(g.asset_group_id || '').includes(term)
+      );
+    });
+  }, [googleGruposRecursos, assetGroupsSearchFilter, statusFilter]);
 
   const filteredGooglePalavrasChave = useMemo(() => {
-    if (!keywordsSearchFilter.trim()) return googlePalavrasChave;
-    const term = keywordsSearchFilter.toLowerCase().trim();
-    return googlePalavrasChave.filter((p: any) =>
-      (p.texto || '').toLowerCase().includes(term) ||
-      (p.campanha_nome || '').toLowerCase().includes(term) ||
-      (p.grupo_nome || '').toLowerCase().includes(term)
-    );
-  }, [googlePalavrasChave, keywordsSearchFilter]);
+    return googlePalavrasChave.filter((p: any) => {
+      if (statusFilter !== 'all') {
+        const s = String(p.status || '').toUpperCase();
+        const isPaused = s.includes('PAUS');
+        if (statusFilter === 'active' && isPaused) return false;
+        if (statusFilter === 'paused' && !isPaused) return false;
+      }
+      if (!keywordsSearchFilter.trim()) return true;
+      const term = keywordsSearchFilter.toLowerCase().trim();
+      return (
+        (p.texto || '').toLowerCase().includes(term) ||
+        (p.campanha_nome || '').toLowerCase().includes(term) ||
+        (p.grupo_nome || '').toLowerCase().includes(term)
+      );
+    });
+  }, [googlePalavrasChave, keywordsSearchFilter, statusFilter]);
 
   // Geração hierárquica dinâmica 100% conectada às campanhas reais do Supabase
   const hierarchyData = useMemo(() => {
@@ -1944,7 +1968,7 @@ function MidiaContent() {
                     : 'text-[#64748B] hover:text-[#0F172A]'
                 }`}
               >
-                <span>📢</span> Anúncios & Destinos ({googleAnuncios.length})
+                <span>📢</span> Anúncios & Destinos ({filteredGoogleAnuncios.length})
               </button>
               <button
                 onClick={() => setGoogleSubTab('grupos_recursos')}
@@ -1954,7 +1978,7 @@ function MidiaContent() {
                     : 'text-[#64748B] hover:text-[#0F172A]'
                 }`}
               >
-                <span>⚡</span> PMax Recursos ({googleGruposRecursos.length})
+                <span>⚡</span> PMax Recursos ({filteredGoogleGruposRecursos.length})
               </button>
               <button
                 onClick={() => setGoogleSubTab('palavras_chave')}
@@ -1964,7 +1988,7 @@ function MidiaContent() {
                     : 'text-[#64748B] hover:text-[#0F172A]'
                 }`}
               >
-                <span>🎯</span> Palavras-chave ({googlePalavrasChave.length})
+                <span>🎯</span> Palavras-chave ({filteredGooglePalavrasChave.length})
               </button>
               <button
                 onClick={() => setGoogleSubTab('search_terms')}

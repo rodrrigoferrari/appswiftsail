@@ -183,11 +183,25 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       })
       .sort((a, b) => b.gasto - a.gasto || b.cliques - a.cliques || b.impressoes - a.impressoes);
 
+    // Mapeia ad_group_ids que tiveram veiculação real no período por campanha a partir dos termos de busca
+    const activeAdGroupIdsByCamp = new Map<string, Set<string>>();
+    for (const r of termosRows) {
+      const campId = String(r.campaign_id || '');
+      const grpId = String(r.ad_group_id || '');
+      if (campId && grpId) {
+        if (!activeAdGroupIdsByCamp.has(campId)) {
+          activeAdGroupIdsByCamp.set(campId, new Set());
+        }
+        activeAdGroupIdsByCamp.get(campId)!.add(grpId);
+      }
+    }
+
     // Conjunto de IDs das campanhas que efetivamente rodaram no período (gasto, impressões, cliques ou conversões > 0)
     // Segue estritamente a mesma regra de negócio do Meta Ads: não trazer histórico inativo que não veiculou no período selecionado
     const activeCampIds = new Set(campanhas.map((c) => String(c.campaign_id)));
 
     // 5. Consulta public.painel_google_anuncios (uma linha por anúncio do Google Ads)
+    // Apenas anúncios ENABLED/ATIVOS pertencentes às campanhas e grupos que efetivamente rodaram no período
     let anuncios: any[] = [];
     if (activeCampIds.size > 0) {
       try {
@@ -200,8 +214,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
         );
 
         anuncios = rawAnuncios.filter((ad) => {
-          if (!ad.campanha_id || !activeCampIds.has(String(ad.campanha_id))) return false;
-          if (String(ad.status).toUpperCase() === 'REMOVED') return false;
+          const campId = String(ad.campanha_id || '');
+          if (!campId || !activeCampIds.has(campId)) return false;
+
+          // Ignora anúncios que não estão ativos no leilão (PAUSED ou REMOVED nunca veiculam)
+          const st = String(ad.status || '').toUpperCase();
+          if (st !== 'ENABLED' && st !== 'ACTIVE') return false;
+
+          // Se a campanha possui grupos com veiculação registrada no período, filtra pelo grupo ativo
+          const activeGroupsForCamp = activeAdGroupIdsByCamp.get(campId);
+          if (activeGroupsForCamp && activeGroupsForCamp.size > 0) {
+            const grpId = String(ad.grupo_id || '');
+            if (grpId && !activeGroupsForCamp.has(grpId)) return false;
+          }
+
           return true;
         });
       } catch (errAnuncios) {
@@ -232,8 +258,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
         );
 
         gruposRecursos = rawGrupos.filter((gr) => {
-          if (!gr.campanha_id || !activeCampIds.has(String(gr.campanha_id))) return false;
-          if (String(gr.status).toUpperCase() === 'REMOVED') return false;
+          const campId = String(gr.campanha_id || '');
+          if (!campId || !activeCampIds.has(campId)) return false;
+          const st = String(gr.status || '').toUpperCase();
+          if (st !== 'ENABLED' && st !== 'ACTIVE') return false;
           return true;
         });
       } catch (errGrupos) {
@@ -241,7 +269,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       }
     }
 
-    // 7. Consulta public.painel_google_palavras_chave (com herança de URLs do anúncio se vazio)
+    // 7. Consulta public.painel_google_palavras_chave (apenas ENABLED e de grupos que rodaram no período)
     let palavrasChave: any[] = [];
     if (activeCampIds.size > 0) {
       try {
@@ -255,8 +283,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
 
         palavrasChave = rawPalavras
           .filter((p) => {
-            if (!p.campanha_id || !activeCampIds.has(String(p.campanha_id))) return false;
-            if (String(p.status).toUpperCase() === 'REMOVED') return false;
+            const campId = String(p.campanha_id || '');
+            if (!campId || !activeCampIds.has(campId)) return false;
+
+            const st = String(p.status || '').toUpperCase();
+            if (st !== 'ENABLED' && st !== 'ACTIVE') return false;
+
+            const activeGroupsForCamp = activeAdGroupIdsByCamp.get(campId);
+            if (activeGroupsForCamp && activeGroupsForCamp.size > 0) {
+              const grpId = String(p.grupo_id || '');
+              if (grpId && !activeGroupsForCamp.has(grpId)) return false;
+            }
+
             return true;
           })
           .map((p) => {
