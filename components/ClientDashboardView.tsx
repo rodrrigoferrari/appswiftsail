@@ -304,7 +304,7 @@ export default function ClientDashboardView({
               return (
                 <a
                   key={acc.id}
-                  href={`https://business.facebook.com/billing_hub/payment_settings?act=${cleanId}`}
+                  href={`https://business.facebook.com/latest/billing_hub/payment_settings/?payment_account_id=${cleanId}&asset_id=${cleanId}&nav_ref=billing_hub`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold shadow-xs transition-colors cursor-pointer"

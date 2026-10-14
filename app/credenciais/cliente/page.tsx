@@ -278,7 +278,7 @@ export default function ClientCredentialsPage() {
                               <div className="flex items-center gap-1.5 shrink-0">
                                 <span className="text-[10px] text-[#64748B] font-mono">({a.account_id})</span>
                                 <a
-                                  href={`https://business.facebook.com/billing_hub/payment_settings?act=${String(a.account_id || '').replace(/^act_/, '').trim()}`}
+                                  href={`https://business.facebook.com/latest/billing_hub/payment_settings/?payment_account_id=${String(a.account_id || '').replace(/^act_/, '').trim()}&asset_id=${String(a.account_id || '').replace(/^act_/, '').trim()}&nav_ref=billing_hub`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-[#64748B] hover:text-[#0050FF] transition-colors p-0.5 rounded hover:bg-[#EFF4FF]"

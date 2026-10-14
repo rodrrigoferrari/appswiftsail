@@ -721,8 +721,8 @@ function MidiaContent() {
 
                   const cleanActId = String(c.account_id || '').replace(/^act_/, '').trim();
                   const metaBillingUrl = cleanActId
-                    ? `https://business.facebook.com/billing_hub/payment_settings?act=${cleanActId}`
-                    : 'https://business.facebook.com/billing_hub/payment_settings';
+                    ? `https://business.facebook.com/latest/billing_hub/payment_settings/?payment_account_id=${cleanActId}&asset_id=${cleanActId}&nav_ref=billing_hub`
+                    : 'https://business.facebook.com/latest/billing_hub/payment_settings/';
 
                   return (
                     <div
