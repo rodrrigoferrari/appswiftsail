@@ -32,7 +32,7 @@ export async function getContasAdsPainel(clienteId?: string): Promise<ContaAdsPa
   try {
     let query = supabaseAdmin
       .from('painel_contas_ads')
-      .select('cliente_id,plataforma,account_id,nome,status,moeda,tipo_pagamento,saldo_disponivel,cartao_final,limite_restante');
+      .select('cliente_id,plataforma,account_id,nome,status,moeda,tipo_pagamento,saldo_disponivel,cartao_final,limite_restante,conta_pagamento');
 
     if (clienteId && clienteId !== 'ALL') {
       query = query.eq('cliente_id', clienteId.toUpperCase());

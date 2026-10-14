@@ -151,6 +151,10 @@ export default function ClientDashboardView({
     ? metaData.contas
     : metaAccounts;
 
+  const googleContas = (googleData?.contas && googleData.contas.length > 0)
+    ? googleData.contas
+    : googleAccounts;
+
   const formatCartao = (digitos?: string | null) => {
     if (!digitos) return '—';
     return `•••• ${digitos}`;
@@ -502,6 +506,169 @@ export default function ClientDashboardView({
                           ? (isPrePaga ? 'Abastecer Saldo na Meta' : 'Ajustar Limite na Meta')
                           : (isPrePaga ? 'Abastecer Conta na Meta' : 'Gerenciar Pagamento na Meta')}
                       </span>
+                    </a>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Informações Financeiras e Faturamento das Contas Google Ads (public.painel_contas_ads) */}
+      {googleContas.length > 0 && (
+        <div id="faturamento-google-cliente" className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F1F5F9] pb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg bg-[#EFF4FF] border border-[#BFDBFE] text-[#0050FF] flex items-center justify-center shrink-0">
+                <Wallet className="w-4 h-4 text-[#0050FF]" />
+              </span>
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#0F172A] flex items-center gap-1.5">
+                  Faturamento & Contas Google Ads
+                </h3>
+                <p className="text-[11px] text-[#64748B]">
+                  Tipo de orçamento, saldo estimado, conta de pagamento e limite restante
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-[#64748B] font-medium bg-[#F8FAFC] px-2.5 py-1 rounded-full border border-[#E2E8F0] w-fit">
+              <Clock className="w-3 h-3 text-[#0050FF]" />
+              <span>Sync diário: Google às 23:35 (BRT)</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {googleContas.map((c: any) => {
+              const isLimiteOrcamento = c.tipo_pagamento === 'limite_orcamento';
+              const isAutomatico = c.tipo_pagamento === 'automatico';
+              const hasSaldo = c.saldo_disponivel !== null && c.saldo_disponivel !== undefined;
+              const isSaldoBaixo = isLimiteOrcamento && hasSaldo && Number(c.saldo_disponivel) < 50;
+              const hasLimite = c.limite_restante !== null && c.limite_restante !== undefined;
+              const isLimiteBaixo = hasLimite && Number(c.limite_restante) < 50;
+              const hasAlert = isSaldoBaixo || isLimiteBaixo;
+
+              const cleanCustomerId = String(c.account_id || '').replace(/[^0-9]/g, '').trim();
+              const googleBillingUrl = cleanCustomerId
+                ? `https://ads.google.com/aw/billing/summary?ocid=${cleanCustomerId}`
+                : 'https://ads.google.com/aw/billing/summary';
+
+              return (
+                <div
+                  key={c.account_id || c.id}
+                  className={`p-3.5 rounded-xl border transition-all flex flex-col justify-between ${
+                    hasAlert
+                      ? 'bg-rose-50/70 border-rose-300 shadow-2xs'
+                      : 'bg-[#F8FAFC] border-[#E2E8F0]'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-[#0F172A] truncate" title={c.nome || c.account_name}>
+                          {c.nome || c.account_name}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <p className="text-[10px] text-[#64748B] font-mono truncate">
+                            ID: {c.account_id}
+                          </p>
+                          {cleanCustomerId && (
+                            <a
+                              href={googleBillingUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#64748B] hover:text-[#0050FF] transition-colors p-0.5 rounded hover:bg-white"
+                              title="Abrir página de faturamento no Google Ads"
+                            >
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Badge Tipo Pagamento */}
+                      {isLimiteOrcamento ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                          Teto Orçamento
+                        </span>
+                      ) : isAutomatico ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                          Automático
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 shrink-0">
+                          Google Ads
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-2.5 pt-2 border-t border-[#E2E8F0]/70 space-y-1.5 text-xs">
+                      {/* Saldo Estimado (só em limite_orcamento) */}
+                      {isLimiteOrcamento && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#64748B]">Saldo Estimado:</span>
+                          <span className={`font-mono font-bold ${isSaldoBaixo ? 'text-rose-700' : 'text-emerald-700'}`}>
+                            {hasSaldo ? formatBRL(c.saldo_disponivel) : '—'}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Conta de Pagamento Google */}
+                      {c.conta_pagamento && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#64748B]">Conta Pagamento:</span>
+                          <span className="font-semibold text-[#0F172A] truncate max-w-[140px]" title={c.conta_pagamento}>
+                            {c.conta_pagamento}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Limite Restante (Orçamento da conta) */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-[#64748B]">Limite Restante:</span>
+                        <span className={`font-mono font-bold ${isLimiteBaixo ? 'text-rose-700' : 'text-[#0F172A]'}`}>
+                          {hasLimite ? formatBRL(c.limite_restante) : '—'}
+                        </span>
+                      </div>
+
+                      {!isLimiteOrcamento && !isAutomatico && !hasLimite && !c.conta_pagamento && (
+                        <p className="text-[10px] text-[#94A3B8] italic">
+                          Aguardando sincronização de faturamento (Google às 23:35 BRT).
+                        </p>
+                      )}
+
+                      {/* Alerta em Vermelho quando saldo < 50 ou limite < 50 */}
+                      {isSaldoBaixo && (
+                        <div className="mt-1.5 p-1.5 rounded-lg bg-rose-100 border border-rose-300 text-[10px] font-bold text-rose-800 flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          <span>Alerta: Saldo estimado crítico (&lt; R$ 50,00).</span>
+                        </div>
+                      )}
+
+                      {isLimiteBaixo && !isSaldoBaixo && (
+                        <div className="mt-1.5 p-1.5 rounded-lg bg-rose-100 border border-rose-300 text-[10px] font-bold text-rose-800 flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          <span>Alerta: Limite restante crítico (&lt; R$ 50,00).</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Botão de Acesso Direto ao Faturamento no Google Ads */}
+                  <div className="mt-3 pt-2 border-t border-[#E2E8F0]/80">
+                    <a
+                      href={googleBillingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        hasAlert
+                          ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-xs'
+                          : 'bg-white hover:bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] hover:border-[#0050FF] shadow-2xs'
+                      }`}
+                      title={`Abrir página de faturamento da conta ${c.account_id} no Google Ads`}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                      <span>Gerenciar Faturamento no Google Ads</span>
                     </a>
                   </div>
                 </div>

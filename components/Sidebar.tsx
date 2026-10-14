@@ -261,7 +261,7 @@ function SidebarContent() {
              ========================================================= */
           <div className="space-y-1">
             <div className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider px-3 pb-1">
-              Menu Cliente: {activeClient?.nome || 'Workspace'}
+              Módulos
             </div>
 
             {/* Dashboard do Cliente */}

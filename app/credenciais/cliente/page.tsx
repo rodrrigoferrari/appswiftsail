@@ -313,12 +313,74 @@ export default function ClientCredentialsPage() {
                           </div>
                         );
                       })}
-                      {googleAccounts.map((a) => (
-                        <div key={a.id} className="p-2 rounded-lg bg-white border border-[#E2E8F0] text-sky-700 flex items-center justify-between">
-                          <span className="font-semibold truncate">• [Google] {a.account_name}</span>
-                          <span className="text-[10px] text-[#64748B] font-mono">({a.account_id})</span>
-                        </div>
-                      ))}
+                      {googleAccounts.map((a) => {
+                        const isLimiteOrcamento = a.tipo_pagamento === 'limite_orcamento';
+                        const isAutomatico = a.tipo_pagamento === 'automatico';
+                        const hasSaldo = a.saldo_disponivel !== null && a.saldo_disponivel !== undefined;
+                        const isSaldoBaixo = isLimiteOrcamento && hasSaldo && Number(a.saldo_disponivel) < 50;
+                        const hasLimite = a.limite_restante !== null && a.limite_restante !== undefined;
+                        const isLimiteBaixo = hasLimite && Number(a.limite_restante) < 50;
+                        const hasAlert = isSaldoBaixo || isLimiteBaixo;
+
+                        const cleanCid = String(a.account_id || '').replace(/[^0-9]/g, '').trim();
+                        const googleBillingUrl = cleanCid
+                          ? `https://ads.google.com/aw/billing/summary?ocid=${cleanCid}`
+                          : 'https://ads.google.com/aw/billing/summary';
+
+                        return (
+                          <div
+                            key={a.id}
+                            className={`p-2 rounded-lg border transition-all ${
+                              hasAlert ? 'bg-rose-50/70 border-rose-300' : 'bg-white border-[#E2E8F0]'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between text-sky-700">
+                              <span className="font-semibold truncate">• [Google] {a.account_name}</span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[10px] text-[#64748B] font-mono">({a.account_id})</span>
+                                {cleanCid && (
+                                  <a
+                                    href={googleBillingUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#64748B] hover:text-[#0050FF] transition-colors p-0.5 rounded hover:bg-[#EFF4FF]"
+                                    title="Abrir página de faturamento no Google Ads"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[10px]">
+                              {isLimiteOrcamento && (
+                                <span className={`font-semibold ${isSaldoBaixo ? 'text-rose-700 font-bold' : 'text-emerald-700'}`}>
+                                  Saldo estimado: {hasSaldo ? `R$ ${Number(a.saldo_disponivel).toFixed(2)}` : '—'}
+                                </span>
+                              )}
+                              {isAutomatico && (
+                                <span className="text-[#64748B] font-medium">
+                                  Pagamento: Automático (Sem teto)
+                                </span>
+                              )}
+                              {a.conta_pagamento && (
+                                <span className="text-[#475569] font-medium">
+                                  Conta: {a.conta_pagamento}
+                                </span>
+                              )}
+                              {hasLimite && (
+                                <span className={`${isLimiteBaixo ? 'text-rose-700 font-bold' : 'text-[#64748B]'}`}>
+                                  Limite rest.: R$ {Number(a.limite_restante).toFixed(2)}
+                                </span>
+                              )}
+                              {hasAlert && (
+                                <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-bold text-[9px] border border-rose-200">
+                                  ⚠️ Crítico &lt; R$ 50
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </>
                   )}
                 </div>

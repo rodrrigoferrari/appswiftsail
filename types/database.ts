@@ -31,15 +31,16 @@ export interface GroupAdAccount {
   account_id: string;
   account_name: string;
   ativo: boolean;
-  tipo_pagamento?: 'pre_paga' | 'pos_paga' | string | null;
+  tipo_pagamento?: 'pre_paga' | 'pos_paga' | 'limite_orcamento' | 'automatico' | string | null;
   saldo_disponivel?: number | null;
   cartao_final?: string | null;
   limite_restante?: number | null;
+  conta_pagamento?: string | null;
   created_at?: string;
   updated_at?: string;
 }
 
-// painel.contas_ads: conta de anúncio já amarrada ao cliente_id com dados de faturamento Meta
+// painel.contas_ads: conta de anúncio amarrada ao cliente_id com dados de faturamento Meta e Google
 export interface ContaAdsPainel {
   cliente_id: string;
   plataforma: 'meta' | 'google' | string;
@@ -47,10 +48,11 @@ export interface ContaAdsPainel {
   nome: string;
   status?: string | number | null;
   moeda?: string | null;
-  tipo_pagamento?: 'pre_paga' | 'pos_paga' | string | null;
+  tipo_pagamento?: 'pre_paga' | 'pos_paga' | 'limite_orcamento' | 'automatico' | string | null;
   saldo_disponivel?: number | null;
   cartao_final?: string | null;
   limite_restante?: number | null;
+  conta_pagamento?: string | null;
 }
 
 // painel.google_anuncios: uma linha por anúncio do Google Ads com links de destino

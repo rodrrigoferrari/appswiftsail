@@ -271,7 +271,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
     try {
       const { data: contasData } = await supabaseAdmin
         .from('painel_contas_ads')
-        .select('cliente_id,plataforma,account_id,nome,status,moeda,tipo_pagamento,saldo_disponivel,cartao_final,limite_restante')
+        .select('cliente_id,plataforma,account_id,nome,status,moeda,tipo_pagamento,saldo_disponivel,cartao_final,limite_restante,conta_pagamento')
         .eq('plataforma', 'meta')
         .in('cliente_id', ids);
       contas = contasData || [];

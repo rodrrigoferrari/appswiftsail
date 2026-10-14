@@ -213,6 +213,7 @@ export function TenantProvider({
           saldo_disponivel: c.saldo_disponivel,
           cartao_final: c.cartao_final,
           limite_restante: c.limite_restante,
+          conta_pagamento: c.conta_pagamento,
         }))
     : legacyAdAccounts;
 

@@ -329,6 +329,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       // Graceful fallback
     }
 
+    // 9. Contas de anúncio do Google Ads de public.painel_contas_ads
+    // tipo_pagamento, saldo_disponivel, cartao_final, limite_restante, conta_pagamento
+    let contas: any[] = [];
+    try {
+      const { data: contasData } = await supabaseAdmin
+        .from('painel_contas_ads')
+        .select('cliente_id,plataforma,account_id,nome,status,moeda,tipo_pagamento,saldo_disponivel,cartao_final,limite_restante,conta_pagamento')
+        .eq('plataforma', 'google')
+        .in('cliente_id', ids);
+      contas = contasData || [];
+    } catch {
+      // Graceful fallback
+    }
+
     const t = campanhas.reduce(
       (acc, c) => ({
         gasto: acc.gasto + c.gasto,
@@ -352,6 +366,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
         custo_por_conversao: t.conversoes > 0 ? Number((t.gasto / t.conversoes).toFixed(2)) : 0,
       },
       campanhas,
+      contas,
       termos_busca: termosBusca,
       anuncios,
       grupos_recursos: gruposRecursos,
