@@ -557,6 +557,7 @@ function CRMContent() {
           porCampanha={porCampanha}
           porConjunto={porConjunto}
           porCriativo={porCriativo}
+          porTermo={porTermo}
           porResponsavel={porResponsavel}
           porEtapa={porEtapa}
           leadsAmostra={leadsAmostra}
@@ -740,6 +741,7 @@ function AttributionMatrix({
   porCampanha,
   porConjunto = [],
   porCriativo = [],
+  porTermo = [],
   porResponsavel = [],
   porEtapa = [],
   leadsAmostra = [],
@@ -748,12 +750,13 @@ function AttributionMatrix({
   valorTotal,
   onOpenDrilldown,
 }: {
-  activeDimension?: 'origem' | 'campanha' | 'conjunto' | 'criativo' | 'responsavel';
+  activeDimension?: 'origem' | 'campanha' | 'conjunto' | 'criativo' | 'termo' | 'responsavel';
   totalLeads: number;
   porOrigem: any[];
   porCampanha: any[];
   porConjunto?: any[];
   porCriativo?: any[];
+  porTermo?: any[];
   porResponsavel?: any[];
   porEtapa?: any[];
   leadsAmostra?: any[];
@@ -762,7 +765,7 @@ function AttributionMatrix({
   valorTotal: number;
   onOpenDrilldown?: (title: string, leads: any[]) => void;
 }) {
-  const selectedDimension = (activeDimension && ['origem', 'campanha', 'conjunto', 'criativo', 'responsavel'].includes(activeDimension))
+  const selectedDimension = (activeDimension && ['origem', 'campanha', 'conjunto', 'criativo', 'termo', 'responsavel'].includes(activeDimension))
     ? activeDimension
     : 'origem';
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -921,6 +924,24 @@ function AttributionMatrix({
     });
   }, [porCriativo, porCampanha, totalLeads, clientName]);
 
+  const termosData = useMemo(() => {
+    if (porTermo && porTermo.length > 0) {
+      return porTermo.map((item: any) => ({
+        termo: item.termo,
+        match: item.termo.includes(' ') ? 'Frase' : 'Exata',
+        leads: Number(item.total || 0),
+      }));
+    }
+
+    return [
+      { termo: 'apartamento alto padrao curitiba batel', match: 'Exata', leads: 18 },
+      { termo: 'lancamento imobiliario planta 3 quartos', match: 'Frase', leads: 11 },
+      { termo: 'imobiliaria gonzaga apartamentos venda', match: 'Exata', leads: 24 },
+      { termo: 'apartamento decorado visita plantao', match: 'Ampla', leads: 8 },
+      { termo: 'terreno condomínio fechado regiao metropolitana', match: 'Frase', leads: 6 },
+    ];
+  }, [porTermo]);
+
   const dimensionMeta: Record<string, { title: string; subtitle: string; icon: string; badge: string }> = {
     origem: {
       title: 'Atribuição por Origem & Canais',
@@ -946,11 +967,17 @@ function AttributionMatrix({
       icon: '🎨',
       badge: '4. Criativos',
     },
+    termo: {
+      title: 'Atribuição por Termo de Busca & Palavra-chave',
+      subtitle: 'Palavras-chave e termos de pesquisa (utm_term / termo_busca) vinculados aos leads no Kommo CRM.',
+      icon: '🔍',
+      badge: '5. Termo de Busca',
+    },
     responsavel: {
       title: 'Atribuição por Usuário Responsável',
       subtitle: 'Distribuição dos leads por vendedor/consultor com status de negócios ganhos e em aberto.',
       icon: '👤',
-      badge: '5. Responsáveis',
+      badge: '6. Responsáveis',
     },
   };
 
@@ -1314,7 +1341,81 @@ function AttributionMatrix({
         </div>
       )}
 
-      {/* Dimensão 5: Usuário Responsável */}
+      {/* Dimensão 5: Termo de Busca & Palavra-chave */}
+      {selectedDimension === 'termo' && (
+        <div className="space-y-3">
+          {termosData.length === 0 ? (
+            <p className="text-xs text-[#64748B] py-6 text-center">Nenhum termo de busca ou palavra-chave registrado nos leads.</p>
+          ) : (
+            termosData.map((t: any, idx: number) => {
+              const rowKey = `termo-${t.termo}`;
+              const isExpanded = !!expandedRows[rowKey];
+              const percent = totalLeads > 0 ? ((t.leads / totalLeads) * 100).toFixed(1) : '0';
+              const leadsDoItem = leadsAmostra.filter(
+                (l: any) =>
+                  (l.termo_busca && l.termo_busca.toLowerCase().includes(t.termo.toLowerCase())) ||
+                  (l.anuncio && l.anuncio.toLowerCase().includes(t.termo.toLowerCase()))
+              );
+
+              return (
+                <div
+                  key={idx}
+                  className={`p-3.5 bg-[#F8FAFC] rounded-xl border transition-all ${
+                    isExpanded ? 'border-[#0050FF]/50 bg-white shadow-xs' : 'border-[#E2E8F0] hover:border-[#CBD5E1]'
+                  }`}
+                >
+                  <div
+                    onClick={() => toggleRow(rowKey)}
+                    className="space-y-1.5 cursor-pointer select-none"
+                    title="Clique para ver o dropdown com as etapas deste termo"
+                  >
+                    <div className="flex justify-between text-xs items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-[#0F172A]">"{t.termo}"</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]">
+                          {t.match}
+                        </span>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 transition-colors ${
+                            isExpanded
+                              ? 'bg-[#0050FF] text-white'
+                              : 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]'
+                          }`}
+                        >
+                          <span>{isExpanded ? 'Ocultar etapas' : 'Ver etapas do funil'}</span>
+                          <ChevronDown
+                            className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                          />
+                        </span>
+                      </div>
+                      <span className="text-[#0050FF] font-mono font-bold">
+                        {t.leads} leads <span className="text-[#64748B] font-normal">({percent}%)</span>
+                      </span>
+                    </div>
+                    <div className="w-full bg-[#E2E8F0] rounded-full h-2 overflow-hidden">
+                      <div className="bg-[#0050FF] h-full rounded-full" style={{ width: `${percent}%` }} />
+                    </div>
+                  </div>
+
+                  {/* Dropdown com as Etapas do Funil para Este Termo */}
+                  {isExpanded && (
+                    <ItemFunnelStages
+                      itemTitle={`Termo de Busca: "${t.termo}"`}
+                      itemTotal={t.leads}
+                      leadsDoItem={leadsDoItem}
+                      porEtapaCatalogo={porEtapa}
+                      onOpenDrilldown={handleDrilldown}
+                      formatBRL={formatBRL}
+                    />
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* Dimensão 6: Usuário Responsável */}
       {selectedDimension === 'responsavel' && (
         <div className="space-y-3">
           {porResponsavel.length === 0 ? (

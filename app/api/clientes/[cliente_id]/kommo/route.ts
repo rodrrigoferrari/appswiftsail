@@ -316,6 +316,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
           dias_estagnados: l.dias_estagnados !== null && l.dias_estagnados !== undefined ? Number(l.dias_estagnados) : null,
           responsavel_id: l.responsavel_id ? String(l.responsavel_id) : null,
           responsavel_nome: respNome,
+          termo_busca: rawTb || null,
         });
       }
     }

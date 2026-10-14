@@ -689,6 +689,19 @@ function SidebarContent() {
                     <span>Atribuição: Criativo</span>
                   </Link>
 
+                  {/* Atribuição: Termo de Busca */}
+                  <Link
+                    href="/crm?tab=termo"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/crm' && currentTab === 'termo'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <Search className="w-3.5 h-3.5 shrink-0" />
+                    <span>Atribuição: Termo de Busca</span>
+                  </Link>
+
                   {/* Atribuição: Responsável */}
                   <Link
                     href="/crm?tab=responsavel"
