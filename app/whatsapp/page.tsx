@@ -32,6 +32,11 @@ import {
   Info,
   Check,
   Tag,
+  FileSpreadsheet,
+  UploadCloud,
+  UserCheck,
+  FileText,
+  CheckCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -86,6 +91,12 @@ function WhatsAppContent() {
   const [isScraping, setIsScraping] = useState(false);
   const [adminFilterOption, setAdminFilterOption] = useState<'exclude' | 'include' | 'only_admins'>('exclude');
   const [scrapedContacts, setScrapedContacts] = useState<any[]>([]);
+
+  // Destinatários para Envio em Massa (Grupo Raspado ou Planilha)
+  const [recipientSource, setRecipientSource] = useState<'scraped' | 'spreadsheet'>('scraped');
+  const [spreadsheetContacts, setSpreadsheetContacts] = useState<Array<{ id: number; name: string; phone: string; group?: string }>>([]);
+  const [spreadsheetFileName, setSpreadsheetFileName] = useState('');
+  const [spreadsheetError, setSpreadsheetError] = useState<string | null>(null);
 
   // Mass Broadcast & Anti-Ban Safeguards State
   const [messagesPerDay, setMessagesPerDay] = useState(150);
@@ -273,6 +284,9 @@ function WhatsAppContent() {
           name,
           phone: phoneFormatted,
           isAdmin,
+          image: p.image || '',
+          isBusiness: Boolean(p.isBusiness),
+          businessName: p.businessName || '',
           group: groupName,
         };
       });
@@ -286,7 +300,7 @@ function WhatsAppContent() {
       setScrapedContacts(mapped);
 
       if (mapped.length > 0) {
-        alert(`Coleta concluída! ${mapped.length} contatos qualificados importados do grupo.`);
+        alert(`Coleta e enriquecimento concluídos! ${mapped.length} contatos qualificados importados com chat/details.`);
       } else {
         alert('Nenhum contato encontrado ou grupo sem participantes para o filtro selecionado.');
       }
@@ -297,12 +311,136 @@ function WhatsAppContent() {
     }
   };
 
+  // Upload e processamento automático de planilha (CSV, TXT ou Excel)
+  const handleSpreadsheetUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSpreadsheetFileName(file.name);
+    setSpreadsheetError(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (!text) {
+          setSpreadsheetError('O arquivo selecionado está vazio.');
+          return;
+        }
+
+        const lines = text.split(/\r\n|\n|\r/).filter((l) => l.trim().length > 0);
+        if (lines.length === 0) {
+          setSpreadsheetError('Nenhuma linha de contato encontrada no arquivo.');
+          return;
+        }
+
+        // Detectar delimitador (vírgula, ponto-e-vírgula ou tabulação)
+        const firstLine = lines[0];
+        let delimiter = ',';
+        if (firstLine.includes(';') && !firstLine.includes(',')) delimiter = ';';
+        else if (firstLine.includes('\t')) delimiter = '\t';
+
+        const rawHeaders = firstLine.split(delimiter).map((h) => h.trim().toLowerCase().replace(/["']/g, ''));
+
+        // Identificar índices de coluna
+        let nameIdx = rawHeaders.findIndex((h) =>
+          ['nome', 'name', 'cliente', 'lead', 'contato', 'destinatario'].some((k) => h.includes(k))
+        );
+        let phoneIdx = rawHeaders.findIndex((h) =>
+          ['telefone', 'phone', 'celular', 'whatsapp', 'tel', 'numero', 'number'].some((k) => h.includes(k))
+        );
+
+        let startIndex = 1;
+
+        // Se não achou cabeçalho nas colunas, assume linha 1 como dado ou coluna 0/1
+        if (nameIdx === -1 && phoneIdx === -1) {
+          startIndex = 0;
+          nameIdx = 0;
+          phoneIdx = 1;
+        } else if (phoneIdx === -1) {
+          phoneIdx = nameIdx === 0 ? 1 : 0;
+        } else if (nameIdx === -1) {
+          nameIdx = phoneIdx === 0 ? 1 : 0;
+        }
+
+        const parsed: Array<{ id: number; name: string; phone: string; group?: string }> = [];
+
+        for (let i = startIndex; i < lines.length; i++) {
+          const row = lines[i].split(delimiter).map((c) => c.trim().replace(/^["']|["']$/g, ''));
+          if (row.length < 2) continue;
+
+          let rawName = row[nameIdx] || `Contato ${parsed.length + 1}`;
+          let rawPhone = row[phoneIdx] || '';
+
+          // Se name tiver só dígitos e phone tiver letras, inverte
+          if (/^\d{8,15}$/.test(rawName.replace(/\D/g, '')) && /[a-zA-Z]/.test(rawPhone)) {
+            const temp = rawName;
+            rawName = rawPhone;
+            rawPhone = temp;
+          }
+
+          const cleanPhone = rawPhone.replace(/\D/g, '');
+          if (cleanPhone.length >= 8) {
+            const formatted = cleanPhone.startsWith('55')
+              ? `+${cleanPhone}`
+              : cleanPhone.length >= 10
+              ? `+55${cleanPhone}`
+              : `+${cleanPhone}`;
+
+            parsed.push({
+              id: parsed.length + 1,
+              name: rawName,
+              phone: formatted,
+              group: file.name.replace(/\.[^/.]+$/, ''),
+            });
+          }
+        }
+
+        if (parsed.length === 0) {
+          setSpreadsheetError('Nenhum número de telefone válido encontrado. Verifique o modelo da planilha.');
+        } else {
+          setSpreadsheetContacts(parsed);
+          setRecipientSource('spreadsheet');
+          alert(`Planilha importada com sucesso! ${parsed.length} contatos qualificados carregados.`);
+        }
+      } catch (err: any) {
+        setSpreadsheetError(`Erro ao processar planilha: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Download do arquivo modelo para importação
+  const downloadSampleSpreadsheet = () => {
+    const csvContent = 'Nome,Telefone\nRodrigo Ferrari,41992332996\nMariana Furtado,47997863999\nDiogo Bernert,47996105758\nCleide Claw,41984515087';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'modelo_disparo_swiftsail.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Destinatários ativos para o disparador
+  const activeRecipients = recipientSource === 'scraped' ? scrapedContacts : spreadsheetContacts;
+
   const handleStartBroadcast = () => {
+    if (activeRecipients.length === 0) {
+      alert('Nenhum contato selecionado para envio. Colete participantes de um grupo ou importe uma planilha.');
+      return;
+    }
+
     setIsSendingBroadcast(true);
     setTimeout(() => {
       setIsSendingBroadcast(false);
-      alert(`Transmissão iniciada com sucesso! As ${copies.length} variações de mensagem serão rotacionadas de forma intercalada, respeitando as salvaguardas e o intervalo randômico de ${intervalOption} segundos.`);
-    }, 1200);
+      alert(
+        `Transmissão controlada iniciada com sucesso para ${activeRecipients.length} contatos!\n` +
+        `Origem: ${recipientSource === 'scraped' ? 'Contatos Coletados do Grupo' : `Planilha (${spreadsheetFileName})`}\n` +
+        `As ${copies.length} variações de mensagem serão rotacionadas com o intervalo de ${intervalOption}s.`
+      );
+    }, 1500);
   };
 
   const openCallForContact = (phone: string, name: string) => {
@@ -580,51 +718,100 @@ function WhatsAppContent() {
               <Users className="w-8 h-8 text-[#CBD5E1] mx-auto" />
               <p className="font-semibold text-[#0F172A]">Nenhum participante coletado ainda.</p>
               <p className="text-[11px]">
-                Selecione um grupo acima e clique em <b>"Iniciar Coleta no Grupo"</b> para raspar os participantes em tempo real da UAZAPI.
+                Selecione um grupo acima e clique em <b>"Iniciar Coleta no Grupo"</b> para raspar e enriquecer os participantes em tempo real com /chat/details.
               </p>
             </div>
           ) : (
-            <div className="border border-[#E2E8F0] rounded-xl overflow-hidden mt-4">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-[#F8FAFC] text-[#64748B] font-bold border-b border-[#E2E8F0]">
-                  <tr>
-                    <th className="py-2.5 px-4">Nome / Identificação</th>
-                    <th className="py-2.5 px-4">Telefone</th>
-                    <th className="py-2.5 px-4">Tipo</th>
-                    <th className="py-2.5 px-4">Grupo de Origem</th>
-                    <th className="py-2.5 px-4 text-right">Ação Rápida</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E2E8F0]">
-                  {scrapedContacts.map((c) => (
-                    <tr key={c.id} className="hover:bg-[#F8FAFC] transition-colors">
-                      <td className="py-2.5 px-4 font-semibold text-[#0F172A]">{c.name}</td>
-                      <td className="py-2.5 px-4 font-mono text-[#64748B]">{c.phone}</td>
-                      <td className="py-2.5 px-4">
-                        {c.isAdmin ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                            Admin
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
-                            Membro
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-4 text-[#64748B]">{c.group}</td>
-                      <td className="py-2.5 px-4 text-right">
-                        <button
-                          onClick={() => openCallForContact(c.phone, c.name)}
-                          className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] text-[#0050FF] hover:bg-[#E0EAFF] font-bold text-[11px] inline-flex items-center gap-1.5 transition cursor-pointer"
-                        >
-                          <PhoneCall className="w-3 h-3" />
-                          <span>Ligar WhatsApp</span>
-                        </button>
-                      </td>
+            <div className="space-y-3 mt-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#EFF4FF] border border-[#BFDBFE] p-3 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#0050FF]" />
+                  <span className="text-xs font-bold text-[#0F172A]">
+                    {scrapedContacts.length} participantes coletados e enriquecidos com chat/details
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecipientSource('scraped');
+                    setSubTab('disparos');
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg bg-[#0050FF] hover:bg-[#0040D6] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs self-start sm:self-auto"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Usar no Disparador em Massa ➔</span>
+                </button>
+              </div>
+
+              <div className="border border-[#E2E8F0] rounded-xl overflow-hidden">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-[#F8FAFC] text-[#64748B] font-bold border-b border-[#E2E8F0]">
+                    <tr>
+                      <th className="py-2.5 px-4">Nome / Identificação no WhatsApp</th>
+                      <th className="py-2.5 px-4">Telefone</th>
+                      <th className="py-2.5 px-4">Tipo</th>
+                      <th className="py-2.5 px-4">Grupo de Origem</th>
+                      <th className="py-2.5 px-4 text-right">Ação Rápida</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-[#E2E8F0]">
+                    {scrapedContacts.map((c) => (
+                      <tr key={c.id} className="hover:bg-[#F8FAFC] transition-colors">
+                        <td className="py-2.5 px-4">
+                          <div className="flex items-center gap-2.5">
+                            {c.image ? (
+                              <img
+                                src={c.image}
+                                alt={c.name}
+                                className="w-7 h-7 rounded-full object-cover border border-[#CBD5E1]"
+                              />
+                            ) : (
+                              <div className="w-7 h-7 rounded-full bg-[#EFF4FF] text-[#0050FF] font-bold text-[10px] flex items-center justify-center shrink-0 border border-[#BFDBFE]">
+                                {(c.name || 'WA').substring(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-semibold text-[#0F172A] flex items-center gap-1.5">
+                                <span>{c.name}</span>
+                                {c.isBusiness && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 bg-sky-50 text-sky-700 border border-sky-200 rounded">
+                                    Business
+                                  </span>
+                                )}
+                              </div>
+                              {c.businessName && c.businessName !== c.name && (
+                                <p className="text-[10px] text-[#64748B]">{c.businessName}</p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4 font-mono text-[#64748B]">{c.phone}</td>
+                        <td className="py-2.5 px-4">
+                          {c.isAdmin ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                              Admin
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                              Membro
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-4 text-[#64748B]">{c.group}</td>
+                        <td className="py-2.5 px-4 text-right">
+                          <button
+                            onClick={() => openCallForContact(c.phone, c.name)}
+                            className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] text-[#0050FF] hover:bg-[#E0EAFF] font-bold text-[11px] inline-flex items-center gap-1.5 transition cursor-pointer"
+                          >
+                            <PhoneCall className="w-3 h-3" />
+                            <span>Ligar WhatsApp</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -634,6 +821,186 @@ function WhatsAppContent() {
       {subTab === 'disparos' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-7 bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
+            {/* 1. SELETOR DE ORIGEM DOS DESTINATÁRIOS (GRUPOS RASPADOS OU PLANILHA) */}
+            <div className="bg-[#F8FAFC] border border-[#CBD5E1] rounded-2xl p-4 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-[#0050FF]" />
+                  <h3 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                    Origem dos Destinatários para Envio
+                  </h3>
+                </div>
+
+                <div className="flex items-center gap-1.5 p-1 bg-white border border-[#CBD5E1] rounded-xl self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setRecipientSource('scraped')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                      recipientSource === 'scraped'
+                        ? 'bg-[#0050FF] text-white shadow-2xs'
+                        : 'text-[#64748B] hover:text-[#0F172A]'
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Grupos Raspados ({scrapedContacts.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRecipientSource('spreadsheet')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                      recipientSource === 'spreadsheet'
+                        ? 'bg-[#0050FF] text-white shadow-2xs'
+                        : 'text-[#64748B] hover:text-[#0F172A]'
+                    }`}
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>Subir Planilha ({spreadsheetContacts.length})</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Opção A: Grupos Raspados */}
+              {recipientSource === 'scraped' && (
+                <div className="space-y-3">
+                  {scrapedContacts.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-dashed border-[#CBD5E1] bg-white text-center space-y-2">
+                      <p className="text-xs font-semibold text-[#0F172A]">Nenhum grupo foi raspado ainda nesta sessão.</p>
+                      <p className="text-[11px] text-[#64748B]">
+                        Vá até a aba "Coleta de Grupos", selecione um grupo e extraia os participantes.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setSubTab('grupos')}
+                        className="px-3.5 py-1.5 rounded-lg bg-[#EFF4FF] text-[#0050FF] hover:bg-[#E0EAFF] font-bold text-xs inline-flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Ir para Coleta de Grupos</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-3.5 rounded-xl bg-white border border-[#E2E8F0] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          {scrapedContacts.length} destinatários prontos do grupo "{scrapedContacts[0]?.group || 'WhatsApp'}"
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSubTab('grupos')}
+                          className="text-[11px] font-bold text-[#0050FF] hover:underline cursor-pointer"
+                        >
+                          Trocar Grupo / Coletar Mais
+                        </button>
+                      </div>
+
+                      {/* Amostra dos Contatos */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {scrapedContacts.slice(0, 5).map((c) => (
+                          <span
+                            key={c.id}
+                            className="px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#334155] font-mono text-[10px] flex items-center gap-1"
+                          >
+                            <span className="font-semibold">{c.name.split(' ')[0]}:</span> {c.phone}
+                          </span>
+                        ))}
+                        {scrapedContacts.length > 5 && (
+                          <span className="px-2 py-0.5 rounded-md bg-[#EFF4FF] text-[#0050FF] text-[10px] font-bold">
+                            +{scrapedContacts.length - 5} contatos
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Opção B: Subir Planilha */}
+              {recipientSource === 'spreadsheet' && (
+                <div className="space-y-3">
+                  <div className="p-4 rounded-xl border border-dashed border-[#CBD5E1] bg-white flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="space-y-1 text-center sm:text-left">
+                      <p className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5 justify-center sm:justify-start">
+                        <UploadCloud className="w-4 h-4 text-[#0050FF]" />
+                        Importar Lista de Contatos (CSV, TXT ou Excel)
+                      </p>
+                      <p className="text-[11px] text-[#64748B]">
+                        Colunas esperadas: <b>Nome</b> e <b>Telefone</b> (ex: 4199999999). Delimitador vírgula ou ponto-e-vírgula.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={downloadSampleSpreadsheet}
+                        className="px-3 py-1.5 rounded-lg border border-[#CBD5E1] bg-white hover:bg-[#F8FAFC] text-[#475569] font-bold text-xs flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
+                        title="Baixar modelo exemplo de CSV"
+                      >
+                        <FileDown className="w-3.5 h-3.5 text-[#64748B]" />
+                        <span>Modelo CSV</span>
+                      </button>
+
+                      <label className="px-3.5 py-1.5 rounded-lg bg-[#0050FF] hover:bg-[#0040D6] text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition cursor-pointer">
+                        <UploadCloud className="w-3.5 h-3.5" />
+                        <span>{spreadsheetContacts.length > 0 ? 'Trocar Arquivo' : 'Escolher Arquivo'}</span>
+                        <input
+                          type="file"
+                          accept=".csv,.txt,.tsv"
+                          onChange={handleSpreadsheetUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {spreadsheetError && (
+                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                      <span>{spreadsheetError}</span>
+                    </div>
+                  )}
+
+                  {spreadsheetContacts.length > 0 && (
+                    <div className="p-3.5 rounded-xl bg-white border border-[#E2E8F0] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          {spreadsheetContacts.length} contatos carregados da planilha "{spreadsheetFileName}"
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSpreadsheetContacts([]);
+                            setSpreadsheetFileName('');
+                          }}
+                          className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                        >
+                          Limpar Planilha
+                        </button>
+                      </div>
+
+                      {/* Amostra dos Contatos da Planilha */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {spreadsheetContacts.slice(0, 5).map((c) => (
+                          <span
+                            key={c.id}
+                            className="px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#334155] font-mono text-[10px] flex items-center gap-1"
+                          >
+                            <span className="font-semibold">{c.name.split(' ')[0]}:</span> {c.phone}
+                          </span>
+                        ))}
+                        {spreadsheetContacts.length > 5 && (
+                          <span className="px-2 py-0.5 rounded-md bg-[#EFF4FF] text-[#0050FF] text-[10px] font-bold">
+                            +{spreadsheetContacts.length - 5} contatos
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-3">
               <div>
                 <h2 className="text-base font-bold text-[#0F172A]">
@@ -731,16 +1098,20 @@ function WhatsAppContent() {
 
             <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-[#F1F5F9]">
               <span className="text-[11px] text-[#64748B]">
-                <b>{copies.length} de 6 variações ativas</b> no ciclo de rotação.
+                <b>{copies.length} de 6 variações ativas</b> | Destinatários: <b>{activeRecipients.length} contatos</b>
               </span>
 
               <button
                 onClick={handleStartBroadcast}
-                disabled={isSendingBroadcast}
+                disabled={isSendingBroadcast || activeRecipients.length === 0}
                 className="px-5 py-2.5 rounded-full font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white text-xs shadow-xs flex items-center justify-center gap-2 cursor-pointer transition disabled:opacity-50"
               >
                 {isSendingBroadcast ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                <span>Iniciar Transmissão Controlada</span>
+                <span>
+                  {activeRecipients.length > 0
+                    ? `Iniciar Transmissão (${activeRecipients.length} Contatos)`
+                    : 'Selecione os Destinatários Acima'}
+                </span>
               </button>
             </div>
           </div>

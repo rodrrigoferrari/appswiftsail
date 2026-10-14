@@ -172,6 +172,42 @@ export async function getGroupInfo(instanceToken: string, groupJid: string) {
 }
 
 /**
+ * Consulta detalhes enriquecidos de um contato / chat no WhatsApp via UAZAPI
+ * Endpoint: POST /chat/details
+ * Header: token: INSTANCE_TOKEN
+ * Body: { number: '5541...' }
+ */
+export async function getChatDetails(instanceToken: string, number: string) {
+  const { baseUrl } = await getUazapiAdminConfig();
+  const cleanUrl = baseUrl.replace(/\/+$/, '');
+  const cleanNumber = number.replace(/\D/g, '');
+
+  if (!cleanNumber) return null;
+
+  try {
+    const res = await fetch(`${cleanUrl}/chat/details`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        token: instanceToken,
+      },
+      body: JSON.stringify({
+        number: cleanNumber,
+        phone: cleanNumber,
+      }),
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Sends a text message with async queue support
  * Endpoint: POST /send/text
  * Header: token: INSTANCE_TOKEN

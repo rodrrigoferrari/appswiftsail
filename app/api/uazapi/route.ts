@@ -6,6 +6,7 @@ import {
   connectInstance,
   listInstanceGroups,
   getGroupInfo,
+  getChatDetails,
   sendTextMessage,
   setupInstanceWebhook,
 } from '@/lib/services/uazapi';
@@ -179,21 +180,51 @@ export async function POST(req: Request) {
         const groupInfo = await getGroupInfo(token, group_jid);
         const rawParticipants = groupInfo.Participants || groupInfo.participants || [];
 
-        const participants = rawParticipants.map((p: any, idx: number) => {
-          const rawPhone = p.PhoneNumber || p.phoneNumber || p.id?.user || p.id || p.phone || '';
-          const cleanPhone = rawPhone.replace(/@.*$/, '').replace(/\D/g, '');
-          const formattedPhone = cleanPhone ? (cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`) : '';
-          const name = p.DisplayName || p.Username || p.name || p.pushName || `Participante ${idx + 1}`;
-          const isAdmin = p.IsAdmin === true || p.IsSuperAdmin === true || p.admin === 'admin' || p.isAdmin === true;
+        // Enriquecer os participantes com /chat/details automaticamente
+        const participants = await Promise.all(
+          rawParticipants.map(async (p: any, idx: number) => {
+            const rawPhone = p.PhoneNumber || p.phoneNumber || p.id?.user || p.id || p.phone || '';
+            const cleanPhone = String(rawPhone).replace(/@.*$/, '').replace(/\D/g, '');
+            const formattedPhone = cleanPhone ? (cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`) : '';
+            const isAdmin = p.IsAdmin === true || p.IsSuperAdmin === true || p.admin === 'admin' || p.isAdmin === true;
 
-          return {
-            id: idx + 1,
-            name,
-            phone: formattedPhone,
-            isAdmin,
-            raw: p,
-          };
-        });
+            let name = p.DisplayName || p.Username || p.name || p.pushName || '';
+            let image = '';
+            let isBusiness = false;
+            let businessName = '';
+
+            // Consulta automática /chat/details para complementar informações do contato
+            if (cleanPhone) {
+              try {
+                const details = await getChatDetails(token, cleanPhone);
+                if (details) {
+                  name =
+                    details.name ||
+                    details.wa_contactName ||
+                    details.business_name ||
+                    details.wa_name ||
+                    name;
+                  businessName = details.business_name || details.wa_name || '';
+                  image = details.image || details.imagePreview || '';
+                  isBusiness = Boolean(details.is_business);
+                }
+              } catch {
+                // Mantém valores de fallback se falhar contato individual
+              }
+            }
+
+            return {
+              id: idx + 1,
+              name: name || `Participante ${idx + 1}`,
+              phone: formattedPhone,
+              isAdmin,
+              image,
+              isBusiness,
+              businessName,
+              raw: p,
+            };
+          })
+        );
 
         return NextResponse.json({
           success: true,
