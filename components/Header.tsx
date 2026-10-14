@@ -35,6 +35,12 @@ export default function Header() {
   };
 
   const handleWorkspaceChange = (newClientId: string) => {
+    if (!isMasterAdmin) {
+      if (newClientId === 'ALL' || !availableClients.some((c) => c.cliente_id === newClientId)) {
+        return;
+      }
+    }
+
     setSelectedClientId(newClientId);
     if (newClientId === 'ALL') {
       switchToAdminHQ();

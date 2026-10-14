@@ -152,6 +152,11 @@ function LoginContent() {
         localStorage.setItem('swiftsail_user_phone', fullPhone);
         if (data.user) {
           localStorage.setItem('swiftsail_user', JSON.stringify(data.user));
+          if (data.user.role === 'master_admin') {
+            localStorage.setItem('swiftsail_is_master_admin', 'true');
+          } else {
+            localStorage.removeItem('swiftsail_is_master_admin');
+          }
         }
       } catch {}
 

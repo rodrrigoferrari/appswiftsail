@@ -21,13 +21,20 @@ import {
 } from 'lucide-react';
 
 function CriativosContent() {
-  const { selectedClientId, activeClient } = useTenant();
+  const { selectedClientId, activeClient, currentUser, isMasterAdmin, availableClients, clients } = useTenant();
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab');
   const activeModule: 'criativos' | 'landing_page' = tabParam === 'criativos' ? 'criativos' : 'landing_page';
 
-  // Client Name
-  const clientName = activeClient?.nome || (selectedClientId === 'ALL' ? 'Todos os Clientes' : selectedClientId);
+  // Para cliente comum, NUNCA expõe 'Todos os Clientes'
+  const effectiveClientId = !isMasterAdmin
+    ? (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : 'ADRIATICA_INCORPORADORA'))
+    : selectedClientId;
+
+  const currentClient = clients.find((c) => c.cliente_id === effectiveClientId) || activeClient;
+  const clientName = currentClient?.nome === 'EMOVERE'
+    ? 'Emovere'
+    : currentClient?.nome || (effectiveClientId === 'ALL' ? 'Todos os Clientes' : effectiveClientId);
 
   // --- CREATIVE STUDIO STATE ---
   const [format, setFormat] = useState<'carousel' | 'reels' | 'static'>('carousel');

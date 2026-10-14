@@ -57,12 +57,17 @@ interface NfModalState {
 }
 
 export default function FinanceiroPage() {
-  const { activeClient, selectedClientId } = useTenant();
+  const { activeClient, selectedClientId, currentUser, isMasterAdmin, availableClients, clients } = useTenant();
 
+  const effectiveClientId = !isMasterAdmin
+    ? (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : 'ADRIATICA_INCORPORADORA'))
+    : (activeClient?.cliente_id || selectedClientId || 'ALL');
+
+  const currentClient = clients.find((c) => c.cliente_id === effectiveClientId) || activeClient;
   const clientDisplayName =
-    activeClient?.nome === 'EMOVERE'
+    currentClient?.nome === 'EMOVERE'
       ? 'Emovere'
-      : activeClient?.nome || 'Workspace Ativo';
+      : currentClient?.nome || (effectiveClientId === 'ALL' ? 'Visão Geral HQ' : effectiveClientId);
 
   // Filtros de busca e status para consulta
   const [searchTerm, setSearchTerm] = useState('');
@@ -95,7 +100,7 @@ export default function FinanceiroPage() {
     async function loadAsaasData() {
       setLoading(true);
       try {
-        const targetId = activeClient?.cliente_id || selectedClientId || 'ALL';
+        const targetId = effectiveClientId;
         const res = await fetch(`/api/clientes/${targetId}/asaas`);
         const json = await res.json();
         if (json.success) {

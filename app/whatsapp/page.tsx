@@ -42,7 +42,7 @@ import Link from 'next/link';
 
 function WhatsAppContent() {
   const searchParams = useSearchParams();
-  const { selectedClientId, activeClient } = useTenant();
+  const { selectedClientId, activeClient, currentUser, isMasterAdmin, availableClients, clients } = useTenant();
 
   const urlTab = searchParams?.get('tab');
   const [subTab, setSubTab] = useState<'conexao' | 'grupos' | 'disparos' | 'ligacoes' | 'tracking'>(
@@ -63,8 +63,14 @@ function WhatsAppContent() {
     }
   }, [urlTab]);
 
-  const clientName = activeClient?.nome || (selectedClientId === 'ALL' ? 'Todos os Clientes' : selectedClientId);
-  const targetId = selectedClientId && selectedClientId !== 'ALL' ? selectedClientId : 'swiftsail';
+  // Para cliente comum, targetId NUNCA é 'swiftsail'. É SEMPRE o cliente_id do cliente atribuído!
+  const effectiveClientId = !isMasterAdmin
+    ? (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : 'ADRIATICA_INCORPORADORA'))
+    : (selectedClientId && selectedClientId !== 'ALL' ? selectedClientId : 'swiftsail');
+
+  const targetId = effectiveClientId;
+  const currentClient = clients.find((c) => c.cliente_id === targetId) || activeClient;
+  const clientName = currentClient?.nome === 'EMOVERE' ? 'Emovere' : currentClient?.nome || (targetId === 'swiftsail' ? 'Instâncias Swiftsail' : targetId);
 
   const moduleInfo = useMemo(() => {
     switch (subTab) {

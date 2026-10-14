@@ -43,7 +43,6 @@ import DateRangePicker from '@/components/DateRangePicker';
 function MidiaContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { selectedClientId, activeClient, activeClientAdAccounts, dateRange, viewMode } = useTenant();
   const [activePlatformTab, setActivePlatformTab] = useState<'meta' | 'google'>('meta');
   const [metaSubTab, setMetaSubTab] = useState<'campaigns' | 'contas'>('campaigns');
   const [metaLevel, setMetaLevel] = useState<'tree' | 'campaigns' | 'adsets' | 'ads'>('tree');
@@ -133,9 +132,17 @@ function MidiaContent() {
     setExpandedAdSets((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const isAggregated = selectedClientId === 'ALL';
-  const targetId = selectedClientId;
-  const clientName = activeClient?.nome || (selectedClientId === 'ALL' ? 'Painel Master — Swiftsail HQ' : selectedClientId);
+  const { selectedClientId, activeClient, activeClientAdAccounts, dateRange, viewMode, currentUser, isMasterAdmin, availableClients, clients } = useTenant();
+
+  // Para perfis cliente (não-admin), o targetId NUNCA pode ser 'ALL'
+  const effectiveClientId = !isMasterAdmin
+    ? (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : 'ADRIATICA_INCORPORADORA'))
+    : selectedClientId;
+
+  const isAggregated = isMasterAdmin && effectiveClientId === 'ALL';
+  const targetId = effectiveClientId;
+  const currentClient = clients.find((c) => c.cliente_id === targetId) || activeClient;
+  const clientName = currentClient?.nome === 'EMOVERE' ? 'Emovere' : currentClient?.nome || (isAggregated ? 'Painel Master — Swiftsail HQ' : targetId);
 
   // Real Data from APIs
   const [loading, setLoading] = useState(false);

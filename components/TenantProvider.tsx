@@ -98,15 +98,14 @@ export function TenantProvider({
     } catch {}
   }, []);
 
-  // É Master Admin se o perfil for master_admin, se for Rodrigo Ferrari, ou se tiver a tag de master no navegador
+  // É Master Admin se o perfil for master_admin ou Rodrigo Ferrari.
+  // SE for cliente_admin, é ESTRITAMENTE falso (nunca acessa dados de outras empresas).
   const isMasterAdmin = useMemo(() => {
     if (!currentUser) return true;
+    if (currentUser.role === 'cliente_admin') return false;
     if (currentUser.role === 'master_admin') return true;
     if (currentUser.whatsapp === '41992332996' || currentUser.whatsapp === '5541992332996') return true;
     if (currentUser.email === 'rodrigo@swiftsail.co') return true;
-    if (typeof window !== 'undefined' && localStorage.getItem('swiftsail_is_master_admin') === 'true') {
-      return true;
-    }
     return false;
   }, [currentUser]);
 
@@ -122,8 +121,21 @@ export function TenantProvider({
     }
 
     const filtered = clients.filter((c) => allowed.has(c.cliente_id));
-    return filtered.length > 0 ? filtered : clients.slice(0, 1);
+    return filtered.length > 0 ? filtered : clients.filter((c) => c.cliente_id === currentUser?.cliente_id);
   }, [clients, currentUser, isMasterAdmin]);
+
+  // Efeito de contenção estrita: se for cliente, NUNCA permite selectedClientId === 'ALL'
+  useEffect(() => {
+    if (!isMasterAdmin && currentUser) {
+      setViewMode('client');
+      const assignedTarget = currentUser.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : null);
+      if (assignedTarget) {
+        if (selectedClientId === 'ALL' || !availableClients.some((c) => c.cliente_id === selectedClientId)) {
+          setSelectedClientId(assignedTarget);
+        }
+      }
+    }
+  }, [isMasterAdmin, currentUser, availableClients, selectedClientId]);
 
   // Checagem de permissão por módulo (Tráfego, WhatsApp, CRM, Design, Financeiro)
   const canAccessModule = (mod: import('@/types/database').UserModulePermission): boolean => {
@@ -295,10 +307,20 @@ export function TenantProvider({
   });
 
   // Fonte preferida: painel.contas_ads (já amarrada por cliente_id e só de clientes ativos).
-  // O filtro por grupo de WhatsApp acima fica apenas como contingência se o painel estiver indisponível.
-  const activeClientAdAccounts: GroupAdAccount[] = contasAds
-    ? contasAds
-        .filter((c) => selectedClientId === 'ALL' || c.cliente_id === selectedClientId)
+  // Fonte preferida: painel.contas_ads (já amarrada por cliente_id e só de clientes ativos).
+  // Para usuários clientes, NUNCA expõe contas fora dos seus workspaces designados.
+  const activeClientAdAccounts: GroupAdAccount[] = useMemo(() => {
+    const allowedClientIds = new Set(availableClients.map((c) => c.cliente_id));
+
+    if (contasAds) {
+      return contasAds
+        .filter((c) => {
+          if (!isMasterAdmin) {
+            // Cliente comum: NUNCA vê contas fora do seu workspace atribuído
+            return allowedClientIds.has(c.cliente_id);
+          }
+          return selectedClientId === 'ALL' || c.cliente_id === selectedClientId;
+        })
         .map((c) => ({
           id: `${c.plataforma}:${c.account_id}`,
           cliente_id: c.cliente_id,
@@ -311,8 +333,16 @@ export function TenantProvider({
           cartao_final: c.cartao_final,
           limite_restante: c.limite_restante,
           conta_pagamento: c.conta_pagamento,
-        }))
-    : legacyAdAccounts;
+        }));
+    }
+
+    return legacyAdAccounts.filter((a) => {
+      if (!isMasterAdmin) {
+        return a.cliente_id ? allowedClientIds.has(a.cliente_id) : true;
+      }
+      return true;
+    });
+  }, [contasAds, legacyAdAccounts, isMasterAdmin, selectedClientId, availableClients]);
 
   // Filter latest CS Status for active client
   const activeClientCsStatus = csStatusList.find((cs) => cs.cliente_id === selectedClientId);

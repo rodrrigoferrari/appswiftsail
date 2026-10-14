@@ -28,15 +28,22 @@ import LeadsDrilldownModal, { FormLeadItem } from '@/components/LeadsDrilldownMo
 import DateRangePicker from '@/components/DateRangePicker';
 
 function CRMContent() {
-  const { selectedClientId, setSelectedClientId, clients, activeClient, dateRange, viewMode } = useTenant();
+  const { selectedClientId, setSelectedClientId, clients, activeClient, dateRange, viewMode, currentUser, isMasterAdmin, availableClients } = useTenant();
   const searchParams = useSearchParams();
   const tabParam = (searchParams?.get('tab') || 'pipeline').toLowerCase();
   const isPipelineView = !tabParam || tabParam === 'pipeline' || tabParam === 'funil';
-  const isAggregated = selectedClientId === 'ALL';
-  const targetId = selectedClientId;
+
+  // Para cliente comum, targetId NUNCA é 'ALL'
+  const effectiveClientId = !isMasterAdmin
+    ? (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : 'ADRIATICA_INCORPORADORA'))
+    : selectedClientId;
+
+  const isAggregated = isMasterAdmin && effectiveClientId === 'ALL';
+  const targetId = effectiveClientId;
+  const currentClient = clients.find((c) => c.cliente_id === targetId) || activeClient;
   const clientName = isAggregated
     ? 'Painel Master — Swiftsail HQ'
-    : (activeClient?.nome === 'EMOVERE' ? 'Emovere' : activeClient?.nome) || selectedClientId;
+    : (currentClient?.nome === 'EMOVERE' ? 'Emovere' : currentClient?.nome) || targetId;
 
   const [loading, setLoading] = useState(false);
   const [kommoData, setKommoData] = useState<any>(null);
@@ -181,7 +188,7 @@ function CRMContent() {
             </div>
             <div className="flex items-center gap-2">
               <Building className="w-5 h-5 text-[#0050FF] shrink-0" />
-              {clients.length > 0 ? (
+              {isMasterAdmin ? (
                 <div className="relative inline-flex items-center max-w-xs sm:max-w-md">
                   <select
                     value={selectedClientId}
@@ -194,6 +201,24 @@ function CRMContent() {
                   >
                     <option value="ALL">🏢 Painel Master — Swiftsail HQ (Todos os Clientes)</option>
                     {clients.map((c) => (
+                      <option key={c.cliente_id} value={c.cliente_id}>
+                        👤 {c.nome === 'EMOVERE' ? 'Emovere' : c.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : availableClients.length > 1 ? (
+                <div className="relative inline-flex items-center max-w-xs sm:max-w-md">
+                  <select
+                    value={targetId}
+                    onChange={(e) => {
+                      setSelectedClientId(e.target.value);
+                      setSelectedPipeline('ALL');
+                    }}
+                    className="text-xl font-bold text-[#0F172A] bg-transparent border-b border-dashed border-[#CBD5E1] focus:outline-none cursor-pointer hover:border-[#0050FF] transition-colors truncate"
+                    title="Alternar Workspace"
+                  >
+                    {availableClients.map((c) => (
                       <option key={c.cliente_id} value={c.cliente_id}>
                         👤 {c.nome === 'EMOVERE' ? 'Emovere' : c.nome}
                       </option>
