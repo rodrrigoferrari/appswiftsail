@@ -61,14 +61,23 @@ function MidiaContent() {
     if (plat === 'meta' || plat === 'google') {
       setActivePlatformTab(plat);
     }
-    if (tab === 'termos') {
+    if (tab === 'termos' || tab === 'search_terms') {
       setGoogleSubTab('search_terms');
     } else if (tab === 'anuncios') {
       setGoogleSubTab('anuncios');
-    } else if (tab === 'recursos') {
+    } else if (tab === 'recursos' || tab === 'grupos_recursos') {
       setGoogleSubTab('grupos_recursos');
-    } else if (tab === 'palavras') {
+    } else if (tab === 'palavras' || tab === 'palavras_chave') {
       setGoogleSubTab('palavras_chave');
+    } else if (tab === 'campaigns') {
+      setGoogleSubTab('campaigns');
+    }
+    if (tab === 'contas') {
+      const elId = plat === 'google' ? 'faturamento-google-midia' : 'faturamento-meta-midia';
+      setTimeout(() => {
+        const el = document.getElementById(elId);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
     }
   }, [searchParams]);
   const [leadsDrilldown, setLeadsDrilldown] = useState<{
@@ -717,7 +726,7 @@ function MidiaContent() {
         <div className="space-y-4">
           {/* Informações Financeiras e Faturamento das Contas Meta (public.painel_contas_ads) */}
           {metaContas.length > 0 && (
-            <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs space-y-3">
+            <div id="faturamento-meta-midia" className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F1F5F9] pb-2.5">
                 <div className="flex items-center gap-2">
                   <span className="w-8 h-8 rounded-lg bg-[#EFF4FF] border border-[#BFDBFE] text-[#0050FF] flex items-center justify-center shrink-0">
@@ -1952,7 +1961,7 @@ function MidiaContent() {
         <div className="space-y-4">
           {/* Informações Financeiras e Faturamento das Contas Google (public.painel_contas_ads) */}
           {googleContas.length > 0 && (
-            <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs space-y-3">
+            <div id="faturamento-google-midia" className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-xs space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F1F5F9] pb-2.5">
                 <div className="flex items-center gap-2">
                   <span className="w-8 h-8 rounded-lg bg-[#EFF4FF] border border-[#BFDBFE] text-[#0050FF] flex items-center justify-center shrink-0">

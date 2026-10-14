@@ -48,6 +48,8 @@ function SidebarContent() {
   // Submenu toggle states
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
     trafego: true,
+    meta: true,
+    google: true,
     whatsapp: true,
     credenciais: true,
   });
@@ -302,54 +304,156 @@ function SidebarContent() {
               </button>
 
               {openSubmenus.trafego && (
-                <div className="ml-4 pl-3 border-l-2 border-[#E2E8F0] space-y-1 mt-1">
-                  <Link
-                    href="/midia"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/midia' && !currentPlataforma && !currentTab
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <Radio className="w-3.5 h-3.5" />
-                    <span>Visão Geral & Mídia</span>
-                  </Link>
+                <div className="ml-3 pl-2.5 border-l-2 border-[#E2E8F0] space-y-2 mt-1">
+                  {/* PLATAFORMA: META ADS */}
+                  <div className="space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleSubmenu('meta')}
+                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                        pathname === '/midia' && (currentPlataforma === 'meta' || !currentPlataforma)
+                          ? 'text-[#0050FF] bg-[#EFF4FF]/60'
+                          : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+                        <span>Meta Ads</span>
+                      </div>
+                      {openSubmenus.meta ? (
+                        <ChevronDown className="w-3 h-3 text-[#64748B]" />
+                      ) : (
+                        <ChevronRight className="w-3 h-3 text-[#94A3B8]" />
+                      )}
+                    </button>
 
-                  <Link
-                    href="/midia?plataforma=meta"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/midia' && currentPlataforma === 'meta'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    <span>Meta Ads</span>
-                  </Link>
+                    {openSubmenus.meta && (
+                      <div className="ml-3 pl-2 border-l border-[#CBD5E1] space-y-0.5 py-0.5">
+                        <Link
+                          href="/midia?plataforma=meta&tab=campaigns"
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-colors ${
+                            pathname === '/midia' && (currentPlataforma === 'meta' || !currentPlataforma) && currentTab !== 'contas'
+                              ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                          }`}
+                        >
+                          <span className="text-[10px]">📁</span>
+                          <span>Campanhas & Criativos</span>
+                        </Link>
 
-                  <Link
-                    href="/midia?plataforma=google"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/midia' && currentPlataforma === 'google' && currentTab !== 'termos'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <div className="w-2 h-2 rounded-full bg-amber-500" />
-                    <span>Google Ads</span>
-                  </Link>
+                        <Link
+                          href="/midia?plataforma=meta&tab=contas"
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-colors ${
+                            pathname === '/midia' && currentPlataforma === 'meta' && currentTab === 'contas'
+                              ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                          }`}
+                        >
+                          <span className="text-[10px]">💳</span>
+                          <span>Faturamento & Contas</span>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
 
-                  <Link
-                    href="/midia?plataforma=google&tab=termos"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/midia' && currentTab === 'termos'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <Search className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Termos de Pesquisa</span>
-                  </Link>
+                  {/* PLATAFORMA: GOOGLE ADS */}
+                  <div className="space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleSubmenu('google')}
+                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                        pathname === '/midia' && currentPlataforma === 'google'
+                          ? 'text-[#0050FF] bg-[#EFF4FF]/60'
+                          : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                        <span>Google Ads</span>
+                      </div>
+                      {openSubmenus.google ? (
+                        <ChevronDown className="w-3 h-3 text-[#64748B]" />
+                      ) : (
+                        <ChevronRight className="w-3 h-3 text-[#94A3B8]" />
+                      )}
+                    </button>
+
+                    {openSubmenus.google && (
+                      <div className="ml-3 pl-2 border-l border-[#CBD5E1] space-y-0.5 py-0.5">
+                        <Link
+                          href="/midia?plataforma=google&tab=campaigns"
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-colors ${
+                            pathname === '/midia' && currentPlataforma === 'google' && (!currentTab || currentTab === 'campaigns')
+                              ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                          }`}
+                        >
+                          <span className="text-[10px]">📂</span>
+                          <span>Campanhas</span>
+                        </Link>
+
+                        <Link
+                          href="/midia?plataforma=google&tab=anuncios"
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-colors ${
+                            pathname === '/midia' && currentPlataforma === 'google' && currentTab === 'anuncios'
+                              ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                          }`}
+                        >
+                          <span className="text-[10px]">📢</span>
+                          <span>Anúncios & Destinos</span>
+                        </Link>
+
+                        <Link
+                          href="/midia?plataforma=google&tab=recursos"
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-colors ${
+                            pathname === '/midia' && currentPlataforma === 'google' && currentTab === 'recursos'
+                              ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                          }`}
+                        >
+                          <span className="text-[10px]">⚡</span>
+                          <span>PMax Recursos</span>
+                        </Link>
+
+                        <Link
+                          href="/midia?plataforma=google&tab=palavras"
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-colors ${
+                            pathname === '/midia' && currentPlataforma === 'google' && currentTab === 'palavras'
+                              ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                          }`}
+                        >
+                          <span className="text-[10px]">🎯</span>
+                          <span>Palavras-chave</span>
+                        </Link>
+
+                        <Link
+                          href="/midia?plataforma=google&tab=termos"
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-colors ${
+                            pathname === '/midia' && currentPlataforma === 'google' && currentTab === 'termos'
+                              ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                          }`}
+                        >
+                          <span className="text-[10px]">🔍</span>
+                          <span>Termos de Busca</span>
+                        </Link>
+
+                        <Link
+                          href="/midia?plataforma=google&tab=contas"
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-colors ${
+                            pathname === '/midia' && currentPlataforma === 'google' && currentTab === 'contas'
+                              ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                          }`}
+                        >
+                          <span className="text-[10px]">💳</span>
+                          <span>Faturamento & Contas</span>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
