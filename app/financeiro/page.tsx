@@ -266,10 +266,10 @@ export default function FinanceiroPage() {
 
       {/* 2. DASHBOARD TOTAL RESUMIDO (VALORES REAIS DO SUPABASE) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Recebido Líquido */}
+        {/* Total Pago (Líquido) */}
         <div className="bg-white border border-[#E2E8F0] p-5 rounded-2xl shadow-xs space-y-2">
           <div className="flex items-center justify-between text-[#64748B]">
-            <span className="text-xs font-semibold uppercase tracking-wider">Recebidas (Líquido)</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Pagas</span>
             <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200">
               <CheckCircle2 className="w-4 h-4" />
             </div>
@@ -279,7 +279,7 @@ export default function FinanceiroPage() {
           </p>
           <div className="text-[11px] text-[#64748B] flex items-center justify-between pt-2 border-t border-[#F1F5F9]">
             <span className="text-emerald-700 font-semibold">{totaisCalculados.qtdRecebidas} liquidadas</span>
-            <span>Total recebido</span>
+            <span>Total pago</span>
           </div>
         </div>
 
@@ -317,10 +317,10 @@ export default function FinanceiroPage() {
           </div>
         </div>
 
-        {/* Total Faturado */}
+        {/* Total Pago */}
         <div className="bg-white border border-[#E2E8F0] p-5 rounded-2xl shadow-xs space-y-2">
           <div className="flex items-center justify-between text-[#64748B]">
-            <span className="text-xs font-semibold uppercase tracking-wider">Total Faturado</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Total Pago</span>
             <div className="p-2 rounded-xl bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]">
               <DollarSign className="w-4 h-4" />
             </div>
@@ -377,7 +377,7 @@ export default function FinanceiroPage() {
                   {st === 'TODOS'
                     ? 'Todas'
                     : st === 'RECEBIDA'
-                    ? 'Recebidas'
+                    ? 'Pagas'
                     : st === 'AGUARDANDO'
                     ? 'Aguardando'
                     : 'Vencidas'}
@@ -516,9 +516,9 @@ export default function FinanceiroPage() {
                             }`}
                           />
                           {cob.status === 'RECEBIDA'
-                            ? 'Recebida'
+                            ? 'Paga'
                             : cob.status === 'CONFIRMADA'
-                            ? 'Confirmada'
+                            ? 'Paga'
                             : cob.status === 'AGUARDANDO'
                             ? 'Aguardando'
                             : 'Vencida'}

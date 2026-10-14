@@ -46,6 +46,9 @@ function SidebarContent() {
   const searchParams = useSearchParams();
   const {
     clients,
+    availableClients,
+    isMasterAdmin,
+    canAccessModule,
     selectedClientId,
     setSelectedClientId,
     viewMode,
@@ -104,7 +107,7 @@ function SidebarContent() {
       {/* Brand Header */}
       <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
         <Link
-          href={viewMode === 'admin' ? '/admin' : activeClient ? `/client/${getClientSlug(activeClient)}` : '/client'}
+          href={viewMode === 'admin' && isMasterAdmin ? '/admin' : activeClient ? `/client/${getClientSlug(activeClient)}` : '/client'}
           className="flex items-center gap-3"
         >
           <div className="w-9 h-9 rounded-xl bg-[#EFF4FF] border border-[#BFDBFE] flex items-center justify-center overflow-hidden p-1 shadow-xs">
@@ -117,75 +120,96 @@ function SidebarContent() {
         </Link>
       </div>
 
-      {/* Mode Switcher Tabs: Apenas 2 Hierarquias (Admin e Cliente) conforme Seção 2 */}
-      <div className="p-3 border-b border-[#E2E8F0] bg-[#F8FAFC]">
-        <div className="flex rounded-xl bg-[#F1F5F9] border border-[#E2E8F0] p-1">
-          <button
-            onClick={() => {
-              switchToAdminHQ();
-              router.push('/admin');
-            }}
-            className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              viewMode === 'admin'
-                ? 'bg-white text-[#0F172A] border border-[#E2E8F0] shadow-xs'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            <Crown className="w-3.5 h-3.5 text-[#0050FF]" />
-            <span>Admin</span>
-          </button>
+      {/* Mode Switcher Tabs: Exibido SOMENTE para Master Admin */}
+      {isMasterAdmin && (
+        <div className="p-3 border-b border-[#E2E8F0] bg-[#F8FAFC]">
+          <div className="flex rounded-xl bg-[#F1F5F9] border border-[#E2E8F0] p-1">
+            <button
+              onClick={() => {
+                switchToAdminHQ();
+                router.push('/admin');
+              }}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                viewMode === 'admin'
+                  ? 'bg-white text-[#0F172A] border border-[#E2E8F0] shadow-xs'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              <Crown className="w-3.5 h-3.5 text-[#0050FF]" />
+              <span>Admin</span>
+            </button>
 
-          <button
-            onClick={() => {
-              setViewMode('client');
-              const target = activeClient || (clients.length > 0 ? clients[0] : undefined);
-              if (target) {
-                setSelectedClientId(target.cliente_id);
-                router.push(`/client/${getClientSlug(target)}`);
-              } else {
-                router.push('/client');
-              }
-            }}
-            className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              viewMode === 'client'
-                ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            <Building className="w-3.5 h-3.5 text-[#0050FF]" />
-            <span>Cliente</span>
-          </button>
+            <button
+              onClick={() => {
+                setViewMode('client');
+                const target = activeClient || (availableClients.length > 0 ? availableClients[0] : undefined);
+                if (target) {
+                  setSelectedClientId(target.cliente_id);
+                  router.push(`/client/${getClientSlug(target)}`);
+                } else {
+                  router.push('/client');
+                }
+              }}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                viewMode === 'client'
+                  ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              <Building className="w-3.5 h-3.5 text-[#0050FF]" />
+              <span>Cliente</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Workspace Selector (Exibido no Modo Cliente) */}
+      {/* Workspace Selector (Isolado estritamente por AvailableClients) */}
       {viewMode === 'client' && (
         <div className="px-3 py-2.5 border-b border-[#E2E8F0] bg-[#EFF4FF]/30">
-          <label className="block text-[10px] font-bold text-[#0050FF] uppercase tracking-wider mb-1 flex items-center gap-1">
-            <Building className="w-3 h-3" />
-            Workspace Ativo
+          <label className="block text-[10px] font-bold text-[#0050FF] uppercase tracking-wider mb-1 flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <Building className="w-3 h-3" />
+              Workspace Ativo
+            </span>
+            {!isMasterAdmin && (
+              <span className="text-[9px] text-[#64748B] bg-white px-1.5 py-0.2 rounded border border-[#CBD5E1]">
+                🔒 Atribuído
+              </span>
+            )}
           </label>
-          <select
-            value={selectedClientId}
-            onChange={(e) => {
-              setSelectedClientId(e.target.value);
-              const target = clients.find((c) => c.cliente_id === e.target.value);
-              if (target) {
-                router.push(`/client/${getClientSlug(target)}`);
-              }
-            }}
-            className="w-full bg-white text-xs font-semibold text-[#0F172A] border border-[#CBD5E1] rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#0050FF] transition-colors cursor-pointer shadow-xs"
-          >
-            {clients.map((c) => {
-              const displayName = c.nome === 'EMOVERE' ? 'Emovere' : c.nome;
-              const statusIcon = c.status === 'ativo' ? '🟢' : c.status === 'pausado' ? '🟡' : '🔴';
-              return (
-                <option key={c.cliente_id} value={c.cliente_id}>
-                  {statusIcon} {displayName}
-                </option>
-              );
-            })}
-          </select>
+
+          {availableClients.length <= 1 ? (
+            /* Cliente com único workspace fixo */
+            <div className="w-full bg-white text-xs font-bold text-[#0F172A] border border-[#CBD5E1] rounded-lg px-2.5 py-1.5 shadow-xs flex items-center gap-2">
+              <span className="text-emerald-500">🟢</span>
+              <span className="truncate">
+                {availableClients[0]?.nome === 'EMOVERE' ? 'Emovere' : availableClients[0]?.nome || 'Meu Workspace'}
+              </span>
+            </div>
+          ) : (
+            /* Cliente com múltiplos workspaces designados */
+            <select
+              value={selectedClientId}
+              onChange={(e) => {
+                setSelectedClientId(e.target.value);
+                const target = availableClients.find((c) => c.cliente_id === e.target.value);
+                if (target) {
+                  router.push(`/client/${getClientSlug(target)}`);
+                }
+              }}
+              className="w-full bg-white text-xs font-semibold text-[#0F172A] border border-[#CBD5E1] rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#0050FF] transition-colors cursor-pointer shadow-xs"
+            >
+              {availableClients.map((c) => {
+                const displayName = c.nome === 'EMOVERE' ? 'Emovere' : c.nome;
+                const statusIcon = c.status === 'ativo' ? '🟢' : c.status === 'pausado' ? '🟡' : '🔴';
+                return (
+                  <option key={c.cliente_id} value={c.cliente_id}>
+                    {statusIcon} {displayName}
+                  </option>
+                );
+              })}
+            </select>
+          )}
         </div>
       )}
 
@@ -415,25 +439,26 @@ function SidebarContent() {
             </Link>
 
             {/* Tráfego e Anúncios COM SUBMENU DAS PLATAFORMAS (Seção 4.1 e 4.3) */}
-            <div>
-              <button
-                onClick={() => toggleSubmenu('trafego')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                  pathname === '/midia'
-                    ? 'text-[#0050FF] font-semibold'
-                    : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Megaphone className="w-4 h-4 text-[#0050FF]" />
-                  <span>Tráfego & Anúncios</span>
-                </div>
-                {openSubmenus.trafego ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
-                ) : (
-                  <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
-                )}
-              </button>
+            {canAccessModule('midia') && (
+              <div>
+                <button
+                  onClick={() => toggleSubmenu('trafego')}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                    pathname === '/midia'
+                      ? 'text-[#0050FF] font-semibold'
+                      : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Megaphone className="w-4 h-4 text-[#0050FF]" />
+                    <span>Tráfego & Anúncios</span>
+                  </div>
+                  {openSubmenus.trafego ? (
+                    <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
+                  )}
+                </button>
 
               {openSubmenus.trafego && (
                 <div className="ml-3 pl-2.5 border-l-2 border-[#E2E8F0] space-y-2 mt-1">
@@ -589,292 +614,303 @@ function SidebarContent() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Hub WhatsApp API COM SUBMENU (Seção 4.4) */}
-            <div>
-              <button
-                onClick={() => toggleSubmenu('whatsapp')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                  pathname === '/whatsapp'
-                    ? 'text-[#0050FF] font-semibold'
-                    : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <MessageSquare className="w-4 h-4 text-emerald-600" />
-                  <span>Hub WhatsApp API</span>
-                </div>
-                {openSubmenus.whatsapp ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
-                ) : (
-                  <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
+            {canAccessModule('whatsapp') && (
+              <div>
+                <button
+                  onClick={() => toggleSubmenu('whatsapp')}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                    pathname === '/whatsapp'
+                      ? 'text-[#0050FF] font-semibold'
+                      : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="w-4 h-4 text-emerald-600" />
+                    <span>Hub WhatsApp API</span>
+                  </div>
+                  {openSubmenus.whatsapp ? (
+                    <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
+                  )}
+                </button>
+
+                {openSubmenus.whatsapp && (
+                  <div className="ml-4 pl-3 border-l-2 border-[#E2E8F0] space-y-1 mt-1">
+                    <Link
+                      href="/whatsapp?tab=conexao"
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        pathname === '/whatsapp' && (currentTab === 'conexao' || !currentTab)
+                          ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                          : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span>Conexão Uazapi</span>
+                    </Link>
+
+                    <Link
+                      href="/whatsapp?tab=grupos"
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        pathname === '/whatsapp' && currentTab === 'grupos'
+                          ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                          : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <Users2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>Coleta de Grupos</span>
+                    </Link>
+
+                    <Link
+                      href="/whatsapp?tab=disparos"
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        pathname === '/whatsapp' && currentTab === 'disparos'
+                          ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                          : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <Send className="w-3.5 h-3.5 shrink-0" />
+                      <span>Envio em Massa</span>
+                    </Link>
+
+                    <Link
+                      href="/whatsapp?tab=tracking"
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        pathname === '/whatsapp' && currentTab === 'tracking'
+                          ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                          : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <BarChart3 className="w-3.5 h-3.5 shrink-0" />
+                      <span>Dashboard de Transmissões</span>
+                    </Link>
+
+                    <Link
+                      href="/whatsapp?tab=ligacoes"
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        pathname === '/whatsapp' && currentTab === 'ligacoes'
+                          ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                          : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <PhoneCall className="w-3.5 h-3.5 text-[#0050FF] shrink-0" />
+                      <span>Ligações & Kommo CRM</span>
+                    </Link>
+                  </div>
                 )}
-              </button>
-
-              {openSubmenus.whatsapp && (
-                <div className="ml-4 pl-3 border-l-2 border-[#E2E8F0] space-y-1 mt-1">
-                  <Link
-                    href="/whatsapp?tab=conexao"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/whatsapp' && (currentTab === 'conexao' || !currentTab)
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                    <span>Conexão Uazapi</span>
-                  </Link>
-
-                  <Link
-                    href="/whatsapp?tab=grupos"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/whatsapp' && currentTab === 'grupos'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <Users2 className="w-3.5 h-3.5 shrink-0" />
-                    <span>Coleta de Grupos</span>
-                  </Link>
-
-                  <Link
-                    href="/whatsapp?tab=disparos"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/whatsapp' && currentTab === 'disparos'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <Send className="w-3.5 h-3.5 shrink-0" />
-                    <span>Envio em Massa</span>
-                  </Link>
-
-                  <Link
-                    href="/whatsapp?tab=tracking"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/whatsapp' && currentTab === 'tracking'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <BarChart3 className="w-3.5 h-3.5 shrink-0" />
-                    <span>Dashboard de Transmissões</span>
-                  </Link>
-
-                  <Link
-                    href="/whatsapp?tab=ligacoes"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/whatsapp' && currentTab === 'ligacoes'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <PhoneCall className="w-3.5 h-3.5 text-[#0050FF] shrink-0" />
-                    <span>Ligações & Kommo CRM</span>
-                  </Link>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Design (Submenu: Landing Page & Criativos) */}
-            <div>
-              <button
-                onClick={() => toggleSubmenu('design')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                  pathname === '/criativos'
-                    ? 'text-[#0050FF] font-semibold'
-                    : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Palette className={`w-4 h-4 ${pathname === '/criativos' ? 'text-[#0050FF]' : 'text-purple-600'}`} />
-                  <span>Design</span>
-                </div>
-                {openSubmenus.design ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
-                ) : (
-                  <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
+            {canAccessModule('criativos') && (
+              <div>
+                <button
+                  onClick={() => toggleSubmenu('design')}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                    pathname === '/criativos'
+                      ? 'text-[#0050FF] font-semibold'
+                      : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Palette className={`w-4 h-4 ${pathname === '/criativos' ? 'text-[#0050FF]' : 'text-purple-600'}`} />
+                    <span>Design</span>
+                  </div>
+                  {openSubmenus.design ? (
+                    <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
+                  )}
+                </button>
+
+                {openSubmenus.design && (
+                  <div className="ml-4 pl-3 border-l-2 border-[#E2E8F0] space-y-1 mt-1">
+                    <Link
+                      href="/criativos?tab=landing_page"
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        pathname === '/criativos' && (currentTab === 'landing_page' || !currentTab)
+                          ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                          : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <Globe className="w-3.5 h-3.5 shrink-0" />
+                      <span>Landing Page</span>
+                    </Link>
+
+                    <Link
+                      href="/criativos?tab=criativos"
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        pathname === '/criativos' && currentTab === 'criativos'
+                          ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                          : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                      <span>Criativos</span>
+                    </Link>
+                  </div>
                 )}
-              </button>
-
-              {openSubmenus.design && (
-                <div className="ml-4 pl-3 border-l-2 border-[#E2E8F0] space-y-1 mt-1">
-                  <Link
-                    href="/criativos?tab=landing_page"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/criativos' && (currentTab === 'landing_page' || !currentTab)
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <Globe className="w-3.5 h-3.5 shrink-0" />
-                    <span>Landing Page</span>
-                  </Link>
-
-                  <Link
-                    href="/criativos?tab=criativos"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/criativos' && currentTab === 'criativos'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                    <span>Criativos</span>
-                  </Link>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Pipeline CRM (Kommo) com Submenu */}
-            <div>
-              <button
-                onClick={() => toggleSubmenu('crm')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                  pathname === '/crm'
-                    ? 'text-[#0050FF] font-semibold'
+            {canAccessModule('crm') && (
+              <div>
+                <button
+                  onClick={() => toggleSubmenu('crm')}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                    pathname === '/crm'
+                      ? 'text-[#0050FF] font-semibold'
+                      : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <KanbanSquare className={`w-4 h-4 ${pathname === '/crm' ? 'text-[#0050FF]' : 'text-blue-600'}`} />
+                    <span>Pipeline CRM (Kommo)</span>
+                  </div>
+                  {openSubmenus.crm ? (
+                    <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
+                  )}
+                </button>
+
+                {openSubmenus.crm && (
+                  <div className="ml-4 pl-3 border-l-2 border-[#E2E8F0] space-y-1 mt-1">
+                    {/* Visão Geral & Funil Principal */}
+                    <Link
+                      href="/crm"
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        pathname === '/crm' && (!currentTab || currentTab === 'pipeline' || currentTab === 'funil')
+                          ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                          : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <KanbanSquare className="w-3.5 h-3.5 shrink-0" />
+                      <span>Visão Geral & Funil</span>
+                    </Link>
+
+                    {/* Atribuição: Origem */}
+                    <Link
+                      href="/crm?tab=origem"
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        pathname === '/crm' && currentTab === 'origem'
+                          ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                          : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <Globe className="w-3.5 h-3.5 shrink-0" />
+                      <span>Atribuição: Origem</span>
+                    </Link>
+
+                    {/* Atribuição: Campanha */}
+                    <Link
+                      href="/crm?tab=campanha"
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        pathname === '/crm' && currentTab === 'campanha'
+                          ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                          : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <Target className="w-3.5 h-3.5 shrink-0" />
+                      <span>Atribuição: Campanha</span>
+                    </Link>
+
+                    {/* Atribuição: Conjunto */}
+                    <Link
+                      href="/crm?tab=conjunto"
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        pathname === '/crm' && currentTab === 'conjunto'
+                          ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                          : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <Layers className="w-3.5 h-3.5 shrink-0" />
+                      <span>Atribuição: Conjunto</span>
+                    </Link>
+
+                    {/* Atribuição: Criativo */}
+                    <Link
+                      href="/crm?tab=criativo"
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        pathname === '/crm' && currentTab === 'criativo'
+                          ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                          : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                      <span>Atribuição: Criativo</span>
+                    </Link>
+
+                    {/* Atribuição: Termo de Busca */}
+                    <Link
+                      href="/crm?tab=termo"
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        pathname === '/crm' && currentTab === 'termo'
+                          ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                          : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <Search className="w-3.5 h-3.5 shrink-0" />
+                      <span>Atribuição: Termo de Busca</span>
+                    </Link>
+
+                    {/* Atribuição: Responsável */}
+                    <Link
+                      href="/crm?tab=responsavel"
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        pathname === '/crm' && currentTab === 'responsavel'
+                          ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                          : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                      }`}
+                    >
+                      <Users2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>Atribuição: Responsável</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Financeiro Asaas */}
+            {canAccessModule('financeiro') && (
+              <Link
+                href="/financeiro"
+                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
+                  pathname === '/financeiro'
+                    ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold shadow-xs'
                     : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <KanbanSquare className={`w-4 h-4 ${pathname === '/crm' ? 'text-[#0050FF]' : 'text-blue-600'}`} />
-                  <span>Pipeline CRM (Kommo)</span>
+                  <CreditCard className={`w-4 h-4 ${pathname === '/financeiro' ? 'text-[#0050FF]' : 'text-[#64748B]'}`} />
+                  <span>Financeiro (Asaas)</span>
                 </div>
-                {openSubmenus.crm ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
-                ) : (
-                  <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
-                )}
-              </button>
-
-              {openSubmenus.crm && (
-                <div className="ml-4 pl-3 border-l-2 border-[#E2E8F0] space-y-1 mt-1">
-                  {/* Visão Geral & Funil Principal */}
-                  <Link
-                    href="/crm"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/crm' && (!currentTab || currentTab === 'pipeline' || currentTab === 'funil')
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <KanbanSquare className="w-3.5 h-3.5 shrink-0" />
-                    <span>Visão Geral & Funil</span>
-                  </Link>
-
-                  {/* Atribuição: Origem */}
-                  <Link
-                    href="/crm?tab=origem"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/crm' && currentTab === 'origem'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <Globe className="w-3.5 h-3.5 shrink-0" />
-                    <span>Atribuição: Origem</span>
-                  </Link>
-
-                  {/* Atribuição: Campanha */}
-                  <Link
-                    href="/crm?tab=campanha"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/crm' && currentTab === 'campanha'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <Target className="w-3.5 h-3.5 shrink-0" />
-                    <span>Atribuição: Campanha</span>
-                  </Link>
-
-                  {/* Atribuição: Conjunto */}
-                  <Link
-                    href="/crm?tab=conjunto"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/crm' && currentTab === 'conjunto'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <Layers className="w-3.5 h-3.5 shrink-0" />
-                    <span>Atribuição: Conjunto</span>
-                  </Link>
-
-                  {/* Atribuição: Criativo */}
-                  <Link
-                    href="/crm?tab=criativo"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/crm' && currentTab === 'criativo'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                    <span>Atribuição: Criativo</span>
-                  </Link>
-
-                  {/* Atribuição: Termo de Busca */}
-                  <Link
-                    href="/crm?tab=termo"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/crm' && currentTab === 'termo'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <Search className="w-3.5 h-3.5 shrink-0" />
-                    <span>Atribuição: Termo de Busca</span>
-                  </Link>
-
-                  {/* Atribuição: Responsável */}
-                  <Link
-                    href="/crm?tab=responsavel"
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/crm' && currentTab === 'responsavel'
-                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
-                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <Users2 className="w-3.5 h-3.5 shrink-0" />
-                    <span>Atribuição: Responsável</span>
-                  </Link>
-                </div>
-              )}
-            </div>
-
-            {/* Financeiro Asaas */}
-            <Link
-              href="/financeiro"
-              className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
-                pathname === '/financeiro'
-                  ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold shadow-xs'
-                  : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <CreditCard className={`w-4 h-4 ${pathname === '/financeiro' ? 'text-[#0050FF]' : 'text-[#64748B]'}`} />
-                <span>Financeiro (Asaas)</span>
-              </div>
-              {pathname === '/financeiro' && <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />}
-            </Link>
+                {pathname === '/financeiro' && <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />}
+              </Link>
+            )}
 
             {/* Convidar Membro (Permitido conforme Seção 5 das Diretrizes) */}
-            <div className="pt-2 border-t border-[#F1F5F9]">
-              <Link
-                href="/admin/usuarios"
-                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
-                  pathname === '/admin/usuarios'
-                    ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold shadow-xs'
-                    : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <UserPlus className="w-4 h-4 text-[#64748B]" />
-                  <span>Convidar Membro</span>
-                </div>
-              </Link>
-            </div>
+            {isMasterAdmin && (
+              <div className="pt-2 border-t border-[#F1F5F9]">
+                <Link
+                  href="/admin/usuarios"
+                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
+                    pathname === '/admin/usuarios'
+                      ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold shadow-xs'
+                      : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <UserPlus className="w-4 h-4 text-[#64748B]" />
+                    <span>Convidar Membro</span>
+                  </div>
+                </Link>
+              </div>
+            )}
           </div>
         )}
       </nav>
@@ -882,16 +918,28 @@ function SidebarContent() {
       {/* Footer Helper */}
       <div className="p-3 border-t border-[#E2E8F0] bg-[#F8FAFC] space-y-2">
         {viewMode === 'client' ? (
-          <button
-            onClick={() => {
-              switchToAdminHQ();
-              router.push('/admin');
-            }}
-            className="w-full py-1.5 px-2 rounded-lg bg-white hover:bg-slate-50 text-[#0F172A] border border-[#E2E8F0] shadow-xs text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-          >
-            <Crown className="w-3.5 h-3.5 text-[#0050FF]" />
-            <span>Painel Master Admin</span>
-          </button>
+          isMasterAdmin ? (
+            <button
+              onClick={() => {
+                switchToAdminHQ();
+                router.push('/admin');
+              }}
+              className="w-full py-1.5 px-2 rounded-lg bg-white hover:bg-slate-50 text-[#0F172A] border border-[#E2E8F0] shadow-xs text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+            >
+              <Crown className="w-3.5 h-3.5 text-[#0050FF]" />
+              <span>Painel Master Admin</span>
+            </button>
+          ) : (
+            <div className="flex items-center justify-between text-[11px] text-[#64748B] px-1">
+              <span className="flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Portal do Cliente</span>
+              </span>
+              <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                Ativo
+              </span>
+            </div>
+          )
         ) : (
           <div className="flex items-center justify-between text-[11px] text-[#64748B] px-1">
             <span className="flex items-center gap-1">
@@ -904,14 +952,16 @@ function SidebarContent() {
           </div>
         )}
 
-        <Link
-          href="/login"
-          className="w-full py-1.5 px-2 rounded-lg bg-white hover:bg-[#EFF4FF] text-[#64748B] hover:text-[#0050FF] border border-[#E2E8F0] hover:border-[#BFDBFE] shadow-xs text-[10px] font-semibold flex items-center justify-center gap-1.5 transition-all"
-          title="Testar a tela de login"
-        >
-          <Smartphone className="w-3 h-3 text-[#0050FF]" />
-          <span>Tela de Login (/login)</span>
-        </Link>
+        {isMasterAdmin && (
+          <Link
+            href="/login"
+            className="w-full py-1.5 px-2 rounded-lg bg-white hover:bg-[#EFF4FF] text-[#64748B] hover:text-[#0050FF] border border-[#E2E8F0] hover:border-[#BFDBFE] shadow-xs text-[10px] font-semibold flex items-center justify-center gap-1.5 transition-all"
+            title="Testar a tela de login"
+          >
+            <Smartphone className="w-3 h-3 text-[#0050FF]" />
+            <span>Tela de Login (/login)</span>
+          </Link>
+        )}
       </div>
     </aside>
   );

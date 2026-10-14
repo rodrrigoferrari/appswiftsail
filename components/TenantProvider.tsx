@@ -1,8 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
-import { Cliente, GroupAdAccount, GroupAdMapping, CsStatus, AppUser, UserInvite, ContaAdsPainel } from '@/types/database';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Cliente, GroupAdAccount, GroupAdMapping, CsStatus, AppUser, UserInvite, ContaAdsPainel, UserModulePermission } from '@/types/database';
 import { hojeBRT, diasAtrasBRT } from '@/lib/date';
 import { findClientBySlug } from '@/lib/clientSlug';
 
@@ -12,7 +12,12 @@ interface TenantContextType {
   viewMode: 'admin' | 'client';
   setViewMode: (mode: 'admin' | 'client') => void;
   clients: Cliente[];
+  availableClients: Cliente[];
   setClients: React.Dispatch<React.SetStateAction<Cliente[]>>;
+  currentUser: AppUser | null;
+  setCurrentUser: React.Dispatch<React.SetStateAction<AppUser | null>>;
+  isMasterAdmin: boolean;
+  canAccessModule: (module: UserModulePermission) => boolean;
   adAccounts: GroupAdAccount[];
   mappings: GroupAdMapping[];
   csStatusList: CsStatus[];
@@ -48,11 +53,59 @@ export function TenantProvider({
   const [viewMode, setViewMode] = useState<'admin' | 'client'>('admin');
   const [users, setUsers] = useState<AppUser[]>([]);
   const [invites, setInvites] = useState<UserInvite[]>([]);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [dateRange, setDateRange] = useState(() => ({
     start: diasAtrasBRT(29),
     end: hojeBRT(),
     label: 'Últimos 30 Dias',
   }));
+
+  // Carrega usuário autenticado do localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('swiftsail_user');
+      if (stored) {
+        setCurrentUser(JSON.parse(stored));
+      } else {
+        // Fallback default: Master Admin (Rodrigo Ferrari)
+        setCurrentUser({
+          id: 'usr_rodrigo_ferrari',
+          nome: 'Rodrigo Ferrari',
+          email: 'rodrigo@swiftsail.co',
+          whatsapp: '41992332996',
+          role: 'master_admin',
+          cliente_id: null,
+          cliente_nome: 'Swiftsail HQ (Master Admin)',
+          status: 'ativo',
+          modulos: ['midia', 'whatsapp', 'criativos', 'crm', 'financeiro'],
+        });
+      }
+    } catch {}
+  }, []);
+
+  const isMasterAdmin = !currentUser || currentUser.role === 'master_admin';
+
+  // Workspaces permitidos: se for master_admin, vê todas as empresas.
+  // Se for cliente_admin, vê SOMENTE os workspaces designados para sua conta.
+  const availableClients = useMemo(() => {
+    if (isMasterAdmin) return clients;
+
+    const allowed = new Set<string>();
+    if (currentUser?.cliente_id) allowed.add(currentUser.cliente_id);
+    if (Array.isArray(currentUser?.cliente_ids)) {
+      currentUser.cliente_ids.forEach((id) => allowed.add(id));
+    }
+
+    const filtered = clients.filter((c) => allowed.has(c.cliente_id));
+    return filtered.length > 0 ? filtered : clients.slice(0, 1);
+  }, [clients, currentUser, isMasterAdmin]);
+
+  // Checagem de permissão por módulo (Tráfego, WhatsApp, CRM, Design, Financeiro)
+  const canAccessModule = (mod: import('@/types/database').UserModulePermission): boolean => {
+    if (isMasterAdmin) return true;
+    if (!currentUser) return false;
+    return Array.isArray(currentUser.modulos) ? currentUser.modulos.includes(mod) : false;
+  };
 
   // Fetch full bootstrap dataset from Supabase API
   useEffect(() => {
@@ -228,7 +281,12 @@ export function TenantProvider({
         viewMode,
         setViewMode,
         clients,
+        availableClients,
         setClients,
+        currentUser,
+        setCurrentUser,
+        isMasterAdmin,
+        canAccessModule,
         adAccounts,
         mappings,
         csStatusList,

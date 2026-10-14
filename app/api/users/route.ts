@@ -5,6 +5,7 @@ import {
   removeUserFromStore,
   removeInviteFromStore,
   updateUserStatus,
+  updateUserInStore,
 } from '@/lib/services/users-store';
 
 export async function GET(request: Request) {
@@ -62,13 +63,43 @@ export async function PATCH(request: Request) {
     } else if (action === 'update_permissions') {
       if (modulos) targetUser.modulos = modulos;
       if (status) updateUserStatus(userId, status);
-    }
+    } else if (action === 'edit_profile') {
+      const { nome, whatsapp, email, role, cliente_id, cliente_ids, cliente_nome, modulos: newModulos, status: newStatus } = body;
+      
+      const cleanPhone = whatsapp ? String(whatsapp).replace(/\D/g, '') : targetUser.whatsapp;
+      const updatedFields = {
+        ...(nome ? { nome: String(nome).trim() } : {}),
+        ...(cleanPhone ? { whatsapp: cleanPhone } : {}),
+        ...(email ? { email: String(email).trim().toLowerCase() } : {}),
+        ...(role ? { role } : {}),
+        cliente_id: cliente_id !== undefined ? cliente_id : targetUser.cliente_id,
+        cliente_ids: Array.isArray(cliente_ids) ? cliente_ids : targetUser.cliente_ids,
+        cliente_nome: cliente_nome !== undefined ? cliente_nome : targetUser.cliente_nome,
+        ...(newModulos ? { modulos: newModulos } : {}),
+        ...(newStatus ? { status: newStatus } : {}),
+      };
 
-    return NextResponse.json({
-      success: true,
-      message: 'Usuário atualizado com sucesso',
-      user: targetUser,
-    });
+      const updated = updateUserInStore(userId, updatedFields);
+
+      // Sincroniza no Supabase profiles se possível
+      try {
+        const { supabaseAdmin } = await import('@/lib/supabase/admin');
+        await supabaseAdmin.from('profiles').upsert({
+          id: userId,
+          phone: cleanPhone,
+          name: updated?.nome || targetUser.nome,
+          role: updated?.role || targetUser.role,
+          cliente_id: updated?.cliente_id,
+          cliente_ids: updated?.cliente_ids,
+        });
+      } catch {}
+
+      return NextResponse.json({
+        success: true,
+        message: 'Cadastro do membro atualizado com sucesso!',
+        user: updated || targetUser,
+      });
+    }
   } catch (err: unknown) {
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : 'Erro interno' },

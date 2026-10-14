@@ -47,10 +47,48 @@ export async function POST(req: Request) {
     }
 
     switch (action) {
-      // 0. LISTAR TODAS AS INSTÂNCIAS DA UAZAPI
+      // 0. LISTAR INSTÂNCIAS DA UAZAPI (COM ISOLAMENTO POR CLIENTE)
       case 'list_instances': {
-        const instances = await getAllUazapiInstances();
-        return NextResponse.json({ success: true, instances });
+        const allInstances = await getAllUazapiInstances();
+        
+        // Se for consulta do Admin global (swiftsail ou ALL sem restrição)
+        if (!cliente_id || cliente_id === 'swiftsail' || cliente_id === 'ALL') {
+          return NextResponse.json({ success: true, instances: allInstances });
+        }
+
+        // ISOLAMENTO DE CLIENTE: Busca a instância vinculada ao cliente na knowledge_base
+        const { data: clientKb } = await supabaseAdmin
+          .from('knowledge_base')
+          .select('content')
+          .contains('tags', ['uazapi_instance', cliente_id]);
+
+        const clientTokens = new Set<string>();
+        const clientNames = new Set<string>();
+
+        if (clientKb && clientKb.length > 0) {
+          for (const row of clientKb) {
+            try {
+              const parsed = JSON.parse(row.content);
+              if (parsed.token) clientTokens.add(parsed.token);
+              if (parsed.instance_name) clientNames.add(parsed.instance_name.toLowerCase());
+            } catch {}
+          }
+        }
+
+        const cleanTarget = cliente_id.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        // Filtra estritamente instâncias que pertençam a este cliente
+        const clientInstances = allInstances.filter((inst: any) => {
+          if (inst.token && clientTokens.has(inst.token)) return true;
+          const instName = (inst.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (clientNames.has((inst.name || '').toLowerCase())) return true;
+          if (instName.includes(cleanTarget) || (cleanTarget.length > 4 && cleanTarget.includes(instName))) {
+            return true;
+          }
+          return false;
+        });
+
+        return NextResponse.json({ success: true, instances: clientInstances });
       }
 
       // 1. CRIAR INSTÂNCIA DEDICADA PARA O CLIENTE VIA ADMIN TOKEN

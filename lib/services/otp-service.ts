@@ -52,23 +52,17 @@ export function getPhoneCandidates(rawPhone: string): { cleanPhone: string; cand
 }
 
 /**
- * Resolve a instância de WhatsApp para envio de mensagens de serviço e OTP
+ * Resolve a instância de WhatsApp para envio de mensagens de serviço e OTP.
+ * REGRA MANDATÓRIA: A instância selecionada pelo Master Admin no menu Admin (/admin/notificacoes)
+ * tem prioridade absoluta sobre qualquer outra configuração.
  */
 export async function getNotificationInstanceConfig(): Promise<{
   serverUrl: string;
   instanceToken: string;
   source: string;
+  instanceName?: string;
 }> {
-  // 1. Variáveis de ambiente diretas (Robô Swiftsail)
-  if (process.env.ROBOSWIFTSAIL_URL && process.env.ROBOSWIFTSAIL_TOKEN) {
-    return {
-      serverUrl: process.env.ROBOSWIFTSAIL_URL.replace(/\/+$/, ''),
-      instanceToken: process.env.ROBOSWIFTSAIL_TOKEN,
-      source: 'env_roboswiftsail',
-    };
-  }
-
-  // 2. Busca configuração de Notificações de Serviço salva pelo Master Admin na Knowledge Base
+  // 1. PRIORIDADE MÁXIMA: Instância de Serviço selecionada no Admin
   try {
     const { data: credsData } = await supabaseAdmin
       .from('knowledge_base')
@@ -79,26 +73,69 @@ export async function getNotificationInstanceConfig(): Promise<{
 
     if (credsData && credsData.length > 0) {
       const parsed = JSON.parse(credsData[0].content);
-      const url = parsed.uazapi_url || process.env.UAZAPI_SERVER_URL || 'https://swiftsail.uazapi.com';
-      const token =
-        parsed.uazapi_service_instance_token ||
-        parsed.uazapi_token ||
-        process.env.UAZAPI_ADMIN_TOKEN ||
-        '';
+      const url = (parsed.uazapi_url || process.env.UAZAPI_SERVER_URL || 'https://swiftsail.uazapi.com').replace(/\/+$/, '');
+      const selectedToken = parsed.uazapi_service_instance_token;
+      const selectedName = parsed.uazapi_service_instance;
 
-      if (token) {
+      // Se temos o token da instância selecionada no Admin
+      if (selectedToken) {
         return {
-          serverUrl: url.replace(/\/+$/, ''),
-          instanceToken: token,
-          source: 'admin_credentials_service_instance',
+          serverUrl: url,
+          instanceToken: selectedToken,
+          instanceName: selectedName || 'Instância Selecionada no Admin',
+          source: 'admin_selected_service_instance',
+        };
+      }
+
+      // Se o usuário selecionou o nome mas o token não veio, busca dinamicamente via adminToken
+      const adminToken = parsed.uazapi_token || process.env.UAZAPI_ADMIN_TOKEN;
+      if (selectedName && adminToken) {
+        try {
+          const listRes = await fetch(`${url}/instance/all`, {
+            headers: { admintoken: adminToken },
+            cache: 'no-store',
+          });
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            const instances = Array.isArray(listData) ? listData : listData.instances || [];
+            const found = instances.find((i: any) => i.name === selectedName);
+            if (found && found.token) {
+              return {
+                serverUrl: url,
+                instanceToken: found.token,
+                instanceName: selectedName,
+                source: 'admin_resolved_from_name',
+              };
+            }
+          }
+        } catch (dynErr) {
+          console.warn('[OTP Service] Falha ao resolver token dinamicamente por nome:', dynErr);
+        }
+      }
+
+      // Se não há instância de serviço específica, tenta o token master geral cadastrado no admin
+      if (parsed.uazapi_token) {
+        return {
+          serverUrl: url,
+          instanceToken: parsed.uazapi_token,
+          source: 'admin_master_token',
         };
       }
     }
   } catch (err) {
-    console.warn('[OTP Service] Erro ao buscar credenciais na knowledge_base:', err);
+    console.warn('[OTP Service] Erro ao buscar instância de notificações no Admin:', err);
   }
 
-  // 3. Fallback variáveis Uazapi
+  // 2. Fallback Secundário: Variáveis de ambiente diretas (Robô Swiftsail)
+  if (process.env.ROBOSWIFTSAIL_URL && process.env.ROBOSWIFTSAIL_TOKEN) {
+    return {
+      serverUrl: process.env.ROBOSWIFTSAIL_URL.replace(/\/+$/, ''),
+      instanceToken: process.env.ROBOSWIFTSAIL_TOKEN,
+      source: 'env_roboswiftsail',
+    };
+  }
+
+  // 3. Fallback Final: Variáveis Uazapi padrão
   return {
     serverUrl: (process.env.UAZAPI_SERVER_URL || 'https://swiftsail.uazapi.com').replace(/\/+$/, ''),
     instanceToken: process.env.UAZAPI_ADMIN_TOKEN || '',

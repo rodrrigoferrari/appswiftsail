@@ -1,6 +1,6 @@
 import { AppUser, UserInvite } from '@/types/database';
 
-// Único acesso mantido: Rodrigo Ferrari, ADMIN, 41992332996
+// Único acesso inicial: Rodrigo Ferrari, ADMIN, 41992332996
 let USERS: AppUser[] = [
   {
     id: 'usr_rodrigo_ferrari',
@@ -55,4 +55,16 @@ export function updateUserStatus(userId: string, status?: 'ativo' | 'convidado' 
     }
   }
   return user;
+}
+
+export function updateUserInStore(userId: string, data: Partial<AppUser>): AppUser | null {
+  const index = USERS.findIndex((u) => u.id === userId);
+  if (index === -1) return null;
+
+  USERS[index] = {
+    ...USERS[index],
+    ...data,
+  };
+
+  return USERS[index];
 }

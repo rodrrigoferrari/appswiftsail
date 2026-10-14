@@ -31,6 +31,120 @@ interface PromptConfig {
   systemPrompt: string;
 }
 
+export interface RecommendedModel {
+  id: string;
+  name: string;
+  badge: string;
+  reason: string;
+}
+
+export const BEST_MODELS_BY_FUNCTION: Record<string, { label: string; models: RecommendedModel[] }> = {
+  campaign_analysis: {
+    label: 'BI & Análise de Tráfego',
+    models: [
+      {
+        id: 'anthropic/claude-3.5-sonnet',
+        name: 'Claude 3.5 Sonnet',
+        badge: 'Top 1 Geral',
+        reason: 'Precisão matemática cirúrgica em CPA/ROAS, zero alucinação com métricas reais.',
+      },
+      {
+        id: 'deepseek/deepseek-r1',
+        name: 'DeepSeek R1',
+        badge: 'Raciocínio Forte',
+        reason: 'Excelente em cadeia de pensamento para correlações de funil e diagnóstico de gargalos.',
+      },
+      {
+        id: 'openai/gpt-4o',
+        name: 'GPT-4o',
+        badge: 'Síntese Executiva',
+        reason: 'Estruturação dinâmica de resumos executivos para tomadores de decisão.',
+      },
+      {
+        id: 'google/gemini-2.0-flash-001',
+        name: 'Gemini 2.0 Flash',
+        badge: 'Alta Velocidade',
+        reason: 'Respostas quase instantâneas com baixo custo para checagens diárias.',
+      },
+    ],
+  },
+  landing_pages: {
+    label: 'Site & Landing Pages (CRO)',
+    models: [
+      {
+        id: 'anthropic/claude-3.5-sonnet',
+        name: 'Claude 3.5 Sonnet',
+        badge: 'Top 1 Conversão',
+        reason: 'Melhor modelo para copy persuasiva, seções de alto impacto e quebra de objeções.',
+      },
+      {
+        id: 'openai/gpt-4o',
+        name: 'GPT-4o',
+        badge: 'Headlines Magnéticas',
+        reason: 'Criação ágil de promessas únicas de valor (UVPs) e ganchos de captura.',
+      },
+      {
+        id: 'deepseek/deepseek-chat',
+        name: 'DeepSeek V3',
+        badge: 'Custo-Benefício',
+        reason: 'Copy em português brasileiro natural com custo ultra acessível.',
+      },
+      {
+        id: 'meta-llama/llama-3.3-70b-instruct',
+        name: 'Llama 3.3 70B',
+        badge: 'Frameworks AIDA',
+        reason: 'Excelente adesão a regras de copy e formatações de landing page estruturadas.',
+      },
+    ],
+  },
+  creative_image: {
+    label: 'Foto & Criativos de Imagem',
+    models: [
+      {
+        id: 'openai/gpt-4o',
+        name: 'GPT-4o',
+        badge: 'Top 1 Visual',
+        reason: 'Superioridade em visão multimodal, direção de arte para banners e contraste de cores.',
+      },
+      {
+        id: 'anthropic/claude-3.5-sonnet',
+        name: 'Claude 3.5 Sonnet',
+        badge: 'Direção de Arte',
+        reason: 'Briefings conceituais hiperdetalhados para designers e psicologia das cores.',
+      },
+      {
+        id: 'google/gemini-2.0-flash-001',
+        name: 'Gemini 2.0 Flash',
+        badge: 'Prompts Criativos',
+        reason: 'Velocidade extrema para gerar centenas de ideias de imagens e variações visuais.',
+      },
+    ],
+  },
+  creative_video: {
+    label: 'Vídeo & Roteiros Dinâmicos',
+    models: [
+      {
+        id: 'anthropic/claude-3.5-sonnet',
+        name: 'Claude 3.5 Sonnet',
+        badge: 'Top 1 Retenção',
+        reason: 'Scripts com ganchos de 3 segundos que aumentam brutalmente o watch-time.',
+      },
+      {
+        id: 'openai/gpt-4o',
+        name: 'GPT-4o',
+        badge: 'Storytelling Viral',
+        reason: 'Roteiros de alta energia com linguagem coloquial e CTAs persuasivos.',
+      },
+      {
+        id: 'deepseek/deepseek-r1',
+        name: 'DeepSeek R1',
+        badge: 'Arco Dramático',
+        reason: 'Estruturação lógica de problemas e soluções para VSLs e vídeos de conversão.',
+      },
+    ],
+  },
+};
+
 const DEFAULT_PROMPTS: PromptConfig[] = [
   {
     id: 'campaign_analysis',

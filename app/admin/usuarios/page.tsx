@@ -20,6 +20,7 @@ import {
   Send,
   MessageSquare,
   Phone,
+  Pencil,
 } from 'lucide-react';
 import { UserRole, UserModulePermission } from '@/types/database';
 
@@ -79,6 +80,107 @@ export default function AdminUsuariosPage() {
     'financeiro',
   ]);
   const [formFeedback, setFormFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Edit Member Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editWhatsapp, setEditWhatsapp] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editRole, setEditRole] = useState<UserRole>('cliente_admin');
+  const [editSelectedClientIds, setEditSelectedClientIds] = useState<string[]>([]);
+  const [editModules, setEditModules] = useState<UserModulePermission[]>([]);
+  const [editStatus, setEditStatus] = useState<'ativo' | 'bloqueado'>('ativo');
+  const [isEditingSaving, setIsEditingSaving] = useState(false);
+  const [editFeedback, setEditFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleOpenEditModal = (user: any) => {
+    setEditingUserId(user.id);
+    setEditName(user.nome || '');
+    setEditWhatsapp(user.whatsapp || '');
+    setEditEmail(user.email || '');
+    setEditRole(user.role || 'cliente_admin');
+    const cIds =
+      user.cliente_ids && Array.isArray(user.cliente_ids) && user.cliente_ids.length > 0
+        ? user.cliente_ids
+        : user.cliente_id
+        ? [user.cliente_id]
+        : [];
+    setEditSelectedClientIds(cIds);
+    setEditModules(user.modulos || ['midia', 'whatsapp', 'crm', 'criativos', 'financeiro']);
+    setEditStatus(user.status || 'ativo');
+    setEditFeedback(null);
+    setShowEditModal(true);
+  };
+
+  const handleToggleEditClient = (clientId: string) => {
+    if (editSelectedClientIds.includes(clientId)) {
+      if (editSelectedClientIds.length === 1) {
+        alert('Selecione pelo menos 1 empresa.');
+        return;
+      }
+      setEditSelectedClientIds(editSelectedClientIds.filter((id) => id !== clientId));
+    } else {
+      setEditSelectedClientIds([...editSelectedClientIds, clientId]);
+    }
+  };
+
+  const handleToggleEditModule = (mod: UserModulePermission) => {
+    if (editModules.includes(mod)) {
+      setEditModules(editModules.filter((m) => m !== mod));
+    } else {
+      setEditModules([...editModules, mod]);
+    }
+  };
+
+  const handleSaveUserEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUserId) return;
+    if (!editName.trim() || !editWhatsapp.trim()) {
+      setEditFeedback({ type: 'error', text: 'Preencha o Nome Completo e o WhatsApp.' });
+      return;
+    }
+    setIsEditingSaving(true);
+    setEditFeedback(null);
+
+    const selectedClientsList = clients.filter((c) => editSelectedClientIds.includes(c.cliente_id));
+    const selectedNames = selectedClientsList.map((c) => c.nome).join(', ');
+
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'edit_profile',
+          userId: editingUserId,
+          nome: editName.trim(),
+          whatsapp: editWhatsapp.trim(),
+          email: editEmail.trim(),
+          role: editRole,
+          cliente_id: editRole === 'master_admin' ? 'AGENCY' : editSelectedClientIds[0] || 'AGENCY',
+          cliente_ids: editRole === 'master_admin' ? [] : editSelectedClientIds,
+          cliente_nome: editRole === 'master_admin' ? 'Swiftsail HQ' : selectedNames,
+          modulos: editModules,
+          status: editStatus,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Erro ao atualizar dados do membro');
+      }
+
+      setEditFeedback({ type: 'success', text: 'Cadastro atualizado com sucesso!' });
+      refreshUsers();
+      setTimeout(() => {
+        setShowEditModal(false);
+      }, 1000);
+    } catch (err: any) {
+      setEditFeedback({ type: 'error', text: err.message || 'Erro inesperado ao salvar.' });
+    } finally {
+      setIsEditingSaving(false);
+    }
+  };
 
   // Detecta se está na view do cliente
   const isClientView = viewMode === 'client' && Boolean(activeClient);
@@ -503,6 +605,15 @@ export default function AdminUsuariosPage() {
                               </button>
                             )}
 
+                            {/* Botão Editar Cadastro */}
+                            <button
+                              onClick={() => handleOpenEditModal(user)}
+                              className="p-1.5 rounded-lg bg-white border border-[#CBD5E1] text-[#0050FF] hover:bg-[#EFF4FF] hover:border-[#BFDBFE] transition-colors cursor-pointer shadow-xs"
+                              title="Editar Cadastro do Membro"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+
                             {user.role !== 'master_admin' ? (
                               <button
                                 onClick={() => handleToggleUserStatus(user.id)}
@@ -613,7 +724,7 @@ export default function AdminUsuariosPage() {
                             {invite.whatsapp && (
                               <a
                                 href={`https://wa.me/55${invite.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(
-                                  `Olá ${invite.nome}! Seu convite para a plataforma Swiftsail foi liberado com acesso ao(s) workspace(s): ${invite.cliente_nome || 'Swiftsail'}. Ative seu acesso pelo link: ${invite.link_ativacao}`
+                                  `🚀 *Olá, ${invite.nome}! Seja bem-vindo(a) à plataforma SWIFTSAIL.*\n\nSeu acesso ao workspace *${invite.cliente_nome || 'Swiftsail'}* foi liberado!\n\n📊 *O que é a plataforma:*\nÉ o seu portal exclusivo para acompanhar em tempo real o desempenho de anúncios (Meta & Google Ads), CRM de leads, criativos, relatórios e métricas de crescimento do seu negócio.\n\n🔐 *Como fazer para acessar (100% sem senha):*\n1️⃣ Abra seu link exclusivo de acesso:\n👉 ${invite.link_ativacao}\n\n2️⃣ Seu WhatsApp já estará pré-preenchido. Clique no botão *"Receber Código no WhatsApp"*.\n\n3️⃣ Você receberá uma mensagem com o código de 6 dígitos e um botão *"Copiar Código"*.\n\n4️⃣ Cole o código na tela para entrar diretamente na plataforma.\n\nQualquer dúvida, estamos à disposição!`
                                 )}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -1001,6 +1112,285 @@ export default function AdminUsuariosPage() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 w-full max-w-xl shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#EFF4FF] border border-[#BFDBFE] flex items-center justify-center text-[#0050FF]">
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#0F172A]">Ajustar Cadastro do Membro</h3>
+                  <p className="text-[11px] text-[#64748B]">
+                    Edite dados de contato, hierarquia, empresas atribuídas e módulos liberados
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-[#94A3B8] hover:text-[#0F172A] text-sm p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Edit Form */}
+            <form onSubmit={handleSaveUserEdit} className="space-y-4 text-xs">
+              {editFeedback && (
+                <div
+                  className={`p-3 rounded-xl border flex items-center gap-2 ${
+                    editFeedback.type === 'success'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-rose-50 text-rose-700 border-rose-200'
+                  }`}
+                >
+                  {editFeedback.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                  )}
+                  <span>{editFeedback.text}</span>
+                </div>
+              )}
+
+              {/* Nome e WhatsApp */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-[#475569]">
+                    Nome Completo <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Ex: Carlos Oliveira"
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs text-[#0F172A] focus:border-[#0050FF] focus:bg-white focus:outline-none transition"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-[#475569]">
+                    WhatsApp com DDD <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editWhatsapp}
+                    onChange={(e) => setEditWhatsapp(e.target.value)}
+                    placeholder="Ex: 41999998888"
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-mono text-[#0F172A] focus:border-[#0050FF] focus:bg-white focus:outline-none transition"
+                  />
+                </div>
+              </div>
+
+              {/* Email e Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-[#475569]">
+                    E-mail Corporativo <span className="text-[10px] text-[#94A3B8]">(Opcional)</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="carlos@empresa.com.br"
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs text-[#0F172A] focus:border-[#0050FF] focus:bg-white focus:outline-none transition"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-[#475569]">Status da Conta</label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as 'ativo' | 'bloqueado')}
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-semibold text-[#0F172A] focus:border-[#0050FF] focus:bg-white focus:outline-none transition cursor-pointer"
+                  >
+                    <option value="ativo">🟢 Ativo (Acesso Liberado)</option>
+                    <option value="bloqueado">🔴 Bloqueado (Acesso Suspenso)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Hierarquia */}
+              <div className="space-y-1">
+                <label className="font-semibold text-[#475569]">Perfil / Hierarquia de Acesso</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditRole('cliente_admin')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      editRole === 'cliente_admin'
+                        ? 'bg-emerald-50/60 border-emerald-400 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'bg-[#F8FAFC] border-[#CBD5E1] hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-[#0F172A]">🏢 Cliente</span>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                        Workspace
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-[#64748B]">
+                      Acessa exclusivamente as empresas vinculadas e os módulos autorizados.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditRole('master_admin')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      editRole === 'master_admin'
+                        ? 'bg-[#EFF4FF] border-[#BFDBFE] ring-2 ring-[#0050FF]/20 shadow-xs'
+                        : 'bg-[#F8FAFC] border-[#CBD5E1] hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-[#0F172A]">👑 Admin (Agência)</span>
+                      <span className="text-[10px] font-bold text-[#0050FF] bg-blue-100 px-1.5 py-0.5 rounded">
+                        Master
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-[#64748B]">
+                      Acesso global e irrestrito a todos os clientes, métricas e credenciais.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Seleção de Empresas Vinculadas (Apenas para role cliente_admin) */}
+              {editRole === 'cliente_admin' && (
+                <div className="space-y-2">
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#CBD5E1] space-y-2.5 shadow-2xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-[#E2E8F0] pb-2">
+                      <div>
+                        <label className="font-bold text-xs text-[#0F172A] flex items-center gap-1.5">
+                          <Building className="w-3.5 h-3.5 text-[#0050FF]" />
+                          <span>Empresas Vinculadas (Múltipla Seleção):</span>
+                        </label>
+                        <span className="text-[10px] text-[#0050FF] font-semibold">
+                          {editSelectedClientIds.length} de {clients.length} empresas autorizadas
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => setEditSelectedClientIds(clients.map((c) => c.cliente_id))}
+                          className="text-[10px] font-bold text-[#0050FF] bg-white border border-[#BFDBFE] px-2 py-0.5 rounded hover:bg-[#EFF4FF] cursor-pointer"
+                        >
+                          Marcar Todas
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (clients.length > 0) setEditSelectedClientIds([clients[0].cliente_id]);
+                          }}
+                          className="text-[10px] font-bold text-[#64748B] bg-white border border-[#CBD5E1] px-2 py-0.5 rounded hover:bg-slate-50 cursor-pointer"
+                        >
+                          Limpar
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                      {clients.map((c) => {
+                        const isSelected = editSelectedClientIds.includes(c.cliente_id);
+                        return (
+                          <button
+                            type="button"
+                            key={`edit-${c.cliente_id}`}
+                            onClick={() => handleToggleEditClient(c.cliente_id)}
+                            className={`p-2 rounded-lg border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-[#EFF4FF] border-[#BFDBFE] text-[#0050FF] shadow-2xs'
+                                : 'bg-white border-[#E2E8F0] text-[#475569] hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className="font-semibold text-xs truncate">{c.nome}</span>
+                            <div
+                              className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 ${
+                                isSelected
+                                  ? 'bg-[#0050FF] border-[#0050FF] text-white'
+                                  : 'border-[#CBD5E1] bg-white'
+                              }`}
+                            >
+                              {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Módulos Liberados */}
+              <div className="space-y-2">
+                <label className="block font-semibold text-[#475569]">
+                  Módulos Liberados para este Membro:
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {ALL_MODULES.map((mod) => {
+                    const isChecked = editModules.includes(mod.id);
+                    return (
+                      <button
+                        type="button"
+                        key={`edit-mod-${mod.id}`}
+                        onClick={() => handleToggleEditModule(mod.id)}
+                        className={`p-2 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
+                          isChecked
+                            ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                            : 'bg-[#F8FAFC] border-[#E2E8F0] text-[#64748B] hover:border-[#CBD5E1]'
+                        }`}
+                      >
+                        <div
+                          className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${
+                            isChecked
+                              ? 'bg-emerald-600 border-emerald-600 text-white'
+                              : 'border-[#CBD5E1] bg-white'
+                          }`}
+                        >
+                          {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                        <span className="text-[11px] font-medium">{mod.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#F1F5F9]">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 rounded-xl text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isEditingSaving}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white shadow-xs flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isEditingSaving ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5" />
+                  )}
+                  <span>Salvar Alterações</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -54,7 +54,24 @@ export async function POST(request: Request) {
       cliente_ids: assignedIds,
     };
 
-    const whatsMessage = `Olá ${newInvite.nome}! Seu convite para a plataforma Swiftsail foi liberado com acesso ao(s) workspace(s): ${newInvite.cliente_nome}. Acesse e ative seu login no link: ${link_ativacao}`;
+    const whatsMessage = `🚀 *Olá, ${newInvite.nome}! Seja bem-vindo(a) à plataforma SWIFTSAIL.*
+
+Seu acesso ao workspace *${newInvite.cliente_nome}* foi liberado!
+
+📊 *O que é a plataforma:*
+É o seu portal exclusivo para acompanhar em tempo real o desempenho de anúncios (Meta & Google Ads), CRM de leads, criativos, relatórios e métricas de crescimento do seu negócio.
+
+🔐 *Como fazer para acessar (100% sem senha):*
+1️⃣ Abra seu link exclusivo de acesso:
+👉 ${link_ativacao}
+
+2️⃣ Seu WhatsApp já estará pré-preenchido. Clique no botão *"Receber Código no WhatsApp"*.
+
+3️⃣ Você receberá uma mensagem com o código de 6 dígitos e um botão *"Copiar Código"*.
+
+4️⃣ Cole o código na tela para entrar diretamente na plataforma.
+
+Qualquer dúvida, estamos à disposição!`;
 
     // Armazena no store unificado
     addInviteToStore(newInvite);
