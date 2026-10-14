@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTenant } from '@/components/TenantProvider';
 import {
   KanbanSquare,
@@ -26,8 +27,11 @@ import CreativePreviewModal, { CreativePreviewItem } from '@/components/Creative
 import LeadsDrilldownModal, { FormLeadItem } from '@/components/LeadsDrilldownModal';
 import DateRangePicker from '@/components/DateRangePicker';
 
-export default function CRMPage() {
+function CRMContent() {
   const { selectedClientId, setSelectedClientId, clients, activeClient, dateRange, viewMode } = useTenant();
+  const searchParams = useSearchParams();
+  const tabParam = (searchParams?.get('tab') || 'pipeline').toLowerCase();
+  const isPipelineView = !tabParam || tabParam === 'pipeline' || tabParam === 'funil';
   const isAggregated = selectedClientId === 'ALL';
   const targetId = selectedClientId;
   const clientName = isAggregated
@@ -161,7 +165,7 @@ export default function CRMPage() {
           <div className="space-y-1 max-w-xl">
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
-                CRM & Pipeline • Kommo
+                {isPipelineView ? 'CRM & Pipeline • Kommo' : `Atribuição Comercial • ${tabParam.toUpperCase()}`}
               </span>
               <span className="text-xs text-[#64748B] font-medium">• {dateRange.label}</span>
               <span
@@ -201,7 +205,9 @@ export default function CRMPage() {
               )}
             </div>
             <p className="text-xs text-[#64748B]">
-              Rastreamento de ponta a ponta dos leads analíticos gerados pelas campanhas de tráfego pago no Kommo CRM.
+              {isPipelineView
+                ? 'Rastreamento de ponta a ponta dos leads analíticos gerados pelas campanhas de tráfego pago no Kommo CRM.'
+                : 'Auditoria de conversão e etapas do funil para a dimensão de atribuição selecionada.'}
             </p>
           </div>
 
@@ -211,40 +217,42 @@ export default function CRMPage() {
           </div>
         </div>
 
-        {/* Platform/Funis Tabs (Exatamente como as abas de Mídia) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-[#F1F5F9]">
-          <div className="flex flex-wrap bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs gap-1">
-            <button
-              onClick={() => setSelectedPipeline('ALL')}
-              className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                selectedPipeline === 'ALL'
-                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
-                  : 'text-[#64748B] hover:text-[#0F172A]'
-              }`}
-            >
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-              <span>Todos os Funis Integrados ({funis.reduce((acc, f) => acc + (f.total_leads || 0), 0) || totalLeads})</span>
-            </button>
-            {funis.map((f: any) => (
+        {/* Platform/Funis Tabs (Exibidas na Visão Geral do Funil) */}
+        {isPipelineView && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-[#F1F5F9]">
+            <div className="flex flex-wrap bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs gap-1">
               <button
-                key={f.id}
-                onClick={() => setSelectedPipeline(String(f.id))}
+                onClick={() => setSelectedPipeline('ALL')}
                 className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                  selectedPipeline === String(f.id)
+                  selectedPipeline === 'ALL'
                     ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
                     : 'text-[#64748B] hover:text-[#0F172A]'
                 }`}
               >
-                <div className={`w-2.5 h-2.5 rounded-full ${f.ganho > 0 ? 'bg-emerald-500' : 'bg-[#0050FF]'}`} />
-                <span>{f.nome} ({f.total_leads})</span>
+                <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                <span>Todos os Funis Integrados ({funis.reduce((acc, f) => acc + (f.total_leads || 0), 0) || totalLeads})</span>
               </button>
-            ))}
-          </div>
+              {funis.map((f: any) => (
+                <button
+                  key={f.id}
+                  onClick={() => setSelectedPipeline(String(f.id))}
+                  className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                    selectedPipeline === String(f.id)
+                      ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                      : 'text-[#64748B] hover:text-[#0F172A]'
+                  }`}
+                >
+                  <div className={`w-2.5 h-2.5 rounded-full ${f.ganho > 0 ? 'bg-emerald-500' : 'bg-[#0050FF]'}`} />
+                  <span>{f.nome} ({f.total_leads})</span>
+                </button>
+              ))}
+            </div>
 
-          <div className="text-[11px] text-[#64748B] font-medium hidden md:block">
-            {activeFunil ? `Funil ativo: ${activeFunil.nome}` : `${funis.length} funis disponíveis`}
+            <div className="text-[11px] text-[#64748B] font-medium hidden md:block">
+              {activeFunil ? `Funil ativo: ${activeFunil.nome}` : `${funis.length} funis disponíveis`}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {unavailable && (
@@ -254,8 +262,10 @@ export default function CRMPage() {
         </div>
       )}
 
-      {/* KPI Cards (Estilo Asaas) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {isPipelineView ? (
+        <>
+          {/* KPI Cards (Estilo Asaas) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-[#E2E8F0] p-5 rounded-2xl shadow-xs space-y-1">
           <div className="flex items-center justify-between text-[#64748B]">
             <span className="text-xs font-semibold uppercase tracking-wider">Total de Leads</span>
@@ -535,25 +545,27 @@ export default function CRMPage() {
               </div>
             </>
           )}
+          </div>
         </div>
-      </div>
-
-      {/* Relatório Multidimensional de Atribuição (Origem, Campanha, Conjunto, Criativo, Termo de Busca, Responsável) */}
-      <AttributionMatrix
-        totalLeads={totalLeads}
-        porOrigem={porOrigem}
-        porCampanha={porCampanha}
-        porConjunto={porConjunto}
-        porCriativo={porCriativo}
-        porTermo={porTermo}
-        porResponsavel={porResponsavel}
-        porEtapa={porEtapa}
-        leadsAmostra={leadsAmostra}
-        clientName={clientName}
-        formatBRL={formatBRL}
-        valorTotal={valorTotal}
-        onOpenDrilldown={openDrilldown}
-      />
+      </>
+    ) : (
+        /* Relatório de Atribuição Comercial da dimensão selecionada */
+        <AttributionMatrix
+          activeDimension={tabParam as any}
+          totalLeads={totalLeads}
+          porOrigem={porOrigem}
+          porCampanha={porCampanha}
+          porConjunto={porConjunto}
+          porCriativo={porCriativo}
+          porResponsavel={porResponsavel}
+          porEtapa={porEtapa}
+          leadsAmostra={leadsAmostra}
+          clientName={clientName}
+          formatBRL={formatBRL}
+          valorTotal={valorTotal}
+          onOpenDrilldown={openDrilldown}
+        />
+      )}
 
       {/* Popup Modal para Ver Nomes e Contatos de Leads do Kommo */}
       {leadsDrilldown && (
@@ -722,12 +734,12 @@ function ItemFunnelStages({
 
 // Componente do Relatório Multidimensional de Atribuição
 function AttributionMatrix({
+  activeDimension = 'origem',
   totalLeads,
   porOrigem,
   porCampanha,
   porConjunto = [],
   porCriativo = [],
-  porTermo = [],
   porResponsavel = [],
   porEtapa = [],
   leadsAmostra = [],
@@ -736,12 +748,12 @@ function AttributionMatrix({
   valorTotal,
   onOpenDrilldown,
 }: {
+  activeDimension?: 'origem' | 'campanha' | 'conjunto' | 'criativo' | 'responsavel';
   totalLeads: number;
   porOrigem: any[];
   porCampanha: any[];
   porConjunto?: any[];
   porCriativo?: any[];
-  porTermo?: any[];
   porResponsavel?: any[];
   porEtapa?: any[];
   leadsAmostra?: any[];
@@ -750,9 +762,9 @@ function AttributionMatrix({
   valorTotal: number;
   onOpenDrilldown?: (title: string, leads: any[]) => void;
 }) {
-  const [selectedDimension, setSelectedDimension] = useState<
-    'origem' | 'campanha' | 'conjunto' | 'criativo' | 'termo' | 'responsavel'
-  >('origem');
+  const selectedDimension = (activeDimension && ['origem', 'campanha', 'conjunto', 'criativo', 'responsavel'].includes(activeDimension))
+    ? activeDimension
+    : 'origem';
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCreativeModal, setSelectedCreativeModal] = useState<CreativePreviewItem | null>(null);
@@ -909,103 +921,57 @@ function AttributionMatrix({
     });
   }, [porCriativo, porCampanha, totalLeads, clientName]);
 
-  // Termos de Busca Reais digitados pelos usuários no Google Ads
-  const termosBuscaData = useMemo(() => {
-    if (porTermo && porTermo.length > 0) {
-      return porTermo.map((item: any) => ({
-        termo: item.termo,
-        match: item.termo.includes(' ') ? 'Frase' : 'Exata',
-        cliques: Math.max(1, Math.round(Number(item.total || 1) * 7.5)),
-        leads: Number(item.total || 0),
-        cpc: 'R$ 3,60',
-        status: Number(item.total || 0) > 3 ? 'Adicionada' : 'Oportunidade',
-      }));
-    }
+  const dimensionMeta: Record<string, { title: string; subtitle: string; icon: string; badge: string }> = {
+    origem: {
+      title: 'Atribuição por Origem & Canais',
+      subtitle: 'Rastreamento de canais (Meta Ads, Google Ads, WhatsApp, Orgânico) com conversão de ponta a ponta no Kommo.',
+      icon: '🌐',
+      badge: '1. Origem',
+    },
+    campanha: {
+      title: 'Atribuição por Campanhas de Mídia',
+      subtitle: 'Volume de leads e passagem no funil por cada campanha de tráfego anunciada.',
+      icon: '🎯',
+      badge: '2. Campanhas',
+    },
+    conjunto: {
+      title: 'Atribuição por Conjuntos de Anúncios & Públicos',
+      subtitle: 'Desempenho de qualificação comercial por segmentação de público e conjunto de anúncios.',
+      icon: '👥',
+      badge: '3. Conjuntos & Públicos',
+    },
+    criativo: {
+      title: 'Atribuição por Criativos & Anúncios',
+      subtitle: 'Anúncios que geraram leads com prévia visual e detalhamento por etapa do CRM.',
+      icon: '🎨',
+      badge: '4. Criativos',
+    },
+    responsavel: {
+      title: 'Atribuição por Usuário Responsável',
+      subtitle: 'Distribuição dos leads por vendedor/consultor com status de negócios ganhos e em aberto.',
+      icon: '👤',
+      badge: '5. Responsáveis',
+    },
+  };
 
-    return [
-      { termo: 'apartamento alto padrao curitiba batel', match: 'Exata', cliques: 142, leads: 18, cpc: 'R$ 3,90', status: 'Adicionada' },
-      { termo: 'lancamento imobiliario planta 3 quartos', match: 'Frase', cliques: 86, leads: 11, cpc: 'R$ 3,45', status: 'Oportunidade' },
-      { termo: 'imobiliaria gonzaga apartamentos venda', match: 'Exata', cliques: 194, leads: 24, cpc: 'R$ 4,10', status: 'Adicionada' },
-      { termo: 'apartamento decorado visita plantao', match: 'Ampla', cliques: 64, leads: 8, cpc: 'R$ 2,80', status: 'Novo Termo' },
-      { termo: 'terreno condomínio fechado regiao metropolitana', match: 'Frase', cliques: 52, leads: 6, cpc: 'R$ 3,15', status: 'Novo Termo' },
-    ];
-  }, [porTermo]);
+  const currentMeta = dimensionMeta[selectedDimension] || dimensionMeta.origem;
 
   return (
     <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs space-y-5">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
+              Relatório de Atribuição Comercial • {currentMeta.badge}
+            </span>
+          </div>
           <h3 className="text-base font-bold text-[#0F172A] flex items-center gap-2">
-            <Filter className="w-4 h-4 text-[#0050FF]" />
-            Relatório de Atribuição Comercial & Mídia
+            <span className="text-base">{currentMeta.icon}</span>
+            <span>{currentMeta.title}</span>
           </h3>
           <p className="text-xs text-[#64748B]">
-            Quebra de leads por <b>Origem</b>, <b>Campanha</b>, <b>Conjunto</b>, <b>Criativo</b>, <b>Termo de Busca</b> e <b>Usuário Responsável</b>
+            {currentMeta.subtitle}
           </p>
-        </div>
-
-        {/* Dimension Selectors */}
-        <div className="flex bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs gap-1 overflow-x-auto">
-          <button
-            onClick={() => setSelectedDimension('origem')}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap cursor-pointer ${
-              selectedDimension === 'origem'
-                ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            🌐 1. Origem ({porOrigem.length})
-          </button>
-          <button
-            onClick={() => setSelectedDimension('campanha')}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap cursor-pointer ${
-              selectedDimension === 'campanha'
-                ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            🎯 2. Campanha ({porCampanha.length})
-          </button>
-          <button
-            onClick={() => setSelectedDimension('conjunto')}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap cursor-pointer ${
-              selectedDimension === 'conjunto'
-                ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            👥 3. Conjunto / Público ({conjuntosData.length})
-          </button>
-          <button
-            onClick={() => setSelectedDimension('criativo')}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap cursor-pointer ${
-              selectedDimension === 'criativo'
-                ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            🎨 4. Criativo ({criativosData.length})
-          </button>
-          <button
-            onClick={() => setSelectedDimension('termo')}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap cursor-pointer ${
-              selectedDimension === 'termo'
-                ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            🔍 5. Termo de Busca ({termosBuscaData.length})
-          </button>
-          <button
-            onClick={() => setSelectedDimension('responsavel')}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap cursor-pointer ${
-              selectedDimension === 'responsavel'
-                ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            👤 6. Responsável ({porResponsavel.length})
-          </button>
         </div>
       </div>
 
@@ -1348,94 +1314,7 @@ function AttributionMatrix({
         </div>
       )}
 
-      {/* Dimensão 5: Termos de Busca Reais */}
-      {selectedDimension === 'termo' && (
-        <div className="space-y-3">
-          <div className="overflow-x-auto rounded-xl border border-[#E2E8F0]">
-            <table className="w-full text-xs text-left">
-              <thead>
-                <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B]">
-                  <th className="py-2.5 px-3">Termo Real Digitado no Google</th>
-                  <th className="py-2.5 px-3">Tipo Match</th>
-                  <th className="py-2.5 px-3">Cliques</th>
-                  <th className="py-2.5 px-3">CPC Médio</th>
-                  <th className="py-2.5 px-3">Leads Gerados</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3 text-right">Etapas Kommo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E2E8F0] bg-white">
-                {termosBuscaData.map((t: any, idx: number) => {
-                  const rowKey = `termo-${t.termo}`;
-                  const isExpanded = !!expandedRows[rowKey];
-                  const leadsDoItem = leadsAmostra.filter(
-                    (l: any) => l.termo_busca && l.termo_busca.toLowerCase().includes(t.termo.toLowerCase())
-                  );
-
-                  return (
-                    <React.Fragment key={idx}>
-                      <tr
-                        onClick={() => toggleRow(rowKey)}
-                        className={`hover:bg-[#F8FAFC] transition-colors cursor-pointer ${
-                          isExpanded ? 'bg-[#F1F5F9]/70' : ''
-                        }`}
-                      >
-                        <td className="py-2.5 px-3 font-semibold text-[#0F172A]">
-                          "{t.termo}"
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <span className="px-2 py-0.5 rounded text-[10px] bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]">
-                            {t.match}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-[#64748B]">{t.cliques}</td>
-                        <td className="py-2.5 px-3 font-mono text-[#64748B]">{t.cpc}</td>
-                        <td className="py-2.5 px-3 font-mono font-bold text-emerald-600">{t.leads} leads</td>
-                        <td className="py-2.5 px-3">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            {t.status}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-right">
-                          <span
-                            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              isExpanded
-                                ? 'bg-[#0050FF] text-white'
-                                : 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]'
-                            }`}
-                          >
-                            <span>{isExpanded ? 'Ocultar' : 'Ver etapas'}</span>
-                            <ChevronDown
-                              className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                            />
-                          </span>
-                        </td>
-                      </tr>
-
-                      {isExpanded && (
-                        <tr>
-                          <td colSpan={7} className="p-3 bg-white border-b border-[#E2E8F0]">
-                            <ItemFunnelStages
-                              itemTitle={`Termo de Busca: "${t.termo}"`}
-                              itemTotal={t.leads}
-                              leadsDoItem={leadsDoItem}
-                              porEtapaCatalogo={porEtapa}
-                              onOpenDrilldown={handleDrilldown}
-                              formatBRL={formatBRL}
-                            />
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Dimensão 6: Usuário Responsável */}
+      {/* Dimensão 5: Usuário Responsável */}
       {selectedDimension === 'responsavel' && (
         <div className="space-y-3">
           {porResponsavel.length === 0 ? (
@@ -1525,5 +1404,19 @@ function AttributionMatrix({
         />
       )}
     </div>
+  );
+}
+
+export default function CRMPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-[#64748B]">
+          Carregando dados do CRM Kommo...
+        </div>
+      }
+    >
+      <CRMContent />
+    </Suspense>
   );
 }

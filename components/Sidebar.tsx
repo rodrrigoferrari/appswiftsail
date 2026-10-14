@@ -29,6 +29,8 @@ import {
   BarChart3,
   Palette,
   Globe,
+  Target,
+  Layers,
 } from 'lucide-react';
 
 import { useTenant } from './TenantProvider';
@@ -56,6 +58,7 @@ function SidebarContent() {
     whatsapp: true,
     credenciais: true,
     design: true,
+    crm: true,
   });
 
   const toggleSubmenu = (key: string) => {
@@ -598,21 +601,109 @@ function SidebarContent() {
               )}
             </div>
 
-            {/* Pipeline Kommo */}
-            <Link
-              href="/crm"
-              className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
-                pathname === '/crm'
-                  ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold shadow-xs'
-                  : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <KanbanSquare className={`w-4 h-4 ${pathname === '/crm' ? 'text-[#0050FF]' : 'text-[#64748B]'}`} />
-                <span>Pipeline CRM (Kommo)</span>
-              </div>
-              {pathname === '/crm' && <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />}
-            </Link>
+            {/* Pipeline CRM (Kommo) com Submenu */}
+            <div>
+              <button
+                onClick={() => toggleSubmenu('crm')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                  pathname === '/crm'
+                    ? 'text-[#0050FF] font-semibold'
+                    : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <KanbanSquare className={`w-4 h-4 ${pathname === '/crm' ? 'text-[#0050FF]' : 'text-blue-600'}`} />
+                  <span>Pipeline CRM (Kommo)</span>
+                </div>
+                {openSubmenus.crm ? (
+                  <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
+                )}
+              </button>
+
+              {openSubmenus.crm && (
+                <div className="ml-4 pl-3 border-l-2 border-[#E2E8F0] space-y-1 mt-1">
+                  {/* Visão Geral & Funil Principal */}
+                  <Link
+                    href="/crm"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/crm' && (!currentTab || currentTab === 'pipeline' || currentTab === 'funil')
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <KanbanSquare className="w-3.5 h-3.5 shrink-0" />
+                    <span>Visão Geral & Funil</span>
+                  </Link>
+
+                  {/* Atribuição: Origem */}
+                  <Link
+                    href="/crm?tab=origem"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/crm' && currentTab === 'origem'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <Globe className="w-3.5 h-3.5 shrink-0" />
+                    <span>Atribuição: Origem</span>
+                  </Link>
+
+                  {/* Atribuição: Campanha */}
+                  <Link
+                    href="/crm?tab=campanha"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/crm' && currentTab === 'campanha'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <Target className="w-3.5 h-3.5 shrink-0" />
+                    <span>Atribuição: Campanha</span>
+                  </Link>
+
+                  {/* Atribuição: Conjunto */}
+                  <Link
+                    href="/crm?tab=conjunto"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/crm' && currentTab === 'conjunto'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5 shrink-0" />
+                    <span>Atribuição: Conjunto</span>
+                  </Link>
+
+                  {/* Atribuição: Criativo */}
+                  <Link
+                    href="/crm?tab=criativo"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/crm' && currentTab === 'criativo'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                    <span>Atribuição: Criativo</span>
+                  </Link>
+
+                  {/* Atribuição: Responsável */}
+                  <Link
+                    href="/crm?tab=responsavel"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/crm' && currentTab === 'responsavel'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <Users2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>Atribuição: Responsável</span>
+                  </Link>
+                </div>
+              )}
+            </div>
 
             {/* Financeiro Asaas */}
             <Link
