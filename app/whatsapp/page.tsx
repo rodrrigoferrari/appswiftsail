@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTenant } from '@/components/TenantProvider';
 import { WhatsAppConnectFlow } from '@/components/WhatsAppConnectFlow';
@@ -65,6 +65,42 @@ function WhatsAppContent() {
 
   const clientName = activeClient?.nome || (selectedClientId === 'ALL' ? 'Todos os Clientes' : selectedClientId);
   const targetId = selectedClientId && selectedClientId !== 'ALL' ? selectedClientId : 'swiftsail';
+
+  const moduleInfo = useMemo(() => {
+    switch (subTab) {
+      case 'grupos':
+        return {
+          badge: 'Coleta de Grupos • Raspagem WhatsApp',
+          title: 'Coleta e Raspagem de Contatos de Grupos',
+          description: `Extraia contatos qualificados de grupos do WhatsApp da instância conectada para download em CSV ou uso no disparador em massa. Workspace: ${clientName}.`,
+        };
+      case 'disparos':
+        return {
+          badge: 'Envio em Massa • Disparador Multi-Copy',
+          title: 'Envio em Massa com Salvaguardas Anti-Ban',
+          description: `Disparo inteligente com rotação de até 6 copies, intervalos dinâmicos, tags personalizadas ({nome}) e importação de contatos raspados ou planilhas. Workspace: ${clientName}.`,
+        };
+      case 'tracking':
+        return {
+          badge: 'Dashboard de Transmissões • Métricas Reais',
+          title: 'Histórico & Métricas de Transmissões em Massa',
+          description: `Monitore o status de entrega, mensagens enviadas, falhas e desempenho em tempo real dos seus disparos de WhatsApp. Workspace: ${clientName}.`,
+        };
+      case 'ligacoes':
+        return {
+          badge: 'Voz & VoIP • Kommo CRM Integrado',
+          title: 'Ligações WhatsApp & Sincronização Kommo CRM',
+          description: `Chamadas de voz integradas via WebRTC/VoIP com registro automático de leads, gravação e sincronização no pipeline Kommo. Workspace: ${clientName}.`,
+        };
+      case 'conexao':
+      default:
+        return {
+          badge: 'Uazapi Multi-Device • Estratégia Highlander',
+          title: 'Conexão e Gestão de Instâncias Uazapi',
+          description: `Conexão por QR Code ou Código de 8 Dígitos, estratégia Highlander (list-first) anti-zumbi e criptografia AES-256 em repouso. Workspace: ${clientName}.`,
+        };
+    }
+  }, [subTab, clientName]);
 
   // State for Call Modal
   const [isCallModalOpen, setIsCallModalOpen] = useState(false);
@@ -538,94 +574,33 @@ function WhatsAppContent() {
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
-              Uazapi Multi-Device API • Voz Kommo CRM • Seção 4.4
+              Hub WhatsApp API • {moduleInfo.badge}
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-[#0F172A] flex items-center gap-2.5">
             <MessageSquare className="w-6 h-6 text-[#0050FF]" />
-            Hub WhatsApp API, Chamadas & Automação
+            {moduleInfo.title}
           </h1>
           <p className="text-xs text-[#64748B] max-w-2xl leading-relaxed">
-            Workspace dedicado do cliente <b className="text-[#0F172A]">{clientName}</b>. Conexão por QR Code ou Código de 8 Dígitos, chamadas de voz sincronizadas com Kommo CRM, raspagem de grupos e disparador multi-copy (até 6 variações) com salvaguardas anti-ban.
+            {moduleInfo.description}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              setTestPhone('');
-              setTestLeadName('');
-              setIsCallModalOpen(true);
-            }}
-            className="px-4 py-2.5 rounded-xl font-bold text-xs bg-[#0050FF] hover:bg-[#0040D6] text-white shadow-xs flex items-center gap-2 transition cursor-pointer"
-          >
-            <PhoneCall className="w-4 h-4" />
-            <span>Testar Ligação Agora</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Navegação por Abas (Estilo Pílulas Asaas) */}
-      <div className="flex items-center gap-2 border-b border-[#E2E8F0] pb-1 overflow-x-auto">
-        <button
-          onClick={() => setSubTab('conexao')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            subTab === 'conexao'
-              ? 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-          }`}
-        >
-          <Radio className="w-3.5 h-3.5" />
-          <span>1. Conexão Uazapi (Highlander)</span>
-        </button>
-
-        <button
-          onClick={() => setSubTab('grupos')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            subTab === 'grupos'
-              ? 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-          }`}
-        >
-          <Users className="w-3.5 h-3.5" />
-          <span>2. Coleta de Grupos</span>
-        </button>
-
-        <button
-          onClick={() => setSubTab('disparos')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            subTab === 'disparos'
-              ? 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-          }`}
-        >
-          <Sliders className="w-3.5 h-3.5" />
-          <span>3. Envio em Massa (Até 6 Variações)</span>
-        </button>
-
-        <button
-          onClick={() => setSubTab('ligacoes')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            subTab === 'ligacoes'
-              ? 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-          }`}
-        >
-          <PhoneCall className="w-3.5 h-3.5" />
-          <span>4. Ligações & Kommo CRM</span>
-        </button>
-
-        <button
-          onClick={() => setSubTab('tracking')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            subTab === 'tracking'
-              ? 'bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-          }`}
-        >
-          <BarChart3 className="w-3.5 h-3.5" />
-          <span>5. Dashboard de Transmissões</span>
-        </button>
+        {subTab === 'ligacoes' && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setTestPhone('');
+                setTestLeadName('');
+                setIsCallModalOpen(true);
+              }}
+              className="px-4 py-2.5 rounded-xl font-bold text-xs bg-[#0050FF] hover:bg-[#0040D6] text-white shadow-xs flex items-center gap-2 transition cursor-pointer"
+            >
+              <PhoneCall className="w-4 h-4" />
+              <span>Testar Ligação Agora</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ABA 1: CONEXÃO UAZAPI COM ESTRATÉGIA HIGHLANDER */}

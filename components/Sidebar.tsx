@@ -26,6 +26,7 @@ import {
   Send,
   Smartphone,
   PhoneCall,
+  BarChart3,
 } from 'lucide-react';
 
 import { useTenant } from './TenantProvider';
@@ -489,7 +490,7 @@ function SidebarContent() {
                         : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
                     }`}
                   >
-                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                     <span>Conexão Uazapi</span>
                   </Link>
 
@@ -501,7 +502,7 @@ function SidebarContent() {
                         : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
                     }`}
                   >
-                    <Users2 className="w-3.5 h-3.5" />
+                    <Users2 className="w-3.5 h-3.5 shrink-0" />
                     <span>Coleta de Grupos</span>
                   </Link>
 
@@ -513,8 +514,20 @@ function SidebarContent() {
                         : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
                     }`}
                   >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Envio em Massa & Stats</span>
+                    <Send className="w-3.5 h-3.5 shrink-0" />
+                    <span>Envio em Massa</span>
+                  </Link>
+
+                  <Link
+                    href="/whatsapp?tab=tracking"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/whatsapp' && currentTab === 'tracking'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <BarChart3 className="w-3.5 h-3.5 shrink-0" />
+                    <span>Dashboard de Transmissões</span>
                   </Link>
 
                   <Link
@@ -525,7 +538,7 @@ function SidebarContent() {
                         : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
                     }`}
                   >
-                    <PhoneCall className="w-3.5 h-3.5 text-[#0050FF]" />
+                    <PhoneCall className="w-3.5 h-3.5 text-[#0050FF] shrink-0" />
                     <span>Ligações & Kommo CRM</span>
                   </Link>
                 </div>
