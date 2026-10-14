@@ -27,6 +27,8 @@ import {
   Smartphone,
   PhoneCall,
   BarChart3,
+  Palette,
+  Globe,
 } from 'lucide-react';
 
 import { useTenant } from './TenantProvider';
@@ -53,6 +55,7 @@ function SidebarContent() {
     google: true,
     whatsapp: true,
     credenciais: true,
+    design: true,
   });
 
   const toggleSubmenu = (key: string) => {
@@ -545,21 +548,55 @@ function SidebarContent() {
               )}
             </div>
 
-            {/* Criativos e Landing Pages */}
-            <Link
-              href="/criativos"
-              className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
-                pathname === '/criativos'
-                  ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold shadow-xs'
-                  : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Sparkles className={`w-4 h-4 ${pathname === '/criativos' ? 'text-[#0050FF]' : 'text-[#64748B]'}`} />
-                <span>Criativos & Landing Pages</span>
-              </div>
-              {pathname === '/criativos' && <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />}
-            </Link>
+            {/* Design (Submenu: Landing Page & Criativos) */}
+            <div>
+              <button
+                onClick={() => toggleSubmenu('design')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                  pathname === '/criativos'
+                    ? 'text-[#0050FF] font-semibold'
+                    : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Palette className={`w-4 h-4 ${pathname === '/criativos' ? 'text-[#0050FF]' : 'text-purple-600'}`} />
+                  <span>Design</span>
+                </div>
+                {openSubmenus.design ? (
+                  <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
+                )}
+              </button>
+
+              {openSubmenus.design && (
+                <div className="ml-4 pl-3 border-l-2 border-[#E2E8F0] space-y-1 mt-1">
+                  <Link
+                    href="/criativos?tab=landing_page"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/criativos' && (currentTab === 'landing_page' || !currentTab)
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <Globe className="w-3.5 h-3.5 shrink-0" />
+                    <span>Landing Page</span>
+                  </Link>
+
+                  <Link
+                    href="/criativos?tab=criativos"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/criativos' && currentTab === 'criativos'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                    <span>Criativos</span>
+                  </Link>
+                </div>
+              )}
+            </div>
 
             {/* Pipeline Kommo */}
             <Link

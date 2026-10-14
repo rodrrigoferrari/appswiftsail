@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTenant } from '@/components/TenantProvider';
 import {
   Sparkles,
@@ -19,9 +20,11 @@ import {
   Zap,
 } from 'lucide-react';
 
-export default function CriativosPage() {
+function CriativosContent() {
   const { selectedClientId, activeClient } = useTenant();
-  const [activeModule, setActiveModule] = useState<'criativos' | 'landing_page'>('landing_page');
+  const searchParams = useSearchParams();
+  const tabParam = searchParams?.get('tab');
+  const activeModule: 'criativos' | 'landing_page' = tabParam === 'criativos' ? 'criativos' : 'landing_page';
 
   // Client Name
   const clientName = activeClient?.nome || (selectedClientId === 'ALL' ? 'Todos os Clientes' : selectedClientId);
@@ -143,47 +146,33 @@ export default function CriativosPage() {
 
   return (
     <div className="space-y-6 select-none font-sans">
-      {/* Top Header */}
+      {/* Top Header Dinâmico de acordo com a seleção */}
       <div className="bg-white border border-[#E2E8F0] p-6 rounded-2xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
-              Módulo de Produção • Seção 4.5
+              Design • {activeModule === 'landing_page' ? 'Landing Page' : 'Criativos'}
             </span>
           </div>
           <h2 className="text-xl font-bold text-[#0F172A] flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[#0050FF]" />
-            Criação de Criativos & Landing Pages com IA
+            {activeModule === 'landing_page' ? (
+              <>
+                <Globe className="w-5 h-5 text-[#0050FF]" />
+                Construtor de Landing Page IA
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-5 h-5 text-[#0050FF]" />
+                Estúdio de Criativos IA (Carrossel, Reels e Estáticos)
+              </>
+            )}
           </h2>
           <p className="text-xs text-[#64748B]">
             Cliente Selecionado: <b className="text-[#0F172A]">{clientName}</b>
+            {activeModule === 'landing_page'
+              ? ' • Geração automatizada com formulário Kommo CRM e WhatsApp'
+              : ' • Produção de copies e formatos para Meta & Google Ads'}
           </p>
-        </div>
-
-        {/* Module Switcher */}
-        <div className="flex bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs">
-          <button
-            onClick={() => setActiveModule('landing_page')}
-            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
-              activeModule === 'landing_page'
-                ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            <Globe className="w-3.5 h-3.5" />
-            1. Construtor de Landing Page IA
-          </button>
-          <button
-            onClick={() => setActiveModule('criativos')}
-            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
-              activeModule === 'criativos'
-                ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            2. Estúdio de Criativos (Carrossel / Reels)
-          </button>
         </div>
       </div>
 
@@ -505,5 +494,19 @@ export default function CriativosPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CriativosPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-[#64748B]">
+          Carregando módulo de design...
+        </div>
+      }
+    >
+      <CriativosContent />
+    </Suspense>
   );
 }
