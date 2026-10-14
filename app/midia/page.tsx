@@ -719,52 +719,6 @@ function MidiaContent() {
             <DateRangePicker />
           </div>
         </div>
-
-        {/* Platform Tabs */}
-        <div className="flex items-center justify-between pt-2 border-t border-[#F1F5F9]">
-          <div className="flex bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs">
-            <button
-              onClick={() => {
-                setActivePlatformTab('meta');
-                router.push(`/midia?plataforma=meta&tab=${metaSubTab}`);
-              }}
-              className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                activePlatformTab === 'meta'
-                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
-                  : 'text-[#64748B] hover:text-[#0F172A]'
-              }`}
-            >
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-              <span>Meta Ads (Facebook & Instagram)</span>
-            </button>
-            <button
-              onClick={() => {
-                setActivePlatformTab('google');
-                const gTab =
-                  googleSubTab === 'contas'
-                    ? 'contas'
-                    : googleSubTab === 'grupos_recursos'
-                    ? 'recursos'
-                    : googleSubTab === 'palavras_chave'
-                    ? 'palavras'
-                    : googleSubTab === 'search_terms'
-                    ? 'termos'
-                    : googleSubTab === 'anuncios'
-                    ? 'anuncios'
-                    : 'campaigns';
-                router.push(`/midia?plataforma=google&tab=${gTab}`);
-              }}
-              className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                activePlatformTab === 'google'
-                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
-                  : 'text-[#64748B] hover:text-[#0F172A]'
-              }`}
-            >
-              <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-              <span>Google Ads (Search & PMax)</span>
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* ========================================================================= */}
