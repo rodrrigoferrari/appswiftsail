@@ -110,6 +110,11 @@ function MidiaContent() {
       }
     }
   }, [activePlatformTab, metaSubTab, googleSubTab]);
+
+  const isContasTab =
+    (activePlatformTab === 'meta' && metaSubTab === 'contas') ||
+    (activePlatformTab === 'google' && googleSubTab === 'contas');
+
   const [leadsDrilldown, setLeadsDrilldown] = useState<{
     isOpen: boolean;
     title: string;
@@ -703,21 +708,27 @@ function MidiaContent() {
               <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
                 Tráfego & Anúncios • {currentModuleTitle}
               </span>
-              <span className="text-xs text-[#64748B] font-medium">• {dateRange.label}</span>
+              {!isContasTab && (
+                <span className="text-xs text-[#64748B] font-medium">• {dateRange.label}</span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Building className="w-5 h-5 text-[#0050FF]" />
               <h2 className="text-xl font-bold text-[#0F172A]">{clientName}</h2>
             </div>
             <p className="text-xs text-[#64748B]">
-              Desempenho de campanhas, conjuntos de anúncios, criativos e relatório de termos de busca.
+              {isContasTab
+                ? 'Saldo disponível de contas pré-pagas, cartões cadastrados e limite restante de gastos.'
+                : 'Desempenho de campanhas, conjuntos de anúncios, criativos e relatório de termos de busca.'}
             </p>
           </div>
 
-          {/* Seletor de Período para Campanhas */}
-          <div className="self-start lg:self-auto">
-            <DateRangePicker />
-          </div>
+          {/* Seletor de Período para Campanhas (ocultado em Faturamento & Contas) */}
+          {!isContasTab && (
+            <div className="self-start lg:self-auto">
+              <DateRangePicker />
+            </div>
+          )}
         </div>
       </div>
 
@@ -726,47 +737,7 @@ function MidiaContent() {
       {/* ========================================================================= */}
       {activePlatformTab === 'meta' && (
         <div className="space-y-4">
-          {/* Subtabs Meta Ads: Campanhas & Criativos vs Faturamento & Contas */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-3">
-            <div className="flex flex-wrap bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs gap-1">
-              <button
-                onClick={() => {
-                  setMetaSubTab('campaigns');
-                  router.push('/midia?plataforma=meta&tab=campaigns');
-                }}
-                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  metaSubTab === 'campaigns'
-                    ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                    : 'text-[#64748B] hover:text-[#0F172A]'
-                }`}
-              >
-                <span>📁</span> Campanhas & Criativos ({hierarchyData.length})
-              </button>
 
-              <button
-                onClick={() => {
-                  setMetaSubTab('contas');
-                  router.push('/midia?plataforma=meta&tab=contas');
-                }}
-                className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  metaSubTab === 'contas'
-                    ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                    : 'text-[#64748B] hover:text-[#0F172A]'
-                }`}
-              >
-                <span>💳</span> Faturamento & Contas ({metaContas.length})
-              </button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 text-xs">
-              <span className="text-[10px] text-[#64748B] font-medium bg-[#F8FAFC] px-2.5 py-1 rounded-full border border-[#E2E8F0]">
-                Sync diário: Meta às 23:25 (BRT)
-              </span>
-              <div className="text-[#64748B] font-mono">
-                Gasto Meta: <b className="text-[#0F172A]">{formatBRL(Number(metaData?.totais?.gasto || 0))}</b>
-              </div>
-            </div>
-          </div>
 
           {/* Informações Financeiras e Faturamento das Contas Meta (exibido apenas se selecionado 'contas') */}
           {metaSubTab === 'contas' && (
@@ -2018,98 +1989,87 @@ function MidiaContent() {
       {/* ========================================================================= */}
       {activePlatformTab === 'google' && (
         <div className="space-y-4">
-          {/* Subtabs Google: Campanhas, Anúncios & Destinos, PMax Recursos, Palavras-chave, Termos de Busca, Faturamento & Contas */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-3">
-            <div className="flex flex-wrap bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs gap-1">
-              <button
-                onClick={() => {
-                  setGoogleSubTab('campaigns');
-                  router.push('/midia?plataforma=google&tab=campaigns');
-                }}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  googleSubTab === 'campaigns'
-                    ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
+          {/* Subtabs Google: exibir apenas se não estiver em Faturamento & Contas */}
+          {googleSubTab !== 'contas' && (
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-3">
+              <div className="flex flex-wrap bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs gap-1">
+                <button
+                  onClick={() => {
+                    setGoogleSubTab('campaigns');
+                    router.push('/midia?plataforma=google&tab=campaigns');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    googleSubTab === 'campaigns'
+                      ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
+                      : 'text-[#64748B] hover:text-[#0F172A]'
+                  }`}
+                >
+                  <span>📂</span> Campanhas ({filteredGoogleCampanhas.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setGoogleSubTab('anuncios');
+                    router.push('/midia?plataforma=google&tab=anuncios');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    googleSubTab === 'anuncios'
+                      ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
+                      : 'text-[#64748B] hover:text-[#0F172A]'
+                  }`}
+                >
+                  <span>📢</span> Anúncios & Destinos ({filteredGoogleAnuncios.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setGoogleSubTab('grupos_recursos');
+                    router.push('/midia?plataforma=google&tab=recursos');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    googleSubTab === 'grupos_recursos'
+                      ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
+                      : 'text-[#64748B] hover:text-[#0F172A]'
+                  }`}
+                >
+                  <span>⚡</span> PMax Recursos ({filteredGoogleGruposRecursos.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setGoogleSubTab('palavras_chave');
+                    router.push('/midia?plataforma=google&tab=palavras');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    googleSubTab === 'palavras_chave'
+                      ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
                     : 'text-[#64748B] hover:text-[#0F172A]'
-                }`}
-              >
-                <span>📂</span> Campanhas ({filteredGoogleCampanhas.length})
-              </button>
-              <button
-                onClick={() => {
-                  setGoogleSubTab('anuncios');
-                  router.push('/midia?plataforma=google&tab=anuncios');
-                }}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  googleSubTab === 'anuncios'
-                    ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                    : 'text-[#64748B] hover:text-[#0F172A]'
-                }`}
-              >
-                <span>📢</span> Anúncios & Destinos ({filteredGoogleAnuncios.length})
-              </button>
-              <button
-                onClick={() => {
-                  setGoogleSubTab('grupos_recursos');
-                  router.push('/midia?plataforma=google&tab=recursos');
-                }}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  googleSubTab === 'grupos_recursos'
-                    ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                    : 'text-[#64748B] hover:text-[#0F172A]'
-                }`}
-              >
-                <span>⚡</span> PMax Recursos ({filteredGoogleGruposRecursos.length})
-              </button>
-              <button
-                onClick={() => {
-                  setGoogleSubTab('palavras_chave');
-                  router.push('/midia?plataforma=google&tab=palavras');
-                }}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  googleSubTab === 'palavras_chave'
-                    ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                    : 'text-[#64748B] hover:text-[#0F172A]'
-                }`}
-              >
-                <span>🎯</span> Palavras-chave ({filteredGooglePalavrasChave.length})
-              </button>
-              <button
-                onClick={() => {
-                  setGoogleSubTab('search_terms');
-                  router.push('/midia?plataforma=google&tab=termos');
-                }}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  googleSubTab === 'search_terms'
-                    ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                    : 'text-[#64748B] hover:text-[#0F172A]'
-                }`}
-              >
-                <span>🔍</span> Termos de Busca ({filteredSearchTerms.length})
-              </button>
-              <button
-                onClick={() => {
-                  setGoogleSubTab('contas');
-                  router.push('/midia?plataforma=google&tab=contas');
-                }}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  googleSubTab === 'contas'
-                    ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                    : 'text-[#64748B] hover:text-[#0F172A]'
-                }`}
-              >
-                <span>💳</span> Faturamento & Contas ({googleContas.length})
-              </button>
-            </div>
+                  }`}
+                >
+                  <span>🎯</span> Palavras-chave ({filteredGooglePalavrasChave.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setGoogleSubTab('search_terms');
+                    router.push('/midia?plataforma=google&tab=termos');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    googleSubTab === 'search_terms'
+                      ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
+                      : 'text-[#64748B] hover:text-[#0F172A]'
+                  }`}
+                >
+                  <span>🔍</span> Termos de Busca ({filteredSearchTerms.length})
+                </button>
+              </div>
 
-            <div className="flex flex-wrap items-center gap-3 text-xs">
-              <span className="text-[10px] text-[#64748B] font-medium bg-[#F8FAFC] px-2.5 py-1 rounded-full border border-[#E2E8F0]">
-                Sync diário: Google às 23:35 (BRT)
-              </span>
-              <div className="text-[#64748B] font-mono">
-                Gasto Total Google: <b className="text-[#0F172A]">{formatBRL(Number(googleData?.totais?.gasto || 0))}</b>
+              <div className="flex flex-wrap items-center gap-3 text-xs">
+                <span className="text-[10px] text-[#64748B] font-medium bg-[#F8FAFC] px-2.5 py-1 rounded-full border border-[#E2E8F0]">
+                  Sync diário: Google às 23:35 (BRT)
+                </span>
+                <div className="text-[#64748B] font-mono">
+                  Gasto Total Google: <b className="text-[#0F172A]">{formatBRL(Number(googleData?.totais?.gasto || 0))}</b>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Informações Financeiras e Faturamento das Contas Google (exibido apenas se selecionado 'contas') */}
           {googleSubTab === 'contas' && (
