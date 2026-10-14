@@ -106,7 +106,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
         const criativosRows = await fetchAll<any>((a, b) =>
           supabaseAdmin
             .from('painel_meta_anuncios_criativos')
-            .select('cliente_id,campaign_id,campanha,adset_id,conjunto,ad_id,anuncio,status,effective_status,creative_id,criativo_nome,criativo_titulo,criativo_tipo,preview_link,link_permanente,instagram_permalink_url,link_destino,thumbnail_storage_path,created_time,updated_time')
+            .select('cliente_id,campaign_id,campanha,adset_id,conjunto,ad_id,anuncio,status,effective_status,creative_id,criativo_nome,criativo_titulo,criativo_tipo,preview_link,link_permanente,instagram_permalink_url,link_destino,thumbnail_storage_path,midia_storage_path,video_storage_path,created_time,updated_time')
             .in('cliente_id', ids)
             .range(a, b)
         );
@@ -163,6 +163,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
             });
           }
           const asItem = adsetsMap.get(asId)!;
+          const effectiveThumb = ad.thumbnail_storage_path
+            ? ad.thumbnail_storage_path
+            : ad.midia_storage_path
+            ? `/api/meta/media?path=${encodeURIComponent(ad.midia_storage_path)}`
+            : null;
+
           asItem.criativos.push({
             id: ad.ad_id,
             campaignId: c.campaign_id,
@@ -180,7 +186,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
             link_permanente: ad.link_permanente || ad.instagram_permalink_url,
             instagram_permalink_url: ad.instagram_permalink_url,
             link_destino: ad.link_destino,
-            thumbnail_storage_path: ad.thumbnail_storage_path,
+            thumbnail_storage_path: effectiveThumb,
+            midia_storage_path: ad.midia_storage_path,
+            video_storage_path: ad.video_storage_path,
           });
         }
 

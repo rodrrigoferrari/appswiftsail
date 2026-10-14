@@ -250,10 +250,12 @@ function WhatsAppContent() {
               ((i.name || '').toLowerCase().replace(/[^a-z0-9]/g, '').includes(cleanTarget) ||
                 cleanTarget.includes((i.name || '').toLowerCase().replace(/[^a-z0-9]/g, '')))
           );
-          const connectedAny = matched || data.instances.find((i: any) => i.status === 'connected');
+          const connectedAny = matched || (targetId === 'swiftsail' ? data.instances.find((i: any) => i.status === 'connected') : null);
           if (connectedAny) {
             setSelectedInstanceToken(connectedAny.token);
             fetchGroups(connectedAny.token);
+          } else {
+            setSelectedInstanceToken('');
           }
         }
       }

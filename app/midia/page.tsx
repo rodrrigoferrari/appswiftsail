@@ -594,6 +594,8 @@ function MidiaContent() {
               const targetLink = cr.instagram_permalink_url || cr.link_permanente || cr.preview_link;
               const realThumb = cr.thumbnail_storage_path
                 ? cr.thumbnail_storage_path
+                : cr.midia_storage_path
+                ? `/api/meta/media?path=${encodeURIComponent(cr.midia_storage_path)}`
                 : targetLink
                 ? `/api/meta/thumbnail?url=${encodeURIComponent(targetLink)}`
                 : `/api/meta/thumbnail?url=default`;
@@ -1878,15 +1880,20 @@ function MidiaContent() {
                         <td className="py-3 px-4">
                           <div
                             onClick={() => setSelectedCreativeModal(ad)}
-                            className="relative w-14 h-14 rounded-lg overflow-hidden cursor-pointer border border-[#E2E8F0] shadow-xs group shrink-0 transition-all hover:scale-105 hover:border-[#0050FF]"
+                            className="relative w-14 h-14 rounded-lg overflow-hidden cursor-pointer border border-[#CBD5E1] bg-[#0F172A] shadow-xs group shrink-0 transition-all hover:scale-105 hover:border-[#0050FF]"
                             title="Clique para abrir e interagir com o anúncio real"
-                            style={{
-                              backgroundImage: `url(${ad.thumbUrl})`,
-                              backgroundSize: 'cover',
-                              backgroundPosition: 'center',
-                            }}
                           >
-                            <div className="absolute inset-0 bg-black/20 group-hover:bg-[#0050FF]/20 transition-colors flex items-center justify-center">
+                            {ad.thumbUrl ? (
+                              <img
+                                src={ad.thumbUrl}
+                                alt={ad.nome}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                            ) : null}
+                            <div className="absolute inset-0 bg-black/25 group-hover:bg-[#0050FF]/20 transition-colors flex items-center justify-center">
                               {ad.formato === 'reels' && (
                                 <div className="w-5 h-5 rounded-full bg-white/90 text-[#0F172A] flex items-center justify-center text-[10px] shadow group-hover:scale-110 transition-transform">
                                   ▶

@@ -1019,18 +1019,6 @@ function SidebarContent() {
                   Ativo
                 </span>
               </div>
-
-              <button
-                onClick={() => {
-                  restoreMasterAdmin();
-                  router.push('/admin');
-                }}
-                className="w-full py-1.5 px-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 shadow-xs text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                title="Restaurar a conta Master Admin de Rodrigo Ferrari"
-              >
-                <Crown className="w-3.5 h-3.5 text-amber-600" />
-                <span>Restaurar Master Admin (Rodrigo)</span>
-              </button>
             </div>
           )
         ) : (

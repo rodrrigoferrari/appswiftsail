@@ -180,7 +180,8 @@ export async function getUazapiCredentialsForClient(
         const parsed = JSON.parse(masterData[0].content);
         if (parsed.uazapi_url) serverUrl = parsed.uazapi_url;
         if (parsed.uazapi_token) adminToken = parsed.uazapi_token;
-        if (!instanceToken && parsed.uazapi_instance_token) {
+        // Instância master global só pode ser herdada pelo próprio workspace swiftsail (agência)
+        if (targetClient === 'swiftsail' && !instanceToken && parsed.uazapi_instance_token) {
           instanceToken = parsed.uazapi_instance_token;
         }
       } catch {}
@@ -198,17 +199,22 @@ export async function getUazapiCredentialsForClient(
           const instances = await res.json();
           if (Array.isArray(instances)) {
             const cleanTarget = targetClient.toLowerCase().replace(/[^a-z0-9]/g, '');
-            // Prioridade 1: Match por nome do cliente na instância e que esteja conectada
+            // Prioridade 1: Match por nome do cliente na instância (ignora instâncias de notificações/master da agência se for cliente)
             const matched = instances.find((inst: any) => {
               const cleanName = (inst.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-              return (cleanName.includes(cleanTarget) || cleanTarget.includes(cleanName)) && inst.status === 'connected';
+              if (targetClient !== 'swiftsail') {
+                if (cleanName.includes('notificac') || (cleanName.includes('swiftsail') && !cleanName.includes(cleanTarget))) {
+                  return false;
+                }
+              }
+              return cleanName.includes(cleanTarget) || (cleanTarget.length > 4 && cleanTarget.includes(cleanName));
             });
 
             if (matched && matched.token) {
               instanceToken = matched.token;
               instanceName = matched.name;
-            } else {
-              // Prioridade 2: Qualquer instância conectada disponível (ex: Notificações Swiftsail, Rodrigo Pessoal)
+            } else if (targetClient === 'swiftsail') {
+              // Somente para a agência Swiftsail permite fallback de qualquer instância conectada
               const connectedAny = instances.find((inst: any) => inst.status === 'connected');
               if (connectedAny && connectedAny.token) {
                 instanceToken = connectedAny.token;

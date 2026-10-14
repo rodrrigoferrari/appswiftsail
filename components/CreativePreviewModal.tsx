@@ -67,6 +67,8 @@ export interface CreativePreviewItem {
   link_permanente?: string;
   instagram_permalink_url?: string;
   thumbnail_storage_path?: string;
+  midia_storage_path?: string;
+  video_storage_path?: string;
 }
 
 interface CreativePreviewModalProps {
@@ -143,6 +145,7 @@ export default function CreativePreviewModal({
     creative.imageUrl ||
     creative.thumbUrl ||
     creative.thumbnail_storage_path ||
+    (creative.midia_storage_path ? `/api/meta/media?path=${encodeURIComponent(creative.midia_storage_path)}` : null) ||
     (directMetaUrl ? `/api/meta/thumbnail?url=${encodeURIComponent(directMetaUrl)}` : null) ||
     '/api/meta/thumbnail?url=default';
 
@@ -344,15 +347,49 @@ export default function CreativePreviewModal({
 
                 {/* Área da Imagem Real com Overlay */}
                 <div
-                  className="relative aspect-square w-full overflow-hidden bg-zinc-950 flex flex-col justify-end p-5 select-none bg-cover bg-center"
-                  style={{
-                    backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 60%), url(${realImageUrl})`,
-                  }}
+                  className={`relative w-full overflow-hidden bg-zinc-950 flex flex-col justify-end p-5 select-none ${
+                    formatoNorm === 'reels' ? 'aspect-[9/14] sm:aspect-[9/15]' : 'aspect-square'
+                  }`}
                 >
+                  {/* Imagem de Capa Real do Anúncio */}
+                  {realImageUrl && (
+                    <img
+                      src={realImageUrl}
+                      alt={defaultHeadline}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  )}
+
+                  {/* Gradiente para Legibilidade dos Textos */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/30 pointer-events-none" />
+
+                  {/* Botão Central de Play para Vídeos / Reels */}
+                  {formatoNorm === 'reels' && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <button
+                        onClick={directMetaUrl ? () => window.open(directMetaUrl, '_blank') : handleOpenCTA}
+                        className="w-14 h-14 rounded-full bg-white/90 hover:bg-white text-zinc-900 flex items-center justify-center shadow-2xl backdrop-blur-xs transition-transform hover:scale-110 active:scale-95 cursor-pointer pl-1 group"
+                        title="Ver vídeo completo no Instagram / Meta"
+                      >
+                        <Play className="w-6 h-6 fill-zinc-900 text-zinc-900" />
+                      </button>
+                    </div>
+                  )}
+
                   <div className="space-y-1.5 relative z-10">
-                    <span className="inline-block px-2.5 py-0.5 rounded text-[10px] font-black bg-cyan-500 text-slate-950 shadow">
-                      {creative.badge || 'META ADS'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block px-2.5 py-0.5 rounded text-[10px] font-black bg-cyan-500 text-slate-950 shadow">
+                        {creative.badge || (formatoNorm === 'reels' ? 'REELS' : 'META ADS')}
+                      </span>
+                      {formatoNorm === 'reels' && (
+                        <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-black/60 text-white backdrop-blur-xs">
+                          Vídeo Oficial
+                        </span>
+                      )}
+                    </div>
                     <h4 className="text-base font-black text-white leading-tight drop-shadow-md">
                       {defaultHeadline}
                     </h4>

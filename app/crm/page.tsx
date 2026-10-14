@@ -950,22 +950,49 @@ function AttributionMatrix({
   }, [porCriativo, porCampanha, totalLeads, clientName]);
 
   const termosData = useMemo(() => {
+    // 1. Se a API retornou agregação válida de termos
     if (porTermo && porTermo.length > 0) {
-      return porTermo.map((item: any) => ({
-        termo: item.termo,
-        match: item.termo.includes(' ') ? 'Frase' : 'Exata',
-        leads: Number(item.total || 0),
-      }));
+      const valid = porTermo
+        .filter((item: any) => item.termo && !item.termo.includes('{keyword}') && item.termo.trim() !== '')
+        .map((item: any) => ({
+          termo: item.termo,
+          match: item.termo.includes(' ') ? 'Frase' : 'Exata',
+          leads: Number(item.total || 0),
+        }));
+      if (valid.length > 0) return valid;
     }
 
-    return [
-      { termo: 'apartamento alto padrao curitiba batel', match: 'Exata', leads: 18 },
-      { termo: 'lancamento imobiliario planta 3 quartos', match: 'Frase', leads: 11 },
-      { termo: 'imobiliaria gonzaga apartamentos venda', match: 'Exata', leads: 24 },
-      { termo: 'apartamento decorado visita plantao', match: 'Ampla', leads: 8 },
-      { termo: 'terreno condomínio fechado regiao metropolitana', match: 'Frase', leads: 6 },
-    ];
-  }, [porTermo]);
+    // 2. Agrupamento dinâmico a partir dos leads reais que possuem termo_busca ou utm_term válidos
+    const termoCount = new Map<string, number>();
+    (leadsAmostra || []).forEach((lead: any) => {
+      const t = lead.termo_busca || lead.utm_term;
+      if (
+        t &&
+        typeof t === 'string' &&
+        t.trim() !== '' &&
+        t !== '-' &&
+        !t.includes('{keyword}') &&
+        t.toLowerCase() !== 'null' &&
+        t.toLowerCase() !== 'undefined'
+      ) {
+        const clean = t.trim();
+        termoCount.set(clean, (termoCount.get(clean) || 0) + 1);
+      }
+    });
+
+    if (termoCount.size > 0) {
+      return Array.from(termoCount.entries())
+        .map(([termo, count]) => ({
+          termo,
+          match: termo.includes(' ') ? 'Frase' : 'Exata',
+          leads: count,
+        }))
+        .sort((a, b) => b.leads - a.leads);
+    }
+
+    // Nunca inventar termos falsos
+    return [];
+  }, [porTermo, leadsAmostra]);
 
   const dimensionMeta: Record<string, { title: string; subtitle: string; icon: string; badge: string }> = {
     origem: {
@@ -1370,7 +1397,14 @@ function AttributionMatrix({
       {selectedDimension === 'termo' && (
         <div className="space-y-3">
           {termosData.length === 0 ? (
-            <p className="text-xs text-[#64748B] py-6 text-center">Nenhum termo de busca ou palavra-chave registrado nos leads.</p>
+            <div className="p-8 text-center bg-[#F8FAFC] rounded-2xl border border-[#E2E8F0] space-y-2">
+              <p className="font-bold text-[#0F172A] text-sm">
+                Nenhum termo de busca ou palavra-chave registrado nos leads deste período.
+              </p>
+              <p className="text-xs text-[#64748B] max-w-md mx-auto">
+                Termos de pesquisa aparecem automaticamente quando campanhas de Google Search ou links de anúncios contendo a tag <code>utm_term</code> convertem leads rastreados no Kommo CRM.
+              </p>
+            </div>
           ) : (
             termosData.map((t: any, idx: number) => {
               const rowKey = `termo-${t.termo}`;
@@ -1379,7 +1413,7 @@ function AttributionMatrix({
               const leadsDoItem = leadsAmostra.filter(
                 (l: any) =>
                   (l.termo_busca && l.termo_busca.toLowerCase().includes(t.termo.toLowerCase())) ||
-                  (l.anuncio && l.anuncio.toLowerCase().includes(t.termo.toLowerCase()))
+                  (l.utm_term && l.utm_term.toLowerCase().includes(t.termo.toLowerCase()))
               );
 
               return (

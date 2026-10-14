@@ -244,18 +244,7 @@ function LoginContent() {
                 </div>
               </div>
 
-              {/* Botão de Preenchimento Rápido para Rodrigo Ferrari */}
-              <button
-                type="button"
-                onClick={() => {
-                  setDdi('+55');
-                  setLocalNumber('(41) 99233-2996');
-                }}
-                className="w-full py-2 px-3 bg-[#F8FAFC] hover:bg-[#EFF4FF] border border-[#E2E8F0] hover:border-[#BFDBFE] rounded-xl text-[11px] font-semibold text-[#475569] hover:text-[#0050FF] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#0050FF]" />
-                <span>Usar número Rodrigo Ferrari (Admin): 41 99233-2996</span>
-              </button>
+
 
               <button
                 type="submit"
@@ -355,37 +344,7 @@ function LoginContent() {
             </form>
           )}
 
-          {/* Atalhos Rápidos para Testar Visões Diretas */}
-          <div className="pt-4 border-t border-[#F1F5F9] space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
-                Acesso Direto (Ambiente Dev)
-              </span>
-              <span className="text-[10px] bg-[#EFF4FF] text-[#0050FF] font-bold px-2 py-0.5 rounded-full border border-[#BFDBFE]">
-                Livre
-              </span>
-            </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => router.push('/admin')}
-                className="p-2.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#0050FF] hover:bg-[#EFF4FF]/40 text-left transition-all cursor-pointer"
-              >
-                <span className="text-xs font-bold text-[#0F172A] block">👑 Admin HQ</span>
-                <span className="text-[10px] text-[#64748B]">Painel Geral</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => router.push('/client')}
-                className="p-2.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#0050FF] hover:bg-[#EFF4FF]/40 text-left transition-all cursor-pointer"
-              >
-                <span className="text-xs font-bold text-[#0F172A] block">🏢 Cliente</span>
-                <span className="text-[10px] text-[#64748B]">Workspace</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Security Footer */}

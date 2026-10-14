@@ -67,48 +67,7 @@ export default function Header() {
     <header className="h-16 border-b border-[#E2E8F0] bg-white px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none">
       {/* Lado Esquerdo: Modo (Admin / Cliente) + Seletor de Workspace */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Switcher de Visão para Master Admin */}
-        {isMasterAdmin && (
-          <div className="flex rounded-xl bg-[#F1F5F9] border border-[#E2E8F0] p-0.5">
-            <button
-              onClick={() => {
-                switchToAdminHQ();
-                router.push('/admin');
-              }}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                viewMode === 'admin'
-                  ? 'bg-white text-[#0F172A] border border-[#E2E8F0] shadow-xs'
-                  : 'text-[#64748B] hover:text-[#0F172A]'
-              }`}
-              title="Acessar o Painel Master Admin"
-            >
-              <Crown className="w-3.5 h-3.5 text-[#0050FF]" />
-              <span className="hidden sm:inline">Admin</span>
-            </button>
 
-            <button
-              onClick={() => {
-                setViewMode('client');
-                const target = activeClient || (availableClients.length > 0 ? availableClients[0] : clients[0]);
-                if (target) {
-                  setSelectedClientId(target.cliente_id);
-                  if (pathname.startsWith('/admin')) {
-                    router.push(`/client/${getClientSlug(target)}`);
-                  }
-                }
-              }}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                viewMode === 'client'
-                  ? 'bg-white text-[#0050FF] border border-[#BFDBFE] shadow-xs'
-                  : 'text-[#64748B] hover:text-[#0F172A]'
-              }`}
-              title="Acessar a Visão de Workspace do Cliente"
-            >
-              <Building className="w-3.5 h-3.5 text-[#0050FF]" />
-              <span className="hidden sm:inline">Cliente</span>
-            </button>
-          </div>
-        )}
 
         {/* SELETOR DE WORKSPACE INTERATIVO */}
         <div className="flex items-center gap-2">
@@ -160,24 +119,9 @@ export default function Header() {
             )}
           </div>
         </div>
-
-        {/* Alerta de Simulação de Cliente com Botão de Restauração Imediata */}
-        {isSimulatingClient && (
-          <button
-            onClick={() => {
-              restoreMasterAdmin();
-              router.push('/admin');
-            }}
-            className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold transition-all shadow-xs cursor-pointer animate-pulse"
-            title="Voltar para a conta Master Admin de Rodrigo Ferrari"
-          >
-            <Crown className="w-3.5 h-3.5 text-amber-600" />
-            <span>Restaurar Perfil Admin (Rodrigo)</span>
-          </button>
-        )}
       </div>
 
-      {/* Lado Direito: Sync / Refresh + Perfil + Restauração */}
+      {/* Lado Direito: Sync / Refresh + Perfil */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Sync / Refresh Button */}
         <button
@@ -187,20 +131,6 @@ export default function Header() {
         >
           <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[#0050FF]' : ''}`} />
         </button>
-
-        {/* Botão de Restauração para telas menores */}
-        {isSimulatingClient && (
-          <button
-            onClick={() => {
-              restoreMasterAdmin();
-              router.push('/admin');
-            }}
-            className="flex lg:hidden p-2 rounded-xl bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold cursor-pointer"
-            title="Restaurar Admin"
-          >
-            <Crown className="w-4 h-4 text-amber-700" />
-          </button>
-        )}
 
         {/* User Pill */}
         <div className="flex items-center gap-2 sm:gap-2.5 pl-2 border-l border-[#E2E8F0]">

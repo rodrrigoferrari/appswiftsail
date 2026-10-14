@@ -11,6 +11,19 @@ export async function GET(req: NextRequest) {
 
     const creds = await getUazapiCredentialsForClient(clienteId);
 
+    // Validação estrita de isolamento: instâncias master/notificações da agência nunca podem ser retornadas para clientes
+    if (clienteId !== 'swiftsail') {
+      const cleanInstName = (creds.instanceName || '').toLowerCase();
+      if (cleanInstName.includes('notificac') || cleanInstName.includes('rodrigo pessoal')) {
+        return NextResponse.json({
+          connected: false,
+          status: 'disconnected',
+          hasInstance: false,
+          message: 'Instância não conectada para este cliente.',
+        });
+      }
+    }
+
     if (!creds.instanceToken) {
       return NextResponse.json({
         connected: false,

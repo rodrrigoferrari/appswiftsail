@@ -21,6 +21,8 @@ import {
   X,
   FileCheck,
   AlertCircle,
+  Calendar,
+  CalendarDays,
 } from 'lucide-react';
 
 interface CobrancaItem {
@@ -30,6 +32,8 @@ interface CobrancaItem {
   clienteId: string;
   vencimento: string;
   pagamento?: string;
+  rawVencimento?: string | null;
+  rawPagamento?: string | null;
   valorBruto: number;
   valorLiquido: number;
   formaPagamento: 'PIX' | 'BOLETO' | 'CARTAO';
@@ -69,10 +73,14 @@ export default function FinanceiroPage() {
       ? 'Emovere'
       : currentClient?.nome || (effectiveClientId === 'ALL' ? 'Visão Geral HQ' : effectiveClientId);
 
-  // Filtros de busca e status para consulta
+  // Filtros de busca, status e período para consulta
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'TODOS' | 'RECEBIDA' | 'CONFIRMADA' | 'AGUARDANDO' | 'VENCIDA'>('TODOS');
   const [nfFilter, setNfFilter] = useState<'TODAS' | 'COM_NF' | 'SEM_NF'>('TODAS');
+  const [periodoFilter, setPeriodoFilter] = useState<'TODO' | 'MES_ATUAL' | 'MES_PASSADO' | 'CUSTOM'>('TODO');
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
 
   // Estado dinâmico real do Supabase
   const [loading, setLoading] = useState(true);
@@ -111,6 +119,8 @@ export default function FinanceiroPage() {
             clienteId: c.cliente_id,
             vencimento: c.vencimento ? new Date(c.vencimento + 'T12:00:00').toLocaleDateString('pt-BR') : '—',
             pagamento: c.data_pagamento ? new Date(c.data_pagamento + 'T12:00:00').toLocaleDateString('pt-BR') : undefined,
+            rawVencimento: c.vencimento || null,
+            rawPagamento: c.data_pagamento || null,
             valorBruto: Number(c.valor) || 0,
             valorLiquido: Number(c.valor_liquido) || Number(c.valor) || 0,
             formaPagamento: (c.forma_pagamento || 'BOLETO').toUpperCase() as any,
@@ -187,19 +197,62 @@ export default function FinanceiroPage() {
     setNfModal({ isOpen: false, loading: false });
   };
 
-  // Contadores para o Dashboard Resumido
+  // 1. Filtragem por Período de Cobrança (Mês Atual, Mês Passado, Todo o Período, Personalizado)
+  const cobrancasDoPeriodo = useMemo(() => {
+    if (periodoFilter === 'TODO') return cobrancasData;
+
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth();
+
+    let startIso = '';
+    let endIso = '';
+
+    if (periodoFilter === 'MES_ATUAL') {
+      const first = new Date(curYear, curMonth, 1);
+      const last = new Date(curYear, curMonth + 1, 0);
+      startIso = `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, '0')}-01`;
+      endIso = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
+    } else if (periodoFilter === 'MES_PASSADO') {
+      const first = new Date(curYear, curMonth - 1, 1);
+      const last = new Date(curYear, curMonth, 0);
+      startIso = `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, '0')}-01`;
+      endIso = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
+    } else if (periodoFilter === 'CUSTOM') {
+      startIso = customStart;
+      endIso = customEnd;
+    }
+
+    return cobrancasData.filter((c) => {
+      const refDate = c.rawPagamento || c.rawVencimento;
+      if (!refDate) return false;
+      if (startIso && refDate < startIso) return false;
+      if (endIso && refDate > endIso) return false;
+      return true;
+    });
+  }, [cobrancasData, periodoFilter, customStart, customEnd]);
+
+  // 2. Contadores e Totais Calculados Dinamicamente para o Período
   const totaisCalculados = useMemo(() => {
     let qtdRecebidas = 0;
     let qtdAguardando = 0;
     let qtdVencidas = 0;
+    let somaRecebidoLiquido = 0;
+    let somaAguardando = 0;
+    let somaVencido = 0;
+    let somaFaturadoTotal = 0;
 
-    cobrancasData.forEach((c) => {
+    cobrancasDoPeriodo.forEach((c) => {
+      somaFaturadoTotal += c.valorBruto;
       if (c.status === 'RECEBIDA' || c.status === 'CONFIRMADA') {
         qtdRecebidas += 1;
+        somaRecebidoLiquido += c.valorLiquido;
       } else if (c.status === 'AGUARDANDO') {
         qtdAguardando += 1;
+        somaAguardando += c.valorBruto;
       } else if (c.status === 'VENCIDA') {
         qtdVencidas += 1;
+        somaVencido += c.valorBruto;
       }
     });
 
@@ -207,13 +260,17 @@ export default function FinanceiroPage() {
       qtdRecebidas,
       qtdAguardando,
       qtdVencidas,
-      totalCobrancas: cobrancasData.length,
+      totalCobrancas: cobrancasDoPeriodo.length,
+      somaRecebidoLiquido,
+      somaAguardando,
+      somaVencido,
+      somaFaturadoTotal,
     };
-  }, [cobrancasData]);
+  }, [cobrancasDoPeriodo]);
 
-  // Filtragem da Lista de Consulta
+  // 3. Filtragem da Lista de Consulta com busca e status
   const filteredCobrancas = useMemo(() => {
-    return cobrancasData.filter((c) => {
+    return cobrancasDoPeriodo.filter((c) => {
       const matchesSearch =
         c.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -232,7 +289,7 @@ export default function FinanceiroPage() {
 
       return matchesSearch && matchesStatus && matchesNf;
     });
-  }, [cobrancasData, searchTerm, statusFilter, nfFilter]);
+  }, [cobrancasDoPeriodo, searchTerm, statusFilter, nfFilter]);
 
   const formatBRL = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -260,7 +317,59 @@ export default function FinanceiroPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Seletor de Período Solicitado: Mês atual, Mês passado, Todo o período, Personalizado */}
+          <div className="flex items-center bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 text-xs shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setPeriodoFilter('MES_ATUAL')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap cursor-pointer ${
+                periodoFilter === 'MES_ATUAL'
+                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#BFDBFE]'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              Mês atual
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPeriodoFilter('MES_PASSADO')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap cursor-pointer ${
+                periodoFilter === 'MES_PASSADO'
+                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#BFDBFE]'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              Mês passado
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPeriodoFilter('TODO')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap cursor-pointer ${
+                periodoFilter === 'TODO'
+                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#BFDBFE]'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              Todo o período
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowCustomModal(true)}
+              className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
+                periodoFilter === 'CUSTOM'
+                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#BFDBFE]'
+                  : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Personalizado</span>
+            </button>
+          </div>
+
           <span className="px-3 py-1.5 rounded-xl bg-[#F8FAFC] text-[#475569] border border-[#E2E8F0] text-xs font-semibold flex items-center gap-1.5 shadow-2xs">
             <Database className="w-3.5 h-3.5 text-[#0050FF]" />
             <span>Refletido do Supabase</span>
@@ -269,7 +378,7 @@ export default function FinanceiroPage() {
         </div>
       </div>
 
-      {/* 2. DASHBOARD TOTAL RESUMIDO (VALORES REAIS DO SUPABASE) */}
+      {/* 2. DASHBOARD TOTAL RESUMIDO (RECALCULADO DINAMICAMENTE PARA O PERÍODO SELECIONADO) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Pago (Líquido) */}
         <div className="bg-white border border-[#E2E8F0] p-5 rounded-2xl shadow-xs space-y-2">
@@ -280,7 +389,13 @@ export default function FinanceiroPage() {
             </div>
           </div>
           <p className="text-2xl font-bold text-[#0F172A] tracking-tight">
-            {loading ? '—' : formatBRL(totaisApi.recebido_liquido)}
+            {loading
+              ? '—'
+              : formatBRL(
+                  periodoFilter === 'TODO' && totaisApi.recebido_liquido > 0
+                    ? totaisApi.recebido_liquido
+                    : totaisCalculados.somaRecebidoLiquido
+                )}
           </p>
           <div className="text-[11px] text-[#64748B] flex items-center justify-between pt-2 border-t border-[#F1F5F9]">
             <span className="text-emerald-700 font-semibold">{totaisCalculados.qtdRecebidas} liquidadas</span>
@@ -297,7 +412,13 @@ export default function FinanceiroPage() {
             </div>
           </div>
           <p className="text-2xl font-bold text-[#0F172A] tracking-tight">
-            {loading ? '—' : formatBRL(totaisApi.aguardando)}
+            {loading
+              ? '—'
+              : formatBRL(
+                  periodoFilter === 'TODO' && totaisApi.aguardando > 0
+                    ? totaisApi.aguardando
+                    : totaisCalculados.somaAguardando
+                )}
           </p>
           <div className="text-[11px] text-[#64748B] flex items-center justify-between pt-2 border-t border-[#F1F5F9]">
             <span className="text-amber-700 font-semibold">{totaisCalculados.qtdAguardando} pendentes</span>
@@ -314,7 +435,13 @@ export default function FinanceiroPage() {
             </div>
           </div>
           <p className="text-2xl font-bold text-rose-600 tracking-tight">
-            {loading ? '—' : formatBRL(totaisApi.vencido)}
+            {loading
+              ? '—'
+              : formatBRL(
+                  periodoFilter === 'TODO' && totaisApi.vencido > 0
+                    ? totaisApi.vencido
+                    : totaisCalculados.somaVencido
+                )}
           </p>
           <div className="text-[11px] text-[#64748B] flex items-center justify-between pt-2 border-t border-[#F1F5F9]">
             <span className="text-rose-700 font-semibold">{totaisCalculados.qtdVencidas} em atraso</span>
@@ -322,7 +449,7 @@ export default function FinanceiroPage() {
           </div>
         </div>
 
-        {/* Total Pago */}
+        {/* Total Pago / Faturado */}
         <div className="bg-white border border-[#E2E8F0] p-5 rounded-2xl shadow-xs space-y-2">
           <div className="flex items-center justify-between text-[#64748B]">
             <span className="text-xs font-semibold uppercase tracking-wider">Total Pago</span>
@@ -331,7 +458,13 @@ export default function FinanceiroPage() {
             </div>
           </div>
           <p className="text-2xl font-bold text-[#0F172A] tracking-tight">
-            {loading ? '—' : formatBRL(totaisApi.faturado_total)}
+            {loading
+              ? '—'
+              : formatBRL(
+                  periodoFilter === 'TODO' && totaisApi.faturado_total > 0
+                    ? totaisApi.faturado_total
+                    : totaisCalculados.somaFaturadoTotal
+                )}
           </p>
           <div className="text-[11px] text-[#64748B] flex items-center justify-between pt-2 border-t border-[#F1F5F9]">
             <span>{totaisCalculados.totalCobrancas} cobranças</span>
@@ -726,6 +859,76 @@ export default function FinanceiroPage() {
             <div className="px-5 py-3 border-t border-[#E2E8F0] bg-white flex items-center justify-between text-xs text-[#64748B]">
               <span>Bucket: <strong>notas-asaas</strong> (Supabase Storage)</span>
               <span>Link seguro assinado por 5 minutos</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Período Personalizado */}
+      {showCustomModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-2xl w-full max-w-sm overflow-hidden p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
+              <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#0050FF]" />
+                <span>Selecionar Período Personalizado</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowCustomModal(false)}
+                className="p-1 rounded-lg text-[#64748B] hover:text-[#0F172A] hover:bg-[#F1F5F9] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-[#334155] mb-1">Data Inicial</label>
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs focus:bg-white focus:outline-none focus:border-[#0050FF]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#334155] mb-1">Data Final</label>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs focus:bg-white focus:outline-none focus:border-[#0050FF]"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomStart('');
+                  setCustomEnd('');
+                  setPeriodoFilter('TODO');
+                  setShowCustomModal(false);
+                }}
+                className="flex-1 py-2 px-3 text-xs font-semibold rounded-xl bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#64748B] transition-colors cursor-pointer"
+              >
+                Limpar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (customStart || customEnd) {
+                    setPeriodoFilter('CUSTOM');
+                  }
+                  setShowCustomModal(false);
+                }}
+                className="flex-1 py-2 px-3 text-xs font-bold rounded-xl bg-[#0050FF] hover:bg-[#0040D6] text-white shadow-xs transition-colors cursor-pointer"
+              >
+                Aplicar Período
+              </button>
             </div>
           </div>
         </div>
