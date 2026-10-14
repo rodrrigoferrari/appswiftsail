@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import {
@@ -50,15 +50,15 @@ function SidebarContent() {
     switchToAdminHQ,
   } = useTenant();
 
-  // Submenu toggle states
+  // Submenu toggle states - inicializados de forma inteligente e compacta
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
-    trafego: true,
-    meta: true,
-    google: true,
-    whatsapp: true,
-    credenciais: true,
-    design: true,
-    crm: true,
+    trafego: false,
+    meta: false,
+    google: false,
+    whatsapp: false,
+    credenciais: false,
+    design: false,
+    crm: false,
   });
 
   const toggleSubmenu = (key: string) => {
@@ -67,6 +67,26 @@ function SidebarContent() {
 
   const currentPlataforma = searchParams?.get('plataforma');
   const currentTab = searchParams?.get('tab');
+
+  // Mantém aberto apenas o submenu da página em que o usuário está navegando
+  useEffect(() => {
+    if (pathname === '/midia') {
+      setOpenSubmenus((prev) => ({
+        ...prev,
+        trafego: true,
+        meta: !currentPlataforma || currentPlataforma === 'meta',
+        google: currentPlataforma === 'google',
+      }));
+    } else if (pathname === '/whatsapp') {
+      setOpenSubmenus((prev) => ({ ...prev, whatsapp: true }));
+    } else if (pathname === '/crm') {
+      setOpenSubmenus((prev) => ({ ...prev, crm: true }));
+    } else if (pathname === '/criativos') {
+      setOpenSubmenus((prev) => ({ ...prev, design: true }));
+    } else if (pathname.startsWith('/credenciais')) {
+      setOpenSubmenus((prev) => ({ ...prev, credenciais: true }));
+    }
+  }, [pathname, currentPlataforma]);
 
   return (
     <aside className="w-64 bg-white border-r border-[#E2E8F0] flex flex-col h-screen sticky top-0 z-40 select-none font-sans">
@@ -175,29 +195,34 @@ function SidebarContent() {
               Governança Master
             </div>
 
-            {/* Gestão de Clientes */}
+            {/* Dashboard de Clientes */}
             <Link
               href="/admin/clientes"
               className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
-                pathname === '/admin/clientes'
+                pathname === '/admin/clientes' || pathname === '/admin'
                   ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold shadow-xs'
                   : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Building className={`w-4 h-4 ${pathname === '/admin/clientes' ? 'text-[#0050FF]' : 'text-[#64748B]'}`} />
-                <span>Gestão de Clientes</span>
+                <LayoutDashboard className={`w-4 h-4 ${pathname === '/admin/clientes' || pathname === '/admin' ? 'text-[#0050FF]' : 'text-[#64748B]'}`} />
+                <span>Dashboard de Clientes</span>
               </div>
-              <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />
+              <div className="flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]">
+                  {clients.length}
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />
+              </div>
             </Link>
 
-            {/* Credenciais Admin (com Submenu de Integrações CRM por Cliente) */}
+            {/* Credenciais Admin (com Submenu de Notificações e Integrações CRM por Cliente) */}
             <div className="pt-1">
               <button
                 onClick={() => toggleSubmenu('credenciais')}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                   pathname.startsWith('/credenciais')
-                    ? 'text-[#0050FF] font-semibold'
+                    ? 'text-[#0050FF] font-semibold bg-[#EFF4FF]/50'
                     : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
                 }`}
               >
@@ -217,13 +242,25 @@ function SidebarContent() {
                   <Link
                     href="/credenciais/admin"
                     className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      pathname === '/credenciais/admin'
+                      pathname === '/credenciais/admin' && (!currentTab || currentTab !== 'uazapi')
                         ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
                         : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
                     }`}
                   >
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span>Master Admin (Globais)</span>
+                  </Link>
+
+                  <Link
+                    href="/credenciais/admin?tab=uazapi"
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      pathname === '/credenciais/admin' && currentTab === 'uazapi'
+                        ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold'
+                        : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    <Radio className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Notificações Uazapi</span>
                   </Link>
 
                   <Link
@@ -253,6 +290,22 @@ function SidebarContent() {
               <div className="flex items-center gap-3">
                 <Bot className={`w-4 h-4 ${pathname === '/admin/ia' ? 'text-[#0050FF]' : 'text-[#64748B]'}`} />
                 <span>Módulo de IA & Prompts</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />
+            </Link>
+
+            {/* Membros & Convites da Equipe Master */}
+            <Link
+              href="/admin/usuarios"
+              className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
+                pathname === '/admin/usuarios'
+                  ? 'bg-[#EFF4FF] text-[#0050FF] font-semibold shadow-xs'
+                  : 'text-[#475569] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <UserPlus className={`w-4 h-4 ${pathname === '/admin/usuarios' ? 'text-[#0050FF]' : 'text-[#64748B]'}`} />
+                <span>Membros & Convites</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-[#0050FF]" />
             </Link>

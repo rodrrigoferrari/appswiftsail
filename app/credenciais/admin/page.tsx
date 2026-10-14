@@ -17,7 +17,14 @@ import {
   Search,
   CreditCard,
   Bot,
+  MessageSquare,
+  QrCode,
+  Smartphone,
+  Send,
+  Plus,
+  Copy,
 } from 'lucide-react';
+import { WhatsAppConnectFlow } from '@/components/WhatsAppConnectFlow';
 
 export default function AdminCredentialsPage() {
   const [activeTab, setActiveAdminTab] = useState<'meta' | 'google' | 'uazapi' | 'asaas' | 'ai'>('uazapi');
@@ -25,6 +32,8 @@ export default function AdminCredentialsPage() {
   const [adminCreds, setAdminCreds] = useState({
     uazapi_url: 'https://api.uazapi.com',
     uazapi_token: '',
+    uazapi_service_instance: '',
+    uazapi_service_instance_token: '',
     meta_bm_id: '791208745012339',
     meta_access_token: '',
     google_mcc_id: '262-638-1700',
@@ -35,6 +44,13 @@ export default function AdminCredentialsPage() {
     ai_default_model: 'claude-3-5-sonnet-20241022',
   });
 
+  const [availableInstances, setAvailableInstances] = useState<Array<{ name: string; status: string; token: string }>>([]);
+  const [isLoadingInstances, setIsLoadingInstances] = useState(false);
+  const [showConnectNewFlow, setShowConnectNewFlow] = useState(false);
+  const [testNoticePhone, setTestNoticePhone] = useState('');
+  const [isSendingTestNotice, setIsSendingTestNotice] = useState(false);
+  const [testNoticeFeedback, setTestNoticeFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
   const [showKeys, setShowKeys] = useState<{ [key: string]: boolean }>({});
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -42,6 +58,25 @@ export default function AdminCredentialsPage() {
   const [testResult, setTestResult] = useState<{
     [service: string]: { success: boolean; message: string; latency?: number };
   }>({});
+
+  const fetchAvailableInstances = async () => {
+    setIsLoadingInstances(true);
+    try {
+      const res = await fetch('/api/uazapi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'list_instances', cliente_id: 'swiftsail' }),
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.instances)) {
+        setAvailableInstances(data.instances);
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar instâncias Uazapi:', e);
+    } finally {
+      setIsLoadingInstances(false);
+    }
+  };
 
   useEffect(() => {
     async function loadAdminCreds() {
@@ -56,6 +91,7 @@ export default function AdminCredentialsPage() {
       }
     }
     loadAdminCreds();
+    fetchAvailableInstances();
   }, []);
 
   const toggleShow = (key: string) => {
@@ -232,77 +268,338 @@ export default function AdminCredentialsPage() {
         <div className="lg:col-span-8">
           {/* UAZAPI TAB */}
           {activeTab === 'uazapi' && (
-            <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
-              <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
-                <div>
-                  <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                    <Radio className="w-4 h-4 text-[#0050FF]" />
-                    Uazapi Server URL & Admin Token
-                  </h3>
-                  <p className="text-xs text-[#64748B]">
-                    O <b>admintoken</b> é o precursor que cria e gerencia instâncias de cada cliente automaticamente
-                  </p>
+            <div className="space-y-6">
+              {/* Card 1: Servidor & Admin Token Master */}
+              <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
+                <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                      <Radio className="w-4 h-4 text-[#0050FF]" />
+                      Uazapi Server URL & Admin Token Master
+                    </h3>
+                    <p className="text-xs text-[#64748B]">
+                      O <b>admintoken</b> é o precursor mestre que cria, gerencia e audita instâncias de todos os clientes
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleTestConnection('uazapi')}
+                    disabled={testingService === 'uazapi'}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#EFF4FF] hover:bg-[#E0EAFF] text-[#0050FF] border border-[#BFDBFE] flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                  >
+                    {testingService === 'uazapi' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                    Testar Servidor
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleTestConnection('uazapi')}
-                  disabled={testingService === 'uazapi'}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#EFF4FF] hover:bg-[#E0EAFF] text-[#0050FF] border border-[#BFDBFE] flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                >
-                  {testingService === 'uazapi' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                  Testar Uazapi
-                </button>
+
+                {testResult['uazapi'] && (
+                  <div
+                    className={`p-3.5 rounded-xl text-xs border ${
+                      testResult['uazapi'].success
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                    }`}
+                  >
+                    <p className="font-semibold">{testResult['uazapi'].message}</p>
+                    {testResult['uazapi'].latency && (
+                      <p className="text-[10px] opacity-80 mt-0.5">Latência: {testResult['uazapi'].latency}ms</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="block text-[#475569] font-semibold mb-1">Server URL da Uazapi</label>
+                    <input
+                      type="text"
+                      value={adminCreds.uazapi_url}
+                      onChange={(e) => setAdminCreds({ ...adminCreds, uazapi_url: e.target.value })}
+                      placeholder="https://api.uazapi.com ou https://seu-servidor.com"
+                      className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#475569] font-semibold mb-1">
+                      Admin Token Global (Header: <code>admintoken</code>)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showKeys['uazapi_admin'] ? 'text' : 'password'}
+                        value={adminCreds.uazapi_token}
+                        onChange={(e) => setAdminCreds({ ...adminCreds, uazapi_token: e.target.value })}
+                        placeholder="Insira o admintoken da sua conta administrativa Uazapi"
+                        className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 pr-10 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
+                      />
+                      <button
+                        onClick={() => toggleShow('uazapi_admin')}
+                        className="absolute right-3 top-2.5 text-[#94A3B8] hover:text-[#0F172A] cursor-pointer"
+                      >
+                        {showKeys['uazapi_admin'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {testResult['uazapi'] && (
-                <div
-                  className={`p-3.5 rounded-xl text-xs border ${
-                    testResult['uazapi'].success
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-rose-50 text-rose-700 border-rose-200'
-                  }`}
-                >
-                  <p className="font-semibold">{testResult['uazapi'].message}</p>
-                  {testResult['uazapi'].latency && (
-                    <p className="text-[10px] opacity-80 mt-0.5">Latência: {testResult['uazapi'].latency}ms</p>
-                  )}
-                </div>
-              )}
+              {/* Card 2: Instância Dedicada para Notificações de Serviço (Seletor ou Conectar Nova) */}
+              <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F1F5F9] pb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4 text-emerald-600" />
+                        Instância de Notificações de Serviço
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        WhatsApp Alertas
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#64748B] mt-0.5">
+                      Instância utilizada pela Swiftsail para alertas operacionais, avisos de sistema e notificações transacionais.
+                    </p>
+                  </div>
 
-              <div className="space-y-4 text-xs">
-                <div>
-                  <label className="block text-[#475569] font-semibold mb-1">Server URL da Uazapi</label>
-                  <input
-                    type="text"
-                    value={adminCreds.uazapi_url}
-                    onChange={(e) => setAdminCreds({ ...adminCreds, uazapi_url: e.target.value })}
-                    placeholder="https://api.uazapi.com ou https://seu-servidor.com"
-                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[#475569] font-semibold mb-1">
-                    Admin Token Global (Header: <code>admintoken</code>)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showKeys['uazapi_admin'] ? 'text' : 'password'}
-                      value={adminCreds.uazapi_token}
-                      onChange={(e) => setAdminCreds({ ...adminCreds, uazapi_token: e.target.value })}
-                      placeholder="Insira o admintoken da sua conta administrativa Uazapi"
-                      className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 pr-10 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
-                    />
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => toggleShow('uazapi_admin')}
-                      className="absolute right-3 top-2.5 text-[#94A3B8] hover:text-[#0F172A] cursor-pointer"
+                      type="button"
+                      onClick={() => setShowConnectNewFlow(!showConnectNewFlow)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs border ${
+                        showConnectNewFlow
+                          ? 'bg-[#EFF4FF] text-[#0050FF] border-[#BFDBFE]'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
+                      }`}
                     >
-                      {showKeys['uazapi_admin'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showConnectNewFlow ? (
+                        <>
+                          <Radio className="w-3.5 h-3.5" />
+                          <span>Voltar ao Seletor</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Conectar Nova Instância</span>
+                        </>
+                      )}
                     </button>
                   </div>
-                  <p className="text-[10px] text-[#64748B] mt-1">
-                    Permite criar instâncias isoladas com <code>POST /instance/create</code> para qualquer cliente.
-                  </p>
                 </div>
+
+                {/* VISÃO 1: FLUXO HIGHLANDER PARA CONECTAR NOVA INSTÂNCIA */}
+                {showConnectNewFlow ? (
+                  <div className="space-y-4">
+                    <div className="p-3.5 rounded-xl bg-[#EFF4FF]/60 border border-[#BFDBFE] text-xs text-[#1E3A8A] flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <QrCode className="w-4 h-4 text-[#0050FF] shrink-0" />
+                        <span>
+                          Escaneie o QR Code ou gere o código de 8 dígitos para conectar uma <b>nova linha de serviço</b>.
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setShowConnectNewFlow(false)}
+                        className="text-[11px] font-bold text-[#0050FF] hover:underline cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+
+                    <WhatsAppConnectFlow
+                      clienteId="swiftsail_service"
+                      onStatusChange={(status, inst) => {
+                        if (status === 'connected') {
+                          fetchAvailableInstances();
+                          if (inst?.name) {
+                            setAdminCreds((prev) => ({
+                              ...prev,
+                              uazapi_service_instance: inst.name,
+                              uazapi_service_instance_token: inst.token || prev.uazapi_service_instance_token,
+                            }));
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  /* VISÃO 2: SELETOR DE INSTÂNCIA EXISTENTE */
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className="block text-xs font-bold text-[#0F172A] flex items-center justify-between">
+                          <span>Selecionar Instância Ativa na Uazapi:</span>
+                          <span className="text-[10px] text-[#64748B] font-normal">
+                            {availableInstances.length} instâncias mapeadas
+                          </span>
+                        </label>
+                        <select
+                          value={adminCreds.uazapi_service_instance}
+                          onChange={(e) => {
+                            const selectedName = e.target.value;
+                            const found = availableInstances.find((i) => i.name === selectedName);
+                            setAdminCreds({
+                              ...adminCreds,
+                              uazapi_service_instance: selectedName,
+                              uazapi_service_instance_token: found?.token || adminCreds.uazapi_service_instance_token,
+                            });
+                          }}
+                          className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-semibold text-[#0F172A] focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors shadow-2xs cursor-pointer"
+                        >
+                          <option value="">Selecione uma instância para Notificações de Serviço...</option>
+                          {availableInstances.map((inst) => (
+                            <option key={inst.name} value={inst.name}>
+                              {inst.status === 'connected' ? '🟢' : '⚪'} {inst.name} ({inst.status === 'connected' ? 'Conectada' : 'Desconectada'})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <button
+                          type="button"
+                          onClick={fetchAvailableInstances}
+                          disabled={isLoadingInstances}
+                          className="w-full py-2 px-3 rounded-xl border border-[#CBD5E1] bg-white hover:bg-[#F8FAFC] text-[#475569] font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition disabled:opacity-50"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${isLoadingInstances ? 'animate-spin text-[#0050FF]' : ''}`} />
+                          <span>Atualizar Lista</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Resumo da Instância Selecionada */}
+                    {adminCreds.uazapi_service_instance && (
+                      <div className="p-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-white border border-[#E2E8F0] flex items-center justify-center text-emerald-600 shadow-xs">
+                            <Smartphone className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-[#0F172A]">
+                                {adminCreds.uazapi_service_instance}
+                              </span>
+                              {availableInstances.find((i) => i.name === adminCreds.uazapi_service_instance)?.status === 'connected' ? (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  Conectada & Pronta
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+                                  <AlertCircle className="w-3 h-3" />
+                                  Desconectada ou Aguardando QR
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-[#64748B] font-mono mt-0.5">
+                              Token:{' '}
+                              {adminCreds.uazapi_service_instance_token
+                                ? `${adminCreds.uazapi_service_instance_token.slice(0, 10)}...${adminCreds.uazapi_service_instance_token.slice(-6)}`
+                                : 'Token herdado via Highlander'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const found = availableInstances.find((i) => i.name === adminCreds.uazapi_service_instance);
+                              if (found?.token) {
+                                navigator.clipboard.writeText(found.token);
+                                alert('Token da instância copiado com sucesso!');
+                              }
+                            }}
+                            className="px-3 py-1.5 rounded-lg border border-[#CBD5E1] bg-white text-xs font-semibold text-[#475569] hover:bg-slate-50 flex items-center gap-1.5 shadow-xs cursor-pointer"
+                            title="Copiar token da instância"
+                          >
+                            <Copy className="w-3 h-3 text-[#64748B]" />
+                            <span>Copiar Token</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Teste de Notificação Rápida */}
+                    <div className="p-4 rounded-xl border border-[#BFDBFE]/60 bg-[#EFF4FF]/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-[#1E3A8A] flex items-center gap-1.5">
+                          <Send className="w-3.5 h-3.5 text-[#0050FF]" />
+                          Testar Envio de Alerta de Serviço (WhatsApp)
+                        </label>
+                        <span className="text-[10px] text-[#64748B]">Simula notificação em tempo real</span>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="text"
+                          value={testNoticePhone}
+                          onChange={(e) => setTestNoticePhone(e.target.value)}
+                          placeholder="Ex: 5511999998888 (com DDI e DDD)"
+                          className="flex-1 bg-white border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-mono text-[#0F172A] focus:border-[#0050FF] focus:outline-none shadow-2xs"
+                        />
+                        <button
+                          type="button"
+                          disabled={isSendingTestNotice || !testNoticePhone}
+                          onClick={async () => {
+                            setIsSendingTestNotice(true);
+                            setTestNoticeFeedback(null);
+                            try {
+                              const cleanPhone = testNoticePhone.replace(/\D/g, '');
+                              const res = await fetch('/api/uazapi', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  action: 'send_message',
+                                  cliente_id: 'swiftsail',
+                                  phone: cleanPhone,
+                                  message: '🔔 [Swiftsail Alerta] Mensagem de teste de serviço enviada com sucesso pela instância configurada no Admin!',
+                                  instance_token: adminCreds.uazapi_service_instance_token || undefined,
+                                }),
+                              });
+                              const data = await res.json();
+                              if (data.success) {
+                                setTestNoticeFeedback({
+                                  type: 'success',
+                                  message: 'Mensagem de teste de serviço enviada com sucesso no WhatsApp!',
+                                });
+                              } else {
+                                setTestNoticeFeedback({
+                                  type: 'error',
+                                  message: data.error || 'Falha ao enviar mensagem de teste.',
+                                });
+                              }
+                            } catch {
+                              setTestNoticeFeedback({
+                                type: 'error',
+                                message: 'Erro de comunicação ao disparar notificação.',
+                              });
+                            } finally {
+                              setIsSendingTestNotice(false);
+                            }
+                          }}
+                          className="px-4 py-2 rounded-xl text-xs font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition disabled:opacity-50"
+                        >
+                          {isSendingTestNotice ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Send className="w-3.5 h-3.5" />
+                          )}
+                          <span>Disparar Teste</span>
+                        </button>
+                      </div>
+
+                      {testNoticeFeedback && (
+                        <div
+                          className={`p-2.5 rounded-lg text-xs font-semibold border ${
+                            testNoticeFeedback.type === 'success'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}
+                        >
+                          {testNoticeFeedback.message}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

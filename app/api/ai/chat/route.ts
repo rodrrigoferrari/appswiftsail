@@ -15,8 +15,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Buscar a chave de API da Anthropic cadastrada no admin (knowledge_base)
-    let anthropicApiKey = process.env.ANTHROPIC_API_KEY || '';
+    // 1. Buscar a chave de API da OpenRouter cadastrada no admin (knowledge_base)
+    let openrouterApiKey = process.env.OPENROUTER_API_KEY || '';
+    let configuredModel = 'anthropic/claude-3.5-sonnet';
 
     try {
       const { data: credsData } = await supabaseAdmin
@@ -28,21 +29,24 @@ export async function POST(req: Request) {
 
       if (credsData && credsData.length > 0) {
         const parsed = JSON.parse(credsData[0].content);
-        if (parsed.anthropic_key && parsed.anthropic_key.trim().length > 0) {
-          anthropicApiKey = parsed.anthropic_key.trim();
+        if (parsed.openrouter_api_key && parsed.openrouter_api_key.trim().length > 0) {
+          openrouterApiKey = parsed.openrouter_api_key.trim();
+        }
+        if (parsed.ai_default_model && parsed.ai_default_model.trim().length > 0) {
+          configuredModel = parsed.ai_default_model.trim();
         }
       }
     } catch (dbErr) {
-      console.warn('[AI Chat] Erro ao ler credenciais do banco:', dbErr);
+      console.warn('[AI Chat OpenRouter] Erro ao ler credenciais do banco:', dbErr);
     }
 
-    if (!anthropicApiKey) {
+    if (!openrouterApiKey) {
       return NextResponse.json(
         {
           success: false,
           error:
-            'Nenhuma API Key da Anthropic encontrada. Por favor, cadastre seu token em "Admin > Governança de IA" ou "Credenciais Master".',
-          code: 'MISSING_API_KEY',
+            'Nenhuma API Key da OpenRouter encontrada. Por favor, cadastre seu token em "Admin > Módulo de IA & Prompts" ou "Credenciais Master".',
+          code: 'MISSING_OPENROUTER_KEY',
         },
         { status: 400 }
       );
@@ -64,72 +68,84 @@ REGRAS ESTRITAS DE ISOLAMENTO E GOVERNANÇA:
 DADOS REAIS DO CLIENTE "${clientDisplayName}" NO PERÍODO (${periodLabel}):
 ${JSON.stringify(metricsContext || {}, null, 2)}`;
 
-    // 3. Fazer requisição direta para a API da Anthropic
-    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    // 3. Fazer requisição direta para a API da OpenRouter
+    const openrouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
+        Authorization: `Bearer ${openrouterApiKey}`,
+        'HTTP-Referer': 'https://swiftsail.com.br',
+        'X-Title': 'Swiftsail Platform',
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1500,
-        temperature: 0.3,
-        system: systemPrompt,
+        model: configuredModel,
         messages: [
+          {
+            role: 'system',
+            content: systemPrompt,
+          },
           {
             role: 'user',
             content: pergunta,
           },
         ],
+        temperature: 0.3,
+        max_tokens: 1500,
       }),
     });
 
-    if (!anthropicResponse.ok) {
-      const errText = await anthropicResponse.text();
-      console.error('[AI Chat] Erro retornado pela Anthropic API:', anthropicResponse.status, errText);
+    if (!openrouterResponse.ok) {
+      const errText = await openrouterResponse.text();
+      console.error('[AI Chat] Erro retornado pela OpenRouter API:', openrouterResponse.status, errText);
 
-      // Tenta fallback com claude-3-haiku caso o modelo sonnet específico não esteja habilitado no tier
-      if (anthropicResponse.status === 404 || errText.includes('model')) {
-        const fallbackResponse = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'x-api-key': anthropicApiKey,
-            'anthropic-version': '2023-06-01',
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'claude-3-haiku-20240307',
-            max_tokens: 1500,
-            temperature: 0.3,
-            system: systemPrompt,
-            messages: [{ role: 'user', content: pergunta }],
-          }),
-        });
+      // Fallback para anthropic/claude-3.5-haiku se o modelo principal falhar
+      if (configuredModel !== 'anthropic/claude-3.5-haiku') {
+        try {
+          const fallbackResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${openrouterApiKey}`,
+              'HTTP-Referer': 'https://swiftsail.com.br',
+              'X-Title': 'Swiftsail Platform',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'anthropic/claude-3.5-haiku',
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: pergunta },
+              ],
+              temperature: 0.3,
+              max_tokens: 1500,
+            }),
+          });
 
-        if (fallbackResponse.ok) {
-          const fallbackData = await fallbackResponse.json();
-          const resposta = fallbackData.content?.[0]?.text || 'Sem resposta gerada.';
-          return NextResponse.json({ success: true, resposta });
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            const resposta = fallbackData.choices?.[0]?.message?.content || 'Sem resposta gerada.';
+            return NextResponse.json({ success: true, resposta, modelUsed: 'anthropic/claude-3.5-haiku' });
+          }
+        } catch (fErr) {
+          console.warn('[AI Chat] Fallback OpenRouter falhou:', fErr);
         }
       }
 
       return NextResponse.json(
         {
           success: false,
-          error: `Erro na API da Anthropic (${anthropicResponse.status}): ${errText}`,
+          error: `Erro na API da OpenRouter (${openrouterResponse.status}): ${errText}`,
         },
         { status: 502 }
       );
     }
 
-    const aiData = await anthropicResponse.json();
-    const resposta = aiData.content?.[0]?.text || 'Sem resposta gerada pelo modelo.';
+    const aiData = await openrouterResponse.json();
+    const resposta = aiData.choices?.[0]?.message?.content || 'Sem resposta gerada pelo modelo.';
 
     return NextResponse.json({
       success: true,
       resposta,
+      modelUsed: configuredModel,
     });
   } catch (err: unknown) {
     console.error('[AI Chat] Erro inesperado:', err);

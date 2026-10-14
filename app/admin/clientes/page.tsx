@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import {
   Building,
+  LayoutDashboard,
   Plus,
   Search,
   CheckCircle2,
@@ -161,12 +162,12 @@ export default function AdminClientesPage() {
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
-              Gestão de Carteira Swiftsail
+              Governança Master • Dashboard de Clientes
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-[#0F172A] flex items-center gap-2.5">
-            <Building className="w-6 h-6 text-[#0050FF]" />
-            Clientes & Workspaces Cadastrados
+            <LayoutDashboard className="w-6 h-6 text-[#0050FF]" />
+            Dashboard de Clientes & Workspaces
           </h1>
           <p className="text-xs text-[#64748B] max-w-2xl leading-relaxed">
             Painel mestre de governança dos clientes da agência. Cada cliente opera com isolamento de dados, contas de anúncios próprias e CRM integrado.

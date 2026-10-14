@@ -32,6 +32,8 @@ export async function GET() {
         uazapi_url: 'https://api.uazapi.com',
         uazapi_token: '',
         uazapi_instance: 'inst_swiftsail_live',
+        uazapi_service_instance: '',
+        uazapi_service_instance_token: '',
         meta_bm_id: '791208745012339',
         meta_access_token: '',
         meta_app_secret: '',
