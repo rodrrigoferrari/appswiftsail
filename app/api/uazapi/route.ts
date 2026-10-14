@@ -12,8 +12,13 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+import { getUazapiCredentialsForClient } from '@/lib/services/credentials-resolver';
+
 // Helper to get or save client instance token in Supabase
 async function getClientInstanceToken(clienteId: string): Promise<string | null> {
+  const creds = await getUazapiCredentialsForClient(clienteId);
+  if (creds.instanceToken) return creds.instanceToken;
+
   const { data } = await supabaseAdmin
     .from('knowledge_base')
     .select('content')

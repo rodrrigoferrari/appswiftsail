@@ -13,7 +13,6 @@ import {
   ShieldAlert,
   Clock,
   AlertCircle,
-  QrCode,
   Radio,
   Sliders,
   Sparkles,
@@ -21,18 +20,18 @@ import {
   RefreshCw,
   Plus,
   CheckCircle2,
-  Crown,
+  Trash2,
   KeyRound,
   ShieldCheck,
   ArrowRight,
   PhoneCall,
   Phone,
   PhoneOff,
-  ExternalLink,
   KanbanSquare,
   FileDown,
   Info,
   Check,
+  Tag,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -78,22 +77,13 @@ function WhatsAppContent() {
     pipelineId?: string;
   }>({ configured: false });
 
-  // Group Scraper State
-  const [groups, setGroups] = useState<any[]>([
-    { jid: '120363385277868846@g.us', name: 'VIP Investidores & Lançamentos Imobiliários', participants: 487 },
-    { jid: '120363391823719821@g.us', name: 'Executivos & Incorporadores SP', participants: 312 },
-    { jid: '120363198273918273@g.us', name: 'Compradores Alto Padrão - Jardins/Moema', participants: 624 },
-  ]);
-  const [selectedGroupJid, setSelectedGroupJid] = useState('120363385277868846@g.us');
+  // Group Scraper State (Sem dados fixos/mock)
+  const [groups, setGroups] = useState<any[]>([]);
+  const [selectedGroupJid, setSelectedGroupJid] = useState('');
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const [adminFilterOption, setAdminFilterOption] = useState<'exclude' | 'include' | 'only_admins'>('exclude');
-  const [scrapedContacts, setScrapedContacts] = useState<any[]>([
-    { id: 1, name: 'Dr. Rodrigo Martins', phone: '+55 11 98122-3344', isAdmin: true, group: 'VIP Investidores & Lançamentos' },
-    { id: 2, name: 'Juliana Faria', phone: '+55 11 99234-5566', isAdmin: false, group: 'VIP Investidores & Lançamentos' },
-    { id: 3, name: 'Eduardo Prado (CEO)', phone: '+55 11 97890-1234', isAdmin: true, group: 'Executivos & Incorporadores' },
-    { id: 4, name: 'Fernanda Alencar', phone: '+55 11 98456-7890', isAdmin: false, group: 'Executivos & Incorporadores' },
-    { id: 5, name: 'Carlos Eduardo Mendes', phone: '+55 41 99123-4567', isAdmin: false, group: 'VIP Investidores & Lançamentos' },
-  ]);
+  const [scrapedContacts, setScrapedContacts] = useState<any[]>([]);
 
   // Mass Broadcast & Anti-Ban Safeguards State
   const [messagesPerDay, setMessagesPerDay] = useState(150);
@@ -103,14 +93,46 @@ function WhatsAppContent() {
   const [timeWindowEnd, setTimeWindowEnd] = useState('18:30');
   const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
 
-  // Spintax Variations
-  const [copyA, setCopyA] = useState(
-    'Olá {primeiro_nome}, tudo bem? Sou da equipe da {cliente}. Notei que você também está no grupo {grupo_origem} e gostaria de compartilhar nossa oportunidade exclusiva de investimento.'
-  );
-  const [copyB, setCopyB] = useState(
-    'Oi {primeiro_nome}, como vai? Liberamos esta semana condições de lançamento prioritárias com atendimento VIP no WhatsApp. Gostaria de receber o catálogo?'
-  );
+  // Spintax Variations (Até 6 variações dinâmicas de mensagem)
+  const [copies, setCopies] = useState<string[]>([
+    'Olá {primeiro_nome}, tudo bem? Sou da equipe da {cliente}. Notei que você também está no grupo {grupo_origem} e gostaria de compartilhar nossa oportunidade exclusiva de investimento.',
+    'Oi {primeiro_nome}, como vai? Liberamos esta semana condições de lançamento prioritárias com atendimento VIP no WhatsApp. Gostaria de receber o catálogo?',
+    'Olá {primeiro_nome}! Passando rapidamente para compartilhar uma condição especial que preparamos para membros do {grupo_origem}. Posso te enviar o material?',
+  ]);
 
+  const copyLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+  const addCopyVariation = () => {
+    if (copies.length >= 6) return;
+    const nextLetter = copyLetters[copies.length];
+    setCopies((prev) => [
+      ...prev,
+      `Olá {primeiro_nome}, tudo bem? [Variação ${nextLetter}] Temos uma oportunidade exclusiva para você da equipe ${clientName}. Gostaria de conhecer?`,
+    ]);
+  };
+
+  const removeCopyVariation = (index: number) => {
+    if (copies.length <= 1) return;
+    setCopies((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateCopyVariation = (index: number, text: string) => {
+    setCopies((prev) => {
+      const next = [...prev];
+      next[index] = text;
+      return next;
+    });
+  };
+
+  const insertTagIntoCopy = (index: number, tag: string) => {
+    setCopies((prev) => {
+      const next = [...prev];
+      next[index] = (next[index] ? next[index] + ' ' : '') + tag;
+      return next;
+    });
+  };
+
+  // Buscar histórico de chamadas
   const fetchCallsHistory = async () => {
     setIsLoadingCalls(true);
     try {
@@ -126,6 +148,7 @@ function WhatsAppContent() {
     }
   };
 
+  // Buscar status das credenciais do Kommo CRM
   const checkKommoClientConfig = async () => {
     try {
       const res = await fetch(`/api/credentials/client/status?cliente_id=${encodeURIComponent(targetId)}`).catch(() => null);
@@ -133,7 +156,6 @@ function WhatsAppContent() {
         const data = await res.json();
         setKommoStatus(data);
       } else {
-        // Fallback visual
         setKommoStatus({
           configured: true,
           subdomain: targetId.toLowerCase().replace('_', ''),
@@ -144,24 +166,95 @@ function WhatsAppContent() {
     }
   };
 
+  // Buscar grupos reais da instância UAZAPI
+  const fetchGroups = async () => {
+    setIsLoadingGroups(true);
+    try {
+      const res = await fetch('/api/uazapi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'list_groups', cliente_id: targetId }),
+      });
+      const data = await res.json();
+      const list = Array.isArray(data.groups) ? data.groups : [];
+      setGroups(list);
+      if (list.length > 0 && !selectedGroupJid) {
+        setSelectedGroupJid(list[0].jid || list[0].id || '');
+      }
+    } catch (err) {
+      console.warn('[Fetch Groups Warning]:', err);
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  };
+
   useEffect(() => {
     fetchCallsHistory();
     checkKommoClientConfig();
+    fetchGroups();
   }, [targetId]);
 
-  const handleScrape = () => {
+  // Raspagem real de participantes de grupo
+  const handleScrape = async () => {
+    if (!selectedGroupJid) {
+      alert('Selecione ou informe um grupo para iniciar a extração.');
+      return;
+    }
+
     setIsScraping(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/uazapi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'scrape_group',
+          group_jid: selectedGroupJid,
+          cliente_id: targetId,
+        }),
+      });
+
+      const data = await res.json();
+      const rawParticipants = data.group?.participants || data.participants || [];
+      const currentGroup = groups.find((g) => (g.jid || g.id) === selectedGroupJid);
+      const groupName = currentGroup?.name || currentGroup?.subject || 'Grupo WhatsApp';
+
+      let mapped = rawParticipants.map((p: any, idx: number) => {
+        const userPhone = p.id?.user || p.id || p.phone || '';
+        const phoneFormatted = userPhone.startsWith('+') ? userPhone : userPhone ? `+${userPhone}` : '';
+        return {
+          id: idx + 1,
+          name: p.name || p.pushName || `Participante ${idx + 1}`,
+          phone: phoneFormatted,
+          isAdmin: p.admin === 'admin' || p.admin === 'superadmin' || p.isAdmin === true,
+          group: groupName,
+        };
+      });
+
+      if (adminFilterOption === 'exclude') {
+        mapped = mapped.filter((c: any) => !c.isAdmin);
+      } else if (adminFilterOption === 'only_admins') {
+        mapped = mapped.filter((c: any) => c.isAdmin);
+      }
+
+      setScrapedContacts(mapped);
+
+      if (mapped.length > 0) {
+        alert(`Coleta concluída! ${mapped.length} contatos qualificados importados do grupo.`);
+      } else {
+        alert('Nenhum contato encontrado ou grupo sem participantes para o filtro selecionado.');
+      }
+    } catch (err: any) {
+      alert('Falha ao raspar grupo: ' + err.message);
+    } finally {
       setIsScraping(false);
-      alert('Coleta concluída! 84 novos contatos qualificados importados do grupo.');
-    }, 1000);
+    }
   };
 
   const handleStartBroadcast = () => {
     setIsSendingBroadcast(true);
     setTimeout(() => {
       setIsSendingBroadcast(false);
-      alert('Transmissão iniciada com sucesso! As mensagens serão disparadas respeitando as salvaguardas e o intervalo randômico de 25 a 45 segundos.');
+      alert(`Transmissão iniciada com sucesso! As ${copies.length} variações de mensagem serão rotacionadas de forma intercalada, respeitando as salvaguardas e o intervalo randômico de ${intervalOption} segundos.`);
     }, 1200);
   };
 
@@ -193,7 +286,7 @@ function WhatsAppContent() {
             Hub WhatsApp API, Chamadas & Automação
           </h1>
           <p className="text-xs text-[#64748B] max-w-2xl leading-relaxed">
-            Workspace dedicado do cliente <b className="text-[#0F172A]">{clientName}</b>. Conexão por QR Code ou Código de 8 Dígitos, chamadas de voz sincronizadas com Kommo CRM, raspagem de grupos e disparo controlado com salvaguardas anti-ban.
+            Workspace dedicado do cliente <b className="text-[#0F172A]">{clientName}</b>. Conexão por QR Code ou Código de 8 Dígitos, chamadas de voz sincronizadas com Kommo CRM, raspagem de grupos e disparador multi-copy (até 6 variações) com salvaguardas anti-ban.
           </p>
         </div>
 
@@ -247,7 +340,7 @@ function WhatsAppContent() {
           }`}
         >
           <Sliders className="w-3.5 h-3.5" />
-          <span>3. Envio em Massa (Anti-Ban)</span>
+          <span>3. Envio em Massa (Até 6 Variações)</span>
         </button>
 
         <button
@@ -314,25 +407,37 @@ function WhatsAppContent() {
         </div>
       )}
 
-      {/* ABA 2: COLETA DE GRUPOS (RASPAGEM) */}
+      {/* ABA 2: COLETA DE GRUPOS (RASPAGEM - SEM DADOS FIXOS) */}
       {subTab === 'grupos' && (
         <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-4">
             <div>
               <h2 className="text-base font-bold text-[#0F172A]">Coleta e Importação de Contatos de Grupos</h2>
               <p className="text-xs text-[#64748B]">
-                Extraia contatos qualificados de grupos do WhatsApp vinculados à sua instância para prospecção direta ou campanhas.
+                Extraia contatos qualificados de grupos do WhatsApp vinculados à sua instância conectada.
               </p>
             </div>
 
-            <button
-              onClick={handleScrape}
-              disabled={isScraping}
-              className="bg-[#0050FF] hover:bg-[#0040D6] text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto transition disabled:opacity-50"
-            >
-              {isScraping ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              <span>Iniciar Coleta no Grupo</span>
-            </button>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                onClick={fetchGroups}
+                disabled={isLoadingGroups}
+                className="px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white hover:bg-[#F8FAFC] text-[#475569] font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer transition disabled:opacity-50"
+                title="Recarregar grupos da instância"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingGroups ? 'animate-spin text-[#0050FF]' : ''}`} />
+                <span>Atualizar Grupos</span>
+              </button>
+
+              <button
+                onClick={handleScrape}
+                disabled={isScraping || !selectedGroupJid}
+                className="bg-[#0050FF] hover:bg-[#0040D6] text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs cursor-pointer transition disabled:opacity-50"
+              >
+                {isScraping ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                <span>Iniciar Coleta no Grupo</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 items-center">
@@ -340,17 +445,35 @@ function WhatsAppContent() {
               <label className="block text-xs font-semibold text-[#475569] mb-1">
                 Selecionar Grupo de Origem
               </label>
-              <select
-                value={selectedGroupJid}
-                onChange={(e) => setSelectedGroupJid(e.target.value)}
-                className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#0050FF] cursor-pointer"
-              >
-                {groups.map((g) => (
-                  <option key={g.jid} value={g.jid}>
-                    {g.name} ({g.participants} participantes)
-                  </option>
-                ))}
-              </select>
+              {groups.length === 0 ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={selectedGroupJid}
+                    onChange={(e) => setSelectedGroupJid(e.target.value)}
+                    placeholder="Cole o JID do grupo (ex: 120363...g.us) ou clique em Atualizar Grupos"
+                    className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-mono text-[#0F172A] focus:outline-none focus:border-[#0050FF]"
+                  />
+                </div>
+              ) : (
+                <select
+                  value={selectedGroupJid}
+                  onChange={(e) => setSelectedGroupJid(e.target.value)}
+                  className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#0050FF] cursor-pointer"
+                >
+                  <option value="">Selecione um grupo da lista...</option>
+                  {groups.map((g) => {
+                    const jid = g.jid || g.id || '';
+                    const title = g.name || g.subject || jid;
+                    const count = g.participants?.length || g.size || '';
+                    return (
+                      <option key={jid} value={jid}>
+                        {title} {count ? `(${count} participantes)` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
             </div>
 
             <div className="w-full sm:w-1/2">
@@ -369,92 +492,170 @@ function WhatsAppContent() {
             </div>
           </div>
 
-          {/* Tabela de Contatos Coletados */}
-          <div className="border border-[#E2E8F0] rounded-xl overflow-hidden mt-4">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-[#F8FAFC] text-[#64748B] font-bold border-b border-[#E2E8F0]">
-                <tr>
-                  <th className="py-2.5 px-4">Nome / Identificação</th>
-                  <th className="py-2.5 px-4">Telefone</th>
-                  <th className="py-2.5 px-4">Tipo</th>
-                  <th className="py-2.5 px-4">Grupo de Origem</th>
-                  <th className="py-2.5 px-4 text-right">Ação Rápida</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E2E8F0]">
-                {scrapedContacts.map((c) => (
-                  <tr key={c.id} className="hover:bg-[#F8FAFC] transition-colors">
-                    <td className="py-2.5 px-4 font-semibold text-[#0F172A]">{c.name}</td>
-                    <td className="py-2.5 px-4 font-mono text-[#64748B]">{c.phone}</td>
-                    <td className="py-2.5 px-4">
-                      {c.isAdmin ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                          Admin
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
-                          Membro
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-4 text-[#64748B]">{c.group}</td>
-                    <td className="py-2.5 px-4 text-right">
-                      <button
-                        onClick={() => openCallForContact(c.phone, c.name)}
-                        className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] text-[#0050FF] hover:bg-[#E0EAFF] font-bold text-[11px] inline-flex items-center gap-1.5 transition cursor-pointer"
-                      >
-                        <PhoneCall className="w-3 h-3" />
-                        <span>Ligar WhatsApp</span>
-                      </button>
-                    </td>
+          {/* Tabela de Contatos Coletados (Com estado vazio dinâmico) */}
+          {scrapedContacts.length === 0 ? (
+            <div className="p-8 text-center bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] text-[#64748B] text-xs space-y-2 mt-2">
+              <Users className="w-8 h-8 text-[#CBD5E1] mx-auto" />
+              <p className="font-semibold text-[#0F172A]">Nenhum participante coletado ainda.</p>
+              <p className="text-[11px]">
+                Selecione um grupo acima e clique em <b>"Iniciar Coleta no Grupo"</b> para raspar os participantes em tempo real da UAZAPI.
+              </p>
+            </div>
+          ) : (
+            <div className="border border-[#E2E8F0] rounded-xl overflow-hidden mt-4">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-[#F8FAFC] text-[#64748B] font-bold border-b border-[#E2E8F0]">
+                  <tr>
+                    <th className="py-2.5 px-4">Nome / Identificação</th>
+                    <th className="py-2.5 px-4">Telefone</th>
+                    <th className="py-2.5 px-4">Tipo</th>
+                    <th className="py-2.5 px-4">Grupo de Origem</th>
+                    <th className="py-2.5 px-4 text-right">Ação Rápida</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-[#E2E8F0]">
+                  {scrapedContacts.map((c) => (
+                    <tr key={c.id} className="hover:bg-[#F8FAFC] transition-colors">
+                      <td className="py-2.5 px-4 font-semibold text-[#0F172A]">{c.name}</td>
+                      <td className="py-2.5 px-4 font-mono text-[#64748B]">{c.phone}</td>
+                      <td className="py-2.5 px-4">
+                        {c.isAdmin ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                            Admin
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                            Membro
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-4 text-[#64748B]">{c.group}</td>
+                      <td className="py-2.5 px-4 text-right">
+                        <button
+                          onClick={() => openCallForContact(c.phone, c.name)}
+                          className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] text-[#0050FF] hover:bg-[#E0EAFF] font-bold text-[11px] inline-flex items-center gap-1.5 transition cursor-pointer"
+                        >
+                          <PhoneCall className="w-3 h-3" />
+                          <span>Ligar WhatsApp</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
-      {/* ABA 3: DISPAROS EM MASSA COM SALVAGUARDAS (ANTI-BAN) */}
+      {/* ABA 3: DISPAROS EM MASSA COM ATÉ 6 VARIAÇÕES DE MENSAGEM */}
       {subTab === 'disparos' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-7 bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-4">
-            <h2 className="text-base font-bold text-[#0F172A]">Configuração de Transmissão Segmentada</h2>
-            <p className="text-xs text-[#64748B]">
-              Defina as variações de copy (Spintax) que serão intercaladas dinamicamente entre os disparos para evitar detecção de spam pelo WhatsApp.
-            </p>
-
-            <div className="space-y-3">
+          <div className="lg:col-span-7 bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-3">
               <div>
-                <label className="block text-xs font-semibold text-[#475569] mb-1">
-                  Variação de Copy A (Apresentação Principal)
-                </label>
-                <textarea
-                  rows={3}
-                  value={copyA}
-                  onChange={(e) => setCopyA(e.target.value)}
-                  className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl p-3 text-xs text-[#0F172A] focus:outline-none focus:border-[#0050FF]"
-                />
+                <h2 className="text-base font-bold text-[#0F172A]">
+                  Variações de Mensagem do Disparador ({copies.length}/6)
+                </h2>
+                <p className="text-xs text-[#64748B]">
+                  Cadastre até 6 mensagens com Spintax. O motor intercalará as variações automaticamente para evitar bloqueios.
+                </p>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#475569] mb-1">
-                  Variação de Copy B (Pergunta de Identificação)
-                </label>
-                <textarea
-                  rows={3}
-                  value={copyB}
-                  onChange={(e) => setCopyB(e.target.value)}
-                  className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl p-3 text-xs text-[#0F172A] focus:outline-none focus:border-[#0050FF]"
-                />
-              </div>
+              <button
+                type="button"
+                onClick={addCopyVariation}
+                disabled={copies.length >= 6}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#EFF4FF] hover:bg-[#E0EAFF] text-[#0050FF] border border-[#BFDBFE] flex items-center gap-1.5 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed self-start sm:self-auto"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Adicionar Variação ({copies.length}/6)</span>
+              </button>
             </div>
 
-            <div className="pt-2 flex justify-end">
+            {/* Lista das Variações de Mensagem */}
+            <div className="space-y-4">
+              {copies.map((copyText, idx) => {
+                const letter = copyLetters[idx] || `${idx + 1}`;
+                return (
+                  <div
+                    key={idx}
+                    className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2.5 transition-all focus-within:border-[#0050FF] focus-within:bg-white"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-[#0050FF] text-white font-bold text-xs flex items-center justify-center">
+                          {letter}
+                        </span>
+                        <span className="text-xs font-bold text-[#0F172A]">
+                          Variação {letter}
+                        </span>
+                        <span className="text-[10px] text-[#64748B] font-mono">
+                          ({copyText.length} caracteres)
+                        </span>
+                      </div>
+
+                      {copies.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeCopyVariation(idx)}
+                          className="p-1 text-[#94A3B8] hover:text-rose-600 rounded-lg hover:bg-rose-50 transition cursor-pointer"
+                          title="Remover esta variação"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <textarea
+                      rows={3}
+                      value={copyText}
+                      onChange={(e) => updateCopyVariation(idx, e.target.value)}
+                      placeholder={`Escreva a variação de mensagem ${letter}...`}
+                      className="w-full bg-white border border-[#CBD5E1] rounded-xl p-3 text-xs text-[#0F172A] focus:outline-none focus:border-[#0050FF] transition"
+                    />
+
+                    {/* Botões de Tags Rápidas de Spintax */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[10px] font-semibold text-[#64748B] flex items-center gap-1">
+                        <Tag className="w-3 h-3 text-[#0050FF]" /> Inserir Tag:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => insertTagIntoCopy(idx, '{primeiro_nome}')}
+                        className="px-2 py-0.5 rounded-md bg-white border border-[#CBD5E1] text-[10px] font-mono text-[#0050FF] hover:bg-[#EFF4FF] cursor-pointer"
+                      >
+                        {'{primeiro_nome}'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertTagIntoCopy(idx, '{cliente}')}
+                        className="px-2 py-0.5 rounded-md bg-white border border-[#CBD5E1] text-[10px] font-mono text-emerald-700 hover:bg-emerald-50 cursor-pointer"
+                      >
+                        {'{cliente}'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertTagIntoCopy(idx, '{grupo_origem}')}
+                        className="px-2 py-0.5 rounded-md bg-white border border-[#CBD5E1] text-[10px] font-mono text-amber-700 hover:bg-amber-50 cursor-pointer"
+                      >
+                        {'{grupo_origem}'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-[#F1F5F9]">
+              <span className="text-[11px] text-[#64748B]">
+                <b>{copies.length} de 6 variações ativas</b> no ciclo de rotação.
+              </span>
+
               <button
                 onClick={handleStartBroadcast}
                 disabled={isSendingBroadcast}
-                className="px-5 py-2.5 rounded-full font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white text-xs shadow-xs flex items-center gap-2 cursor-pointer transition disabled:opacity-50"
+                className="px-5 py-2.5 rounded-full font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white text-xs shadow-xs flex items-center justify-center gap-2 cursor-pointer transition disabled:opacity-50"
               >
                 {isSendingBroadcast ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 <span>Iniciar Transmissão Controlada</span>
@@ -462,13 +663,13 @@ function WhatsAppContent() {
             </div>
           </div>
 
-          <div className="lg:col-span-5 bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-4">
+          <div className="lg:col-span-5 bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
             <h3 className="font-bold text-sm text-[#0F172A] flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 text-amber-600" />
               Limites & Salvaguardas Anti-Bloqueio
             </h3>
 
-            <div className="space-y-3 text-xs">
+            <div className="space-y-3.5 text-xs">
               <div>
                 <label className="block font-semibold text-[#475569] mb-1">
                   Limite Diário de Mensagens
@@ -515,6 +716,16 @@ function WhatsAppContent() {
                     className="w-1/2 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-center font-semibold text-[#0F172A]"
                   />
                 </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#EFF4FF] border border-[#BFDBFE] space-y-1.5 mt-2">
+                <span className="text-[10px] font-bold text-[#0050FF] uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Rotação Inteligente de {copies.length} Cópias
+                </span>
+                <p className="text-[11px] text-[#475569] leading-relaxed">
+                  As mensagens cadastradas serão intercaladas de forma equilibrada entre cada lead, evitando que o WhatsApp identifique mensagens repetitivas em lote.
+                </p>
               </div>
             </div>
           </div>
@@ -761,7 +972,7 @@ function WhatsAppContent() {
 
             <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
               <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Ligações Efetuadas</p>
-              <p className="text-2xl font-bold text-emerald-600 mt-1">{calls.length > 0 ? calls.length : 84}</p>
+              <p className="text-2xl font-bold text-emerald-600 mt-1">{calls.length > 0 ? calls.length : 0}</p>
               <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Sincronizadas no Kommo</p>
             </div>
 
