@@ -51,6 +51,7 @@ export function CallModal({
   const ringingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inProgressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const uazapiCallIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (defaultPhone) setPhone(defaultPhone);
@@ -100,7 +101,9 @@ export function CallModal({
         return;
       }
 
-      setActiveCallId(data.call?.id || `call_${Date.now()}`);
+      const generatedCallId = data.call?.id || `call_${Date.now()}`;
+      uazapiCallIdRef.current = data.call?.uazapi_call_id || data.uazapi_call_id || null;
+      setActiveCallId(generatedCallId);
       setCallState('dialing');
 
       timerIntervalRef.current = setInterval(() => {
@@ -140,7 +143,14 @@ export function CallModal({
 
     // 3. Dispara o desligamento via /call/reject na UAZAPI em background
     if (activeCallId) {
-      fetch(`/api/calls/${activeCallId}/hangup`, { method: 'POST' }).catch((e) => {
+      fetch(`/api/calls/${activeCallId}/hangup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cliente_id: clienteId,
+          uazapi_call_id: uazapiCallIdRef.current || activeCallId,
+        }),
+      }).catch((e) => {
         console.error('Erro ao desligar chamada:', e);
       });
     }

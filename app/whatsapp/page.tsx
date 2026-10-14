@@ -77,7 +77,9 @@ function WhatsAppContent() {
     pipelineId?: string;
   }>({ configured: false });
 
-  // Group Scraper State (Sem dados fixos/mock)
+  // Group Scraper & Multi-Instance State
+  const [availableInstances, setAvailableInstances] = useState<Array<{ name: string; status: string; token: string }>>([]);
+  const [selectedInstanceToken, setSelectedInstanceToken] = useState<string>('');
   const [groups, setGroups] = useState<any[]>([]);
   const [selectedGroupJid, setSelectedGroupJid] = useState('');
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
@@ -166,20 +168,59 @@ function WhatsAppContent() {
     }
   };
 
-  // Buscar grupos reais da instância UAZAPI
-  const fetchGroups = async () => {
-    setIsLoadingGroups(true);
+  // Buscar instâncias UAZAPI disponíveis
+  const fetchInstances = async () => {
     try {
       const res = await fetch('/api/uazapi', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'list_groups', cliente_id: targetId }),
+        body: JSON.stringify({ action: 'list_instances', cliente_id: targetId }),
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.instances)) {
+        setAvailableInstances(data.instances);
+        if (!selectedInstanceToken) {
+          const cleanTarget = targetId.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const matched = data.instances.find(
+            (i: any) =>
+              i.status === 'connected' &&
+              ((i.name || '').toLowerCase().replace(/[^a-z0-9]/g, '').includes(cleanTarget) ||
+                cleanTarget.includes((i.name || '').toLowerCase().replace(/[^a-z0-9]/g, '')))
+          );
+          const connectedAny = matched || data.instances.find((i: any) => i.status === 'connected');
+          if (connectedAny) {
+            setSelectedInstanceToken(connectedAny.token);
+            fetchGroups(connectedAny.token);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Fetch Instances Warning]:', err);
+    }
+  };
+
+  // Buscar grupos reais da instância UAZAPI
+  const fetchGroups = async (tokenOverride?: string) => {
+    setIsLoadingGroups(true);
+    try {
+      const activeToken = tokenOverride || selectedInstanceToken || undefined;
+      const res = await fetch('/api/uazapi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'list_groups',
+          cliente_id: targetId,
+          instance_token: activeToken,
+        }),
       });
       const data = await res.json();
       const list = Array.isArray(data.groups) ? data.groups : [];
       setGroups(list);
-      if (list.length > 0 && !selectedGroupJid) {
-        setSelectedGroupJid(list[0].jid || list[0].id || '');
+      if (list.length > 0) {
+        setSelectedGroupJid((prev) => {
+          const exists = list.find((g: any) => (g.jid || g.id || g.JID) === prev);
+          return exists ? prev : (list[0].jid || list[0].id || list[0].JID || '');
+        });
       }
     } catch (err) {
       console.warn('[Fetch Groups Warning]:', err);
@@ -191,6 +232,7 @@ function WhatsAppContent() {
   useEffect(() => {
     fetchCallsHistory();
     checkKommoClientConfig();
+    fetchInstances();
     fetchGroups();
   }, [targetId]);
 
@@ -210,22 +252,27 @@ function WhatsAppContent() {
           action: 'scrape_group',
           group_jid: selectedGroupJid,
           cliente_id: targetId,
+          instance_token: selectedInstanceToken || undefined,
         }),
       });
 
       const data = await res.json();
-      const rawParticipants = data.group?.participants || data.participants || [];
-      const currentGroup = groups.find((g) => (g.jid || g.id) === selectedGroupJid);
-      const groupName = currentGroup?.name || currentGroup?.subject || 'Grupo WhatsApp';
+      const rawParticipants = data.participants || data.group?.participants || data.group?.Participants || [];
+      const currentGroup = groups.find((g) => (g.jid || g.id || g.JID) === selectedGroupJid);
+      const groupName = currentGroup?.name || currentGroup?.subject || currentGroup?.Name || 'Grupo WhatsApp';
 
       let mapped = rawParticipants.map((p: any, idx: number) => {
-        const userPhone = p.id?.user || p.id || p.phone || '';
-        const phoneFormatted = userPhone.startsWith('+') ? userPhone : userPhone ? `+${userPhone}` : '';
+        const userPhone = p.phone || p.PhoneNumber || p.phoneNumber || p.id?.user || p.id || '';
+        const cleanPhone = String(userPhone).replace(/@.*$/, '').replace(/\D/g, '');
+        const phoneFormatted = cleanPhone ? (cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`) : '';
+        const name = p.name || p.DisplayName || p.Username || p.pushName || `Participante ${idx + 1}`;
+        const isAdmin = p.isAdmin === true || p.IsAdmin === true || p.IsSuperAdmin === true || p.admin === 'admin';
+
         return {
           id: idx + 1,
-          name: p.name || p.pushName || `Participante ${idx + 1}`,
+          name,
           phone: phoneFormatted,
-          isAdmin: p.admin === 'admin' || p.admin === 'superadmin' || p.isAdmin === true,
+          isAdmin,
           group: groupName,
         };
       });
@@ -410,6 +457,34 @@ function WhatsAppContent() {
       {/* ABA 2: COLETA DE GRUPOS (RASPAGEM - SEM DADOS FIXOS) */}
       {subTab === 'grupos' && (
         <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
+          {/* Seletor de Instância UAZAPI Conectada */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#F8FAFC] border border-[#CBD5E1] p-3.5 rounded-xl">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#0F172A] whitespace-nowrap">Instância WhatsApp Conectada:</span>
+              <select
+                value={selectedInstanceToken}
+                onChange={(e) => {
+                  setSelectedInstanceToken(e.target.value);
+                  fetchGroups(e.target.value);
+                }}
+                className="bg-white border border-[#CBD5E1] rounded-lg px-3 py-1.5 text-xs font-bold text-[#0F172A] focus:outline-none focus:border-[#0050FF] shadow-2xs"
+              >
+                {availableInstances.length === 0 ? (
+                  <option value="">Carregando instâncias...</option>
+                ) : (
+                  availableInstances.map((inst) => (
+                    <option key={inst.token} value={inst.token}>
+                      {inst.name} ({inst.status === 'connected' ? '🟢 Conectada' : '⚪ Desconectada'})
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+            <div className="text-[11px] text-[#64748B] flex items-center gap-1.5 font-medium">
+              <span className="font-bold text-[#0050FF]">{groups.length} grupos</span> carregados em tempo real
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-4">
             <div>
               <h2 className="text-base font-bold text-[#0F172A]">Coleta e Importação de Contatos de Grupos</h2>
@@ -420,7 +495,7 @@ function WhatsAppContent() {
 
             <div className="flex items-center gap-2 self-start sm:self-auto">
               <button
-                onClick={fetchGroups}
+                onClick={() => fetchGroups()}
                 disabled={isLoadingGroups}
                 className="px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white hover:bg-[#F8FAFC] text-[#475569] font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer transition disabled:opacity-50"
                 title="Recarregar grupos da instância"
@@ -442,9 +517,16 @@ function WhatsAppContent() {
 
           <div className="flex flex-col sm:flex-row gap-4 items-center">
             <div className="w-full sm:w-1/2">
-              <label className="block text-xs font-semibold text-[#475569] mb-1">
-                Selecionar Grupo de Origem
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-[#475569]">
+                  Selecionar Grupo de Origem ({groups.length})
+                </label>
+                {groups.length > 0 && (
+                  <span className="text-[10px] text-[#0050FF] font-semibold">
+                    Selecione abaixo ou digite
+                  </span>
+                )}
+              </div>
               {groups.length === 0 ? (
                 <div className="flex items-center gap-2">
                   <input
@@ -461,14 +543,14 @@ function WhatsAppContent() {
                   onChange={(e) => setSelectedGroupJid(e.target.value)}
                   className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#0050FF] cursor-pointer"
                 >
-                  <option value="">Selecione um grupo da lista...</option>
+                  <option value="">Selecione um grupo da lista ({groups.length} disponíveis)...</option>
                   {groups.map((g) => {
-                    const jid = g.jid || g.id || '';
-                    const title = g.name || g.subject || jid;
-                    const count = g.participants?.length || g.size || '';
+                    const jid = g.jid || g.id || g.JID || '';
+                    const title = g.name || g.subject || g.Name || jid;
+                    const count = g.participantsCount || g.participants?.length || g.Participants?.length || 0;
                     return (
                       <option key={jid} value={jid}>
-                        {title} {count ? `(${count} participantes)` : ''}
+                        {title} {count > 0 ? `(${count} participantes)` : ''}
                       </option>
                     );
                   })}

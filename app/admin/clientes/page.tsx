@@ -14,16 +14,23 @@ import {
   Users,
   KanbanSquare,
   RefreshCw,
+  HeartHandshake,
+  Activity,
+  FileText,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { CsStatus } from '@/types/database';
 
 export default function AdminClientesPage() {
   const router = useRouter();
-  const { clients, setClients, adAccounts, users, selectClientAndSwitchToWorkspace } = useTenant();
+  const { clients, setClients, adAccounts, users, csStatusList, selectClientAndSwitchToWorkspace } = useTenant();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [csFilter, setCsFilter] = useState('ALL');
+  const [selectedCsModal, setSelectedCsModal] = useState<{ clientName: string; cs: CsStatus } | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -100,7 +107,19 @@ export default function AdminClientesPage() {
       c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.cliente_id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    
+    // CS Filter
+    const clientCs = csStatusList?.find((cs) => cs.cliente_id === c.cliente_id);
+    let matchesCs = true;
+    if (csFilter !== 'ALL') {
+      if (csFilter === 'sem_cs') {
+        matchesCs = !clientCs;
+      } else {
+        matchesCs = clientCs?.nivel === csFilter;
+      }
+    }
+
+    return matchesSearch && matchesStatus && matchesCs;
   });
 
   const handleStatusChange = async (clientId: string, newStatus: string) => {
@@ -172,34 +191,34 @@ export default function AdminClientesPage() {
         </div>
       )}
 
-      {/* Stats Bar (Estilo Cartões Asaas: Fundo Branco, Bordas #E2E8F0, Números Grandes e Legíveis) */}
+      {/* Stats Bar com métricas operacionais e de CS (Customer Success) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
           <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Total de Clientes</p>
           <p className="text-2xl sm:text-3xl font-bold text-[#0F172A] mt-1">{clients.length}</p>
-          <p className="text-[11px] text-[#0050FF] font-medium mt-0.5">Workspaces configurados</p>
+          <p className="text-[11px] text-[#0050FF] font-medium mt-0.5">Workspaces cadastrados</p>
         </div>
 
         <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
-          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Clientes Ativos</p>
+          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">CS Saudáveis</p>
           <p className="text-2xl sm:text-3xl font-bold text-emerald-600 mt-1">
-            {clients.filter((c) => c.status === 'ativo').length}
+            {csStatusList?.filter((c) => c.nivel === 'saudavel').length || 0}
           </p>
-          <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Operação em andamento</p>
+          <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Operação em alta performance</p>
+        </div>
+
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
+          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">CS Atenção / Risco</p>
+          <p className="text-2xl sm:text-3xl font-bold text-amber-600 mt-1">
+            {csStatusList?.filter((c) => c.nivel === 'atencao' || c.nivel === 'em_risco').length || 0}
+          </p>
+          <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Demandam ação imediata</p>
         </div>
 
         <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
           <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Contas de Anúncio</p>
           <p className="text-2xl sm:text-3xl font-bold text-[#0050FF] mt-1">{adAccounts.length}</p>
           <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Meta & Google mapeadas</p>
-        </div>
-
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
-          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Usuários de Clientes</p>
-          <p className="text-2xl sm:text-3xl font-bold text-[#0F172A] mt-1">
-            {users.filter((u) => !!u.cliente_id).length}
-          </p>
-          <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Membros com acesso</p>
         </div>
       </div>
 
@@ -216,16 +235,32 @@ export default function AdminClientesPage() {
           />
         </div>
 
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3.5 py-2 text-xs font-semibold text-[#475569] focus:outline-none focus:border-[#0050FF] w-full sm:w-auto cursor-pointer"
-        >
-          <option value="ALL">Todos os Status</option>
-          <option value="ativo">🟢 Ativos</option>
-          <option value="pausado">🟡 Pausados</option>
-          <option value="encerrado">⚪ Encerrados</option>
-        </select>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Filtro Status Operacional */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3 py-2 text-xs font-semibold text-[#475569] focus:outline-none focus:border-[#0050FF] cursor-pointer"
+          >
+            <option value="ALL">Status: Todos</option>
+            <option value="ativo">🟢 Ativos</option>
+            <option value="pausado">🟡 Pausados</option>
+            <option value="encerrado">⚪ Encerrados</option>
+          </select>
+
+          {/* Filtro de Customer Success */}
+          <select
+            value={csFilter}
+            onChange={(e) => setCsFilter(e.target.value)}
+            className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3 py-2 text-xs font-semibold text-[#475569] focus:outline-none focus:border-[#0050FF] cursor-pointer"
+          >
+            <option value="ALL">Saúde CS: Todos</option>
+            <option value="saudavel">🟢 CS Saudável</option>
+            <option value="atencao">🟡 CS Atenção</option>
+            <option value="em_risco">🔴 CS Em Risco</option>
+            <option value="sem_cs">⚪ Sem Diagnóstico</option>
+          </select>
+        </div>
       </div>
 
       {/* Clients Grid (Estilo Asaas: Cartões Brancos, Sombra Suave, Tipografia Nítida) */}
@@ -236,6 +271,9 @@ export default function AdminClientesPage() {
             if (client.grupo_whatsapp_id && a.group_jid === client.grupo_whatsapp_id) return true;
             return a.account_name.toLowerCase().includes(client.cliente_id.toLowerCase());
           });
+
+          // Diagnóstico de CS mais recente do Supabase
+          const clientCs = csStatusList?.find((cs) => cs.cliente_id === client.cliente_id);
 
           return (
             <div
@@ -274,8 +312,57 @@ export default function AdminClientesPage() {
                   </div>
                 </div>
 
+                {/* CS Status Card - Customer Success do Supabase */}
+                <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
+                      <HeartHandshake className="w-3.5 h-3.5 text-[#0050FF]" /> Diagnóstico CS
+                    </span>
+                    {clientCs ? (
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          clientCs.nivel === 'saudavel'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : clientCs.nivel === 'atencao'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                        }`}
+                      >
+                        {clientCs.nivel === 'saudavel'
+                          ? '🟢 Saudável'
+                          : clientCs.nivel === 'atencao'
+                          ? '🟡 Atenção'
+                          : '🔴 Em Risco'}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-[#94A3B8]">Sem registro</span>
+                    )}
+                  </div>
+
+                  {clientCs?.sinais?.nota ? (
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-[#334155] leading-relaxed line-clamp-2">
+                        {clientCs.sinais.nota}
+                      </p>
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[10px] text-[#94A3B8]">
+                          Ciclo: {clientCs.sinais.ciclo || clientCs.data || 'Recente'}
+                        </span>
+                        <button
+                          onClick={() => setSelectedCsModal({ clientName: client.nome, cs: clientCs })}
+                          className="text-[10px] font-bold text-[#0050FF] hover:underline cursor-pointer"
+                        >
+                          Ver diagnóstico completo
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-[#94A3B8] italic">Aguardando primeira rodada de diagnóstico CS.</p>
+                  )}
+                </div>
+
                 {/* Metadata details */}
-                <div className="space-y-2 pt-3 border-t border-[#F1F5F9] text-xs">
+                <div className="space-y-2 pt-2 border-t border-[#F1F5F9] text-xs">
                   <div className="flex items-center justify-between text-[#64748B]">
                     <span className="flex items-center gap-1.5">
                       <Zap className="w-3.5 h-3.5 text-[#0050FF]" /> Contas de Anúncio
@@ -324,6 +411,73 @@ export default function AdminClientesPage() {
           );
         })}
       </div>
+
+      {/* Modal de Diagnóstico Completo de CS */}
+      {selectedCsModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-[#CBD5E1] space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#0050FF] bg-[#EFF4FF] px-2.5 py-0.5 rounded-full border border-[#BFDBFE]">
+                  Relatório de Saúde & Customer Success
+                </span>
+                <h3 className="text-lg font-bold text-[#0F172A] mt-1.5">
+                  {selectedCsModal.clientName}
+                </h3>
+                <p className="text-xs text-[#64748B]">
+                  Gerado por {selectedCsModal.cs.agente_origem || '@customer_success_and_onboarding'}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedCsModal(null)}
+                className="p-1.5 rounded-lg text-[#64748B] hover:bg-[#F1F5F9] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
+              <span className="text-xs font-semibold text-[#475569]">Status Atual:</span>
+              <span
+                className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                  selectedCsModal.cs.nivel === 'saudavel'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : selectedCsModal.cs.nivel === 'atencao'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                }`}
+              >
+                {selectedCsModal.cs.nivel === 'saudavel'
+                  ? '🟢 Saudável'
+                  : selectedCsModal.cs.nivel === 'atencao'
+                  ? '🟡 Atenção'
+                  : '🔴 Em Risco'}
+              </span>
+              <span className="text-xs text-[#94A3B8] ml-auto">
+                Ciclo: {selectedCsModal.cs.sinais?.ciclo || selectedCsModal.cs.data || 'N/A'}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#475569] uppercase tracking-wider flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-[#0050FF]" /> Diagnóstico & Sinais Observados:
+              </label>
+              <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs text-[#1E293B] leading-relaxed max-h-80 overflow-y-auto whitespace-pre-wrap font-sans">
+                {selectedCsModal.cs.sinais?.nota || 'Nenhuma nota detalhada registrada.'}
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setSelectedCsModal(null)}
+                className="px-5 py-2.5 rounded-xl bg-[#0050FF] hover:bg-[#0040D6] text-white text-xs font-bold transition-all cursor-pointer shadow-xs"
+              >
+                Fechar Relatório
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

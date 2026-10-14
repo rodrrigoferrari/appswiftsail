@@ -12,7 +12,7 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-import { getUazapiCredentialsForClient } from '@/lib/services/credentials-resolver';
+import { getUazapiCredentialsForClient, getAllUazapiInstances } from '@/lib/services/credentials-resolver';
 
 // Helper to get or save client instance token in Supabase
 async function getClientInstanceToken(clienteId: string): Promise<string | null> {
@@ -39,20 +39,25 @@ async function getClientInstanceToken(clienteId: string): Promise<string | null>
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action, cliente_id, phone, group_jid, message, numbers } = body;
+    const { action, cliente_id, phone, group_jid, message, numbers, instance_token } = body;
 
-    if (!cliente_id && action !== 'global_status') {
+    if (!cliente_id && action !== 'global_status' && action !== 'list_instances') {
       return NextResponse.json({ success: false, error: 'cliente_id é obrigatório.' }, { status: 400 });
     }
 
     switch (action) {
+      // 0. LISTAR TODAS AS INSTÂNCIAS DA UAZAPI
+      case 'list_instances': {
+        const instances = await getAllUazapiInstances();
+        return NextResponse.json({ success: true, instances });
+      }
+
       // 1. CRIAR INSTÂNCIA DEDICADA PARA O CLIENTE VIA ADMIN TOKEN
       case 'create_instance': {
         const instanceName = `swiftsail-${cliente_id.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
         const result = await createClientInstance(instanceName);
 
         if (result && result.token) {
-          // Persist client instance in Supabase
           const payload = {
             cliente_id,
             instance_name: instanceName,
@@ -95,7 +100,7 @@ export async function POST(req: Request) {
 
       // 2. CONSULTAR STATUS DA INSTÂNCIA DO CLIENTE
       case 'status': {
-        const token = await getClientInstanceToken(cliente_id);
+        const token = instance_token || (await getClientInstanceToken(cliente_id));
         if (!token) {
           return NextResponse.json({
             success: true,
@@ -116,7 +121,7 @@ export async function POST(req: Request) {
 
       // 3. INICIAR CONEXÃO / OBTER QR CODE
       case 'connect': {
-        const token = await getClientInstanceToken(cliente_id);
+        const token = instance_token || (await getClientInstanceToken(cliente_id));
         if (!token) {
           return NextResponse.json({ success: false, error: 'Instância não provisionada. Crie a instância primeiro.' });
         }
@@ -128,37 +133,78 @@ export async function POST(req: Request) {
         });
       }
 
-      // 4. LISTAR GRUPOS DA INSTÂNCIA
+      // 4. LISTAR GRUPOS DA INSTÂNCIA COM NORMALIZAÇÃO TOTAL
       case 'list_groups': {
-        const token = await getClientInstanceToken(cliente_id);
+        const token = instance_token || (await getClientInstanceToken(cliente_id));
         if (!token) {
-          return NextResponse.json({ success: false, error: 'Instância não configurada.' });
+          return NextResponse.json({ success: false, error: 'Nenhuma instância configurada ou conectada.' });
         }
 
         const groupsData = await listInstanceGroups(token);
+        const rawList = Array.isArray(groupsData) ? groupsData : groupsData?.groups || [];
+
+        const normalizedGroups = rawList.map((g: any) => {
+          const jid = g.JID || g.jid || g.id || '';
+          const name = g.Name || g.name || g.subject || jid || 'Grupo sem nome';
+          const pCount = Array.isArray(g.Participants)
+            ? g.Participants.length
+            : Array.isArray(g.participants)
+            ? g.participants.length
+            : g.ParticipantCount || g.participant_count || g.size || 0;
+
+          return {
+            id: jid,
+            jid,
+            name,
+            subject: name,
+            participantsCount: pCount,
+            owner: g.OwnerPN || g.OwnerJID || g.owner || '',
+            raw: g,
+          };
+        });
+
         return NextResponse.json({
           success: true,
-          groups: groupsData.groups || groupsData || [],
+          groups: normalizedGroups,
         });
       }
 
       // 5. EXTRAIR PARTICIPANTES DE UM GRUPO (SCRAPER)
       case 'scrape_group': {
-        const token = await getClientInstanceToken(cliente_id);
+        const token = instance_token || (await getClientInstanceToken(cliente_id));
         if (!token || !group_jid) {
           return NextResponse.json({ success: false, error: 'Token ou group_jid ausente.' });
         }
 
         const groupInfo = await getGroupInfo(token, group_jid);
+        const rawParticipants = groupInfo.Participants || groupInfo.participants || [];
+
+        const participants = rawParticipants.map((p: any, idx: number) => {
+          const rawPhone = p.PhoneNumber || p.phoneNumber || p.id?.user || p.id || p.phone || '';
+          const cleanPhone = rawPhone.replace(/@.*$/, '').replace(/\D/g, '');
+          const formattedPhone = cleanPhone ? (cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`) : '';
+          const name = p.DisplayName || p.Username || p.name || p.pushName || `Participante ${idx + 1}`;
+          const isAdmin = p.IsAdmin === true || p.IsSuperAdmin === true || p.admin === 'admin' || p.isAdmin === true;
+
+          return {
+            id: idx + 1,
+            name,
+            phone: formattedPhone,
+            isAdmin,
+            raw: p,
+          };
+        });
+
         return NextResponse.json({
           success: true,
           group: groupInfo,
+          participants,
         });
       }
 
       // 6. ENVIAR MENSAGEM / DISPARO
       case 'send_message': {
-        const token = await getClientInstanceToken(cliente_id);
+        const token = instance_token || (await getClientInstanceToken(cliente_id));
         if (!token) {
           return NextResponse.json({ success: false, error: 'Instância não conectada.' });
         }

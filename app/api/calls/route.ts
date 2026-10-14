@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { formatE164, normalizePhone } from '@/lib/phone';
 import { UazapiClient } from '@/lib/uazapi';
 import { getUazapiCredentialsForClient } from '@/lib/services/credentials-resolver';
-import { saveCallRecord, listCalls } from '@/lib/services/kvh-storage';
+import { saveCallRecord, updateCallRecord, listCalls } from '@/lib/services/kvh-storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,7 +84,10 @@ export async function POST(req: NextRequest) {
       try {
         const uazapi = new UazapiClient(uazCreds.instanceToken, uazCreds.serverUrl);
         const callRes = await uazapi.startVoiceCall(phoneE164);
-        providerCallId = callRes?.id || callRes?.callId || callRes?.key?.id || null;
+        providerCallId = callRes?.id || callRes?.callId || callRes?.key?.id || callRes?.data?.id || null;
+        if (providerCallId) {
+          await updateCallRecord(call.id, { uazapi_call_id: providerCallId });
+        }
       } catch (uazErr: any) {
         console.warn('[UAZAPI Voice Call Trigger Warning]:', uazErr.message);
       }
@@ -98,6 +101,7 @@ export async function POST(req: NextRequest) {
           uazapi_call_id: providerCallId,
           status: 'dialing',
         },
+        uazapi_call_id: providerCallId,
         message: 'Chamada WhatsApp iniciada com sucesso!',
       },
       {

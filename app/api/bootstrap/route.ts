@@ -1,19 +1,21 @@
 import { NextResponse } from 'next/server';
-import { getClientes, getContasAdsPainel } from '@/lib/services/supabase-data';
+import { getClientes, getContasAdsPainel, getCsStatusList } from '@/lib/services/supabase-data';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const [clientes, contasAds] = await Promise.all([
+    const [clientes, contasAds, csStatus] = await Promise.all([
       getClientes(),
       getContasAdsPainel(),
+      getCsStatusList(),
     ]);
 
     return NextResponse.json({
       success: true,
       clientes,
       contasAds: contasAds || [],
+      csStatus: csStatus || [],
     });
   } catch (error) {
     console.error('API bootstrap error:', error);

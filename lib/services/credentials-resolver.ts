@@ -170,6 +170,42 @@ export async function getUazapiCredentialsForClient(
         }
       } catch {}
     }
+
+    // 3. Fallback inteligente: buscar instâncias ativas na UAZAPI via adminToken
+    if (!instanceToken && adminToken) {
+      try {
+        const cleanBaseUrl = serverUrl.replace(/\/+$/, '');
+        const res = await fetch(`${cleanBaseUrl}/instance/all`, {
+          headers: { admintoken: adminToken },
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const instances = await res.json();
+          if (Array.isArray(instances)) {
+            const cleanTarget = targetClient.toLowerCase().replace(/[^a-z0-9]/g, '');
+            // Prioridade 1: Match por nome do cliente na instância (ex: dabol, adriatica)
+            const matched = instances.find((inst: any) => {
+              const cleanName = (inst.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              return (cleanName.includes(cleanTarget) || cleanTarget.includes(cleanName)) && inst.status === 'connected';
+            });
+
+            if (matched && matched.token) {
+              instanceToken = matched.token;
+              instanceName = matched.name;
+            } else {
+              // Prioridade 2: Qualquer instância conectada disponível (ex: Notificações Swiftsail, Rodrigo Pessoal)
+              const connectedAny = instances.find((inst: any) => inst.status === 'connected');
+              if (connectedAny && connectedAny.token) {
+                instanceToken = connectedAny.token;
+                instanceName = connectedAny.name;
+              }
+            }
+          }
+        }
+      } catch (allErr) {
+        console.warn('[Uazapi Instances Fetch Warning]:', allErr);
+      }
+    }
   } catch (err) {
     console.warn('[Uazapi Credentials Resolver Warning]:', err);
   }
@@ -181,4 +217,34 @@ export async function getUazapiCredentialsForClient(
     instanceName,
     clienteId: targetClient,
   };
+}
+
+/**
+ * Retorna todas as instâncias existentes na UAZAPI com seus status e nomes
+ */
+export async function getAllUazapiInstances(): Promise<Array<{ name: string; status: string; token: string }>> {
+  try {
+    const creds = await getUazapiCredentialsForClient('swiftsail');
+    if (!creds.adminToken) return [];
+
+    const res = await fetch(`${creds.serverUrl}/instance/all`, {
+      headers: { admintoken: creds.adminToken },
+      cache: 'no-store',
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return data.map((inst: any) => ({
+          name: inst.name || 'Instância sem nome',
+          status: inst.status || inst.state || 'disconnected',
+          token: inst.token || '',
+        }));
+      }
+    }
+    return [];
+  } catch (e) {
+    console.warn('[getAllUazapiInstances Error]:', e);
+    return [];
+  }
 }

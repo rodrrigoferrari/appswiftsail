@@ -56,3 +56,24 @@ export async function getUltimasSyncRodadas() {
     return [];
   }
 }
+
+/**
+ * Consulta registros de Customer Success (CS Status) em public.cs_status.
+ */
+export async function getCsStatusList() {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('cs_status')
+      .select('id,cliente_id,nivel,sinais,data,agente_origem,criado_em')
+      .order('criado_em', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching cs_status:', error);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error('Unexpected error fetching cs_status:', err);
+    return [];
+  }
+}

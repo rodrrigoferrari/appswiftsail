@@ -38,17 +38,22 @@ export async function POST(
       durationSeconds = Math.max(0, Math.round((now.getTime() - started.getTime()) / 1000));
     }
 
-    // Encerrar na UAZAPI via /call/reject
-    const targetWorkspace = call?.workspace_id || 'swiftsail';
-    const uazCreds = await getUazapiCredentialsForClient(targetWorkspace);
+    const body = await req.json().catch(() => ({}));
+    const targetUazCallId = body.uazapi_call_id || body.callId || call?.uazapi_call_id || id;
+    const targetWorkspace = body.cliente_id || call?.workspace_id || 'swiftsail';
 
+    // Encerrar na UAZAPI via /call/reject
+    const uazCreds = await getUazapiCredentialsForClient(targetWorkspace);
     let uazResult: any = null;
-    if (uazCreds.instanceToken) {
+
+    const tokenToUse = body.instance_token || uazCreds.instanceToken;
+    if (tokenToUse) {
       try {
-        const uazapi = new UazapiClient(uazCreds.instanceToken, uazCreds.serverUrl);
-        uazResult = await uazapi.rejectCall(call?.uazapi_call_id || id);
+        const uazapi = new UazapiClient(tokenToUse, uazCreds.serverUrl);
+        uazResult = await uazapi.rejectCall(targetUazCallId);
       } catch (uazErr: any) {
         console.warn('[UAZAPI Hangup Warning]:', uazErr.message);
+        uazResult = { warning: uazErr.message };
       }
     }
 
