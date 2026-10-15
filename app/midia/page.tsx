@@ -1908,7 +1908,7 @@ function MidiaContent() {
                                 alt={ad.nome}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                 onError={(e) => {
-                                  (e.target as HTMLElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).src = '/api/meta/thumbnail?url=default';
                                 }}
                               />
                             ) : null}

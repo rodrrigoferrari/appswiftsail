@@ -49,6 +49,7 @@ export interface CreativePreviewItem {
   ctr?: string;
   cpl?: number;
   status?: string;
+  effective_status?: string;
   headline?: string;
   copy?: string;
   ctaText?: string;
@@ -213,9 +214,20 @@ export default function CreativePreviewModal({
     creative.copy ||
     `Campanha publicada no Meta Ads para ${creative.campanha || 'a conta oficial'}. Clique em "Ver no Meta" para conferir a publicação original.`;
   const defaultCta = creative.ctaText || '💬 Enviar Mensagem no WhatsApp';
-
+  const rawStatus = (creative.effective_status || creative.status || '').toUpperCase();
   const isPaused =
-    creative.status?.toUpperCase().includes('PAUS') || creative.status?.toUpperCase().includes('PAUSED');
+    rawStatus.includes('PAUS') ||
+    rawStatus.includes('ARCHIV') ||
+    rawStatus.includes('INACTIV');
+  const statusLabel = rawStatus.includes('CAMPAIGN_PAUSED')
+    ? 'CAMPANHA PAUSADA'
+    : rawStatus.includes('ADSET_PAUSED')
+    ? 'CONJUNTO PAUSADO'
+    : rawStatus.includes('ARCHIV')
+    ? 'ARQUIVADO'
+    : isPaused
+    ? 'PAUSADO'
+    : 'ATIVO';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/40 backdrop-blur-xs animate-fadeIn overflow-y-auto">
@@ -464,7 +476,7 @@ export default function CreativePreviewModal({
                   {isPaused ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                      PAUSADO
+                      {statusLabel}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
