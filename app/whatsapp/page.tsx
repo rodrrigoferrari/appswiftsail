@@ -177,118 +177,28 @@ function WhatsAppContent() {
   const [broadcastSearchTerm, setBroadcastSearchTerm] = useState('');
   const [broadcastStatusFilter, setBroadcastStatusFilter] = useState<'ALL' | 'concluido' | 'com_falhas'>('ALL');
 
-  // Gerador de histórico realista por cliente caso o workspace ainda não tenha disparado manualmente
-  const generateDefaultCampaigns = (workspaceName: string, wId: string): BroadcastCampaignItem[] => {
-    const isEnoteca = workspaceName.toLowerCase().includes('enoteca');
-    const isImob = workspaceName.toLowerCase().includes('adriatica') || workspaceName.toLowerCase().includes('gonzaga') || workspaceName.toLowerCase().includes('genova') || workspaceName.toLowerCase().includes('pessoa') || workspaceName.toLowerCase().includes('dabol');
-
-    const sampleNames = [
-      'Carlos Eduardo Silva', 'Mariana Rocha', 'Roberto Andrade', 'Fernanda Lima',
-      'Lucas Albuquerque', 'Juliana Mendes', 'Marcelo Costa', 'Beatriz Nogueira',
-      'Gabriel Santos', 'Camila Ferraz', 'Thiago Moreira', 'Patricia Ramos',
-      'Rodrigo Azevedo', 'Renata Vasconcelos', 'Felipe Guimarães', 'Amanda Duarte'
-    ];
-
-    const generateContacts = (count: number, failCount: number, copyText: string): BroadcastContactItem[] => {
-      const list: BroadcastContactItem[] = [];
-      const ddds = ['41', '11', '45', '48', '19', '31'];
-
-      for (let i = 0; i < count; i++) {
-        const name = sampleNames[i % sampleNames.length] + (i >= sampleNames.length ? ` ${Math.floor(i / sampleNames.length) + 1}` : '');
-        const ddd = ddds[i % ddds.length];
-        const num = `9${Math.floor(10000000 + Math.random() * 90000000)}`;
-        const isFail = i >= (count - failCount);
-        const firstName = name.split(' ')[0];
-
-        list.push({
-          id: `ct_${wId}_${Date.now()}_${i}`,
-          name,
-          phone: `+55 (${ddd}) ${num.slice(0, 5)}-${num.slice(5)}`,
-          status: isFail ? 'falhou' : 'enviado',
-          sentAt: `10:${String((i % 45) + 10).padStart(2, '0')}`,
-          errorReason: isFail ? (i % 2 === 0 ? 'Número sem WhatsApp ativo' : 'Timeout na conexão da operadora') : undefined,
-          copyUsed: copyText.replace(/\{primeiro_nome\}/gi, firstName),
-        });
-      }
-      return list;
-    };
-
-    const copyA = `Olá {primeiro_nome}, tudo bem? Passando para compartilhar uma condição exclusiva e atendimento prioritário da ${workspaceName}. Gostaria de receber o material completo?`;
-    const copyB = `Oi {primeiro_nome}! Liberamos hoje condições especiais no WhatsApp para clientes selecionados da ${workspaceName}. Posso te enviar os detalhes?`;
-
-    return [
-      {
-        id: `bc_${wId}_1`,
-        nome: isEnoteca
-          ? 'Degustação Exclusiva & Carta de Vinhos Selecionados'
-          : isImob
-          ? 'Lançamento Empreendimento VIP • Condições de Abertura'
-          : `Disparo Estratégico de Lançamento • ${workspaceName}`,
-        data: '15/10/2026 às 09:45',
-        timestamp: Date.now() - 3600000 * 2,
-        origem: 'scraped',
-        origemDesc: 'Raspagem de Grupo VIP (85 contatos)',
-        instanciaNome: selectedInstanceName || 'WhatsApp Principal',
-        instanciaToken: selectedInstanceToken,
-        copies: [copyA, copyB],
-        totalContatos: 85,
-        enviadosCount: 83,
-        falhasCount: 2,
-        status: 'concluido',
-        contacts: generateContacts(85, 2, copyA),
-      },
-      {
-        id: `bc_${wId}_2`,
-        nome: 'Reativação de Leads & Oportunidades Q4',
-        data: '14/10/2026 às 15:20',
-        timestamp: Date.now() - 3600000 * 24,
-        origem: 'spreadsheet',
-        origemDesc: 'Planilha de Leads Qualificados (120 contatos)',
-        instanciaNome: selectedInstanceName || 'WhatsApp Principal',
-        instanciaToken: selectedInstanceToken,
-        copies: [copyB],
-        totalContatos: 120,
-        enviadosCount: 116,
-        falhasCount: 4,
-        status: 'concluido',
-        contacts: generateContacts(120, 4, copyB),
-      },
-      {
-        id: `bc_${wId}_3`,
-        nome: 'Convite Especial de Atendimento Personalizado',
-        data: '12/10/2026 às 11:10',
-        timestamp: Date.now() - 3600000 * 72,
-        origem: 'scraped',
-        origemDesc: 'Grupo de Clientes Frequentes (60 contatos)',
-        instanciaNome: selectedInstanceName || 'WhatsApp Principal',
-        instanciaToken: selectedInstanceToken,
-        copies: [copyA],
-        totalContatos: 60,
-        enviadosCount: 60,
-        falhasCount: 0,
-        status: 'concluido',
-        contacts: generateContacts(60, 0, copyA),
-      },
-    ];
-  };
-
-  // Carrega / inicializa o histórico de transmissões para o workspace selecionado
+  // Carrega / inicializa o histórico de transmissões para o workspace selecionado (sem dados fictícios/placeholders)
   useEffect(() => {
     if (!targetId) return;
     try {
       const stored = localStorage.getItem(`swiftsail_broadcast_campaigns_${targetId}`);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setBroadcastCampaigns(parsed);
+        if (Array.isArray(parsed)) {
+          // Filtra exclusivamente transmissões reais criadas pelo usuário, purgando placeholders antigos
+          const realCampaigns = parsed.filter(
+            (c: BroadcastCampaignItem) => c && c.id && c.id.startsWith('bc_real_')
+          );
+          // Persiste a lista limpa para expurgar placeholders do navegador do usuário
+          localStorage.setItem(`swiftsail_broadcast_campaigns_${targetId}`, JSON.stringify(realCampaigns));
+          setBroadcastCampaigns(realCampaigns);
           return;
         }
       }
     } catch {}
 
-    const defaults = generateDefaultCampaigns(clientName, targetId);
-    setBroadcastCampaigns(defaults);
-  }, [targetId, clientName]);
+    setBroadcastCampaigns([]);
+  }, [targetId]);
 
   // Spintax Variations (Até 6 variações dinâmicas de mensagem usando apenas {primeiro_nome})
   const [copies, setCopies] = useState<string[]>([
@@ -789,7 +699,7 @@ function WhatsAppContent() {
       totalFailed += c.falhasCount || 0;
     }
 
-    const avgRate = totalMessages > 0 ? ((totalSuccess / totalMessages) * 100).toFixed(1) : '100.0';
+    const avgRate = totalMessages > 0 ? ((totalSuccess / totalMessages) * 100).toFixed(1) : '—';
 
     return {
       totalCampaigns,
@@ -1854,7 +1764,9 @@ function WhatsAppContent() {
               <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Total Disparado</p>
               <p className="text-2xl font-bold text-[#0F172A] mt-1">{trackingMetrics.totalMessages}</p>
               <p className="text-[11px] text-emerald-600 font-medium mt-0.5">
-                {trackingMetrics.totalCampaigns} transmissões realizadas
+                {trackingMetrics.totalCampaigns === 0
+                  ? 'Nenhum disparo realizado'
+                  : `${trackingMetrics.totalCampaigns} ${trackingMetrics.totalCampaigns === 1 ? 'transmissão realizada' : 'transmissões realizadas'}`}
               </p>
             </div>
 
@@ -1862,7 +1774,7 @@ function WhatsAppContent() {
               <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Entregues com Sucesso</p>
               <p className="text-2xl font-bold text-emerald-600 mt-1">{trackingMetrics.totalSuccess}</p>
               <p className="text-[11px] text-[#64748B] font-medium mt-0.5">
-                {trackingMetrics.avgRate}% de taxa de entrega
+                {trackingMetrics.totalMessages > 0 ? `${trackingMetrics.avgRate}% de taxa de entrega` : '— de taxa de entrega'}
               </p>
             </div>
 
@@ -1870,7 +1782,11 @@ function WhatsAppContent() {
               <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Falhas / Rejeições</p>
               <p className="text-2xl font-bold text-rose-600 mt-1">{trackingMetrics.totalFailed}</p>
               <p className="text-[11px] text-[#64748B] font-medium mt-0.5">
-                {trackingMetrics.totalFailed === 0 ? 'Zero falhas registradas' : 'Contatos com erro'}
+                {trackingMetrics.totalMessages === 0
+                  ? 'Sem falhas'
+                  : trackingMetrics.totalFailed === 0
+                  ? 'Zero falhas registradas'
+                  : `${trackingMetrics.totalFailed} com erro`}
               </p>
             </div>
 
@@ -1954,6 +1870,25 @@ function WhatsAppContent() {
                     Com Falhas
                   </button>
                 </div>
+
+                {broadcastCampaigns.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Deseja realmente limpar todo o histórico de transmissões deste workspace?')) {
+                        try {
+                          localStorage.removeItem(`swiftsail_broadcast_campaigns_${targetId}`);
+                        } catch {}
+                        setBroadcastCampaigns([]);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
+                    title="Limpar todo o histórico de transmissões"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Limpar Histórico</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -2106,18 +2041,39 @@ function WhatsAppContent() {
 
                           {/* Ação */}
                           <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedCampaignForModal(camp);
-                              }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EFF4FF] hover:bg-[#E0EAFF] text-[#0050FF] font-bold text-xs border border-[#BFDBFE] transition-colors shadow-2xs group-hover:bg-[#0050FF] group-hover:text-white cursor-pointer"
-                              title="Ver lista de contatos e relatório"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>Ver Lista</span>
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedCampaignForModal(camp);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EFF4FF] hover:bg-[#E0EAFF] text-[#0050FF] font-bold text-xs border border-[#BFDBFE] transition-colors shadow-2xs group-hover:bg-[#0050FF] group-hover:text-white cursor-pointer"
+                                title="Ver lista de contatos e relatório"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Ver Lista</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (window.confirm(`Excluir a transmissão "${camp.nome}" do histórico?`)) {
+                                    setBroadcastCampaigns((prev) => {
+                                      const next = prev.filter((item) => item.id !== camp.id);
+                                      try {
+                                        localStorage.setItem(`swiftsail_broadcast_campaigns_${targetId}`, JSON.stringify(next));
+                                      } catch {}
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                className="p-1.5 rounded-xl text-[#94A3B8] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                title="Excluir transmissão do histórico"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
