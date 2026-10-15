@@ -35,7 +35,9 @@ function CRMContent() {
 
   // Para cliente comum, targetId NUNCA é 'ALL'
   const effectiveClientId = !isMasterAdmin
-    ? (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : 'ADRIATICA_INCORPORADORA'))
+    ? (availableClients.some((c) => c.cliente_id === selectedClientId)
+        ? selectedClientId
+        : (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : '')))
     : selectedClientId;
 
   const isAggregated = isMasterAdmin && effectiveClientId === 'ALL';
@@ -161,6 +163,13 @@ function CRMContent() {
     perda: { total: 0, valor: 0 },
   };
 
+  const hasKommoAccount =
+    isAggregated
+      ? true
+      : kommoData?.tem_conta_vinculada !== undefined
+      ? Boolean(kommoData.tem_conta_vinculada)
+      : funis.length > 0 || totalLeads > 0;
+
   const formatBRL = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
@@ -280,6 +289,45 @@ function CRMContent() {
         )}
       </div>
 
+      {/* Recado: Nenhuma conta Kommo CRM vinculada */}
+      {!loading && !hasKommoAccount && (
+        <div className="bg-amber-50/80 border border-amber-200 p-5 rounded-2xl shadow-xs space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 shrink-0 mt-0.5">
+                <KanbanSquare className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 uppercase tracking-wider">
+                    Kommo CRM • Não Vinculado
+                  </span>
+                  <span className="text-xs font-semibold text-[#0F172A]">• {clientName}</span>
+                </div>
+                <h3 className="text-sm font-bold text-[#0F172A]">
+                  Nenhuma conta do Kommo CRM vinculada a este workspace
+                </h3>
+                <p className="text-xs text-[#64748B] max-w-2xl leading-relaxed">
+                  {isMasterAdmin
+                    ? `O workspace ${clientName} ainda não possui pipeline comercial conectado ao Kommo CRM. Para sincronizar as etapas comerciais, valores em negociação e leads analíticos, vincule o subdomínio e token de acesso do Kommo em Credenciais.`
+                    : `Seu workspace ainda não possui uma integração do Kommo CRM conectada para exibir o pipeline comercial. A equipe da agência configurará o funil do seu negócio em breve.`}
+                </p>
+              </div>
+            </div>
+
+            {isMasterAdmin && (
+              <Link
+                href="/credenciais/cliente"
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white shadow-xs flex items-center gap-1.5 transition-all self-start sm:self-auto shrink-0"
+              >
+                <span>Configurar Kommo CRM</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
       {unavailable && (
         <div className="p-4 rounded-xl text-xs font-semibold flex items-start gap-2 border bg-amber-50 text-amber-800 border-amber-200">
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -358,7 +406,20 @@ function CRMContent() {
           </div>
         </div>
 
-        <div className="space-y-3.5">
+        {!hasKommoAccount ? (
+          <div className="p-8 text-center space-y-2 bg-[#F8FAFC] border border-dashed border-[#CBD5E1] rounded-xl">
+            <KanbanSquare className="w-8 h-8 text-[#94A3B8] mx-auto" />
+            <h4 className="text-xs font-bold text-[#0F172A]">
+              Itens do Pipeline Comercial Kommo Indisponíveis
+            </h4>
+            <p className="text-[11px] text-[#64748B] max-w-md mx-auto">
+              {isMasterAdmin
+                ? 'Conecte as credenciais do Kommo CRM para que os estágios do funil, valores de negócios e taxas de conversão sejam sincronizados automaticamente.'
+                : 'As etapas do seu funil e contatos em atendimento serão desenhados aqui assim que a conta do CRM for integrada pela equipe.'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3.5">
           {/* Linha 1: Topo Geral de Entrada no CRM */}
           <div
             onClick={() => openDrilldown(`1. Leads Capturados (Entrada Geral)`, leadsAmostra)}
@@ -571,6 +632,7 @@ function CRMContent() {
             </>
           )}
           </div>
+        )}
         </div>
       </>
     ) : (

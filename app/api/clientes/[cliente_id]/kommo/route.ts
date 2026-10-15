@@ -321,9 +321,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       }
     }
 
+    const temContaVinculada = todasEtapasCatalogo.length > 0 || allRows.length > 0;
+
     return NextResponse.json({
       success: true,
       cliente_id,
+      tem_conta_vinculada: temContaVinculada,
       periodo: { from, to },
       funil_selecionado: filtroPipeline,
       funis,

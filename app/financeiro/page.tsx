@@ -64,7 +64,9 @@ export default function FinanceiroPage() {
   const { activeClient, selectedClientId, currentUser, isMasterAdmin, availableClients, clients } = useTenant();
 
   const effectiveClientId = !isMasterAdmin
-    ? (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : 'ADRIATICA_INCORPORADORA'))
+    ? (availableClients.some((c) => c.cliente_id === selectedClientId)
+        ? selectedClientId
+        : (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : '')))
     : (activeClient?.cliente_id || selectedClientId || 'ALL');
 
   const currentClient = clients.find((c) => c.cliente_id === effectiveClientId) || activeClient;

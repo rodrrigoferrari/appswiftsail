@@ -32,6 +32,7 @@ import {
   CreditCard,
   Wallet,
   Link2,
+  ArrowRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -136,7 +137,9 @@ function MidiaContent() {
 
   // Para perfis cliente (não-admin), o targetId NUNCA pode ser 'ALL'
   const effectiveClientId = !isMasterAdmin
-    ? (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : 'ADRIATICA_INCORPORADORA'))
+    ? (availableClients.some((c) => c.cliente_id === selectedClientId)
+        ? selectedClientId
+        : (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : '')))
     : selectedClientId;
 
   const isAggregated = isMasterAdmin && effectiveClientId === 'ALL';
@@ -187,6 +190,13 @@ function MidiaContent() {
   const googleAnuncios = googleData?.anuncios || [];
   const googleGruposRecursos = googleData?.grupos_recursos || [];
   const googlePalavrasChave = googleData?.palavras_chave || [];
+
+  const hasGoogleAccount =
+    isAggregated
+      ? true
+      : googleData?.tem_conta_vinculada !== undefined
+      ? Boolean(googleData.tem_conta_vinculada)
+      : googleContas.length > 0 || googleCampanhas.length > 0;
 
   const formatCartao = (digitos?: string | null) => {
     if (!digitos) return '—';
@@ -2003,6 +2013,45 @@ function MidiaContent() {
       {/* ========================================================================= */}
       {activePlatformTab === 'google' && (
         <div className="space-y-4">
+          {/* Recado: Nenhuma conta Google Ads vinculada */}
+          {!loading && !hasGoogleAccount && (
+            <div className="bg-amber-50/80 border border-amber-200 p-5 rounded-2xl shadow-xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 shrink-0 mt-0.5">
+                    <Megaphone className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 uppercase tracking-wider">
+                        Google Ads • Não Vinculado
+                      </span>
+                      <span className="text-xs font-semibold text-[#0F172A]">• {clientName}</span>
+                    </div>
+                    <h3 className="text-sm font-bold text-[#0F172A]">
+                      Nenhuma conta de anúncios do Google Ads vinculada a este workspace
+                    </h3>
+                    <p className="text-xs text-[#64748B] max-w-2xl leading-relaxed">
+                      {isMasterAdmin
+                        ? `O workspace ${clientName} ainda não possui contas do Google Ads associadas. Para acompanhar campanhas de Search e PMax, faturamento e relatórios de termos de busca, vincule as contas de anúncio em Credenciais.`
+                        : `Este workspace ainda não possui anúncios do Google Ads ativos ou vinculados. As métricas de desempenho e conversões serão exibidas aqui assim que a conta for conectada pela equipe.`}
+                    </p>
+                  </div>
+                </div>
+
+                {isMasterAdmin && (
+                  <Link
+                    href="/credenciais/cliente"
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white shadow-xs flex items-center gap-1.5 transition-all self-start sm:self-auto shrink-0"
+                  >
+                    <span>Vincular Google Ads</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Barra de Status Google: exibir apenas se não estiver em Faturamento & Contas */}
           {googleSubTab !== 'contas' && (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2E8F0] pb-3 text-xs">
@@ -2200,7 +2249,16 @@ function MidiaContent() {
 
               {filteredGoogleCampanhas.length === 0 ? (
                 <div className="p-8 text-center text-[#64748B] text-xs">
-                  {loading ? 'Carregando campanhas...' : 'Nenhuma campanha Google encontrada para este cliente.'}
+                  {loading ? (
+                    'Carregando campanhas...'
+                  ) : !hasGoogleAccount ? (
+                    <div className="space-y-1">
+                      <p className="font-bold text-[#0F172A]">Aguardando Vinculação de Conta Google Ads</p>
+                      <p className="text-[11px] text-[#64748B]">Nenhuma conta ou campanha associada ao workspace {clientName}.</p>
+                    </div>
+                  ) : (
+                    'Nenhuma campanha Google encontrada para este cliente.'
+                  )}
                 </div>
               ) : (
                 <div className="overflow-x-auto">

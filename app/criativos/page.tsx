@@ -28,7 +28,9 @@ function CriativosContent() {
 
   // Para cliente comum, NUNCA expõe 'Todos os Clientes'
   const effectiveClientId = !isMasterAdmin
-    ? (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : 'ADRIATICA_INCORPORADORA'))
+    ? (availableClients.some((c) => c.cliente_id === selectedClientId)
+        ? selectedClientId
+        : (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : '')))
     : selectedClientId;
 
   const currentClient = clients.find((c) => c.cliente_id === effectiveClientId) || activeClient;

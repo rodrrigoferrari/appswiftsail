@@ -354,9 +354,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       { gasto: 0, cliques: 0, impressoes: 0, conversoes: 0, valor_conversoes: 0 }
     );
 
+    const temContaVinculada = contas.length > 0 || campanhas.length > 0;
+
     return NextResponse.json({
       success: true,
       cliente_id,
+      tem_conta_vinculada: temContaVinculada,
       periodo: { from, to },
       atualizado_em: atualizadoEm,
       totais: {

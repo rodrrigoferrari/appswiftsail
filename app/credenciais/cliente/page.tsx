@@ -17,11 +17,12 @@ import {
   Users,
   UserPlus,
   ExternalLink,
+  ArrowLeft,
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ClientCredentialsPage() {
-  const { clients, activeClient, selectedClientId, setSelectedClientId, activeClientAdAccounts, users, invites } = useTenant();
+  const { clients, activeClient, selectedClientId, setSelectedClientId, activeClientAdAccounts, users, invites, isMasterAdmin, isAuthChecked } = useTenant();
 
   const [activeTab, setActiveTab] = useState<'crm' | 'team'>('crm');
   const [subdomain, setSubdomain] = useState('');
@@ -41,6 +42,37 @@ export default function ClientCredentialsPage() {
       setPipelineId('');
     }
   }, [selectedClientId]);
+
+  if (!isAuthChecked) {
+    return (
+      <div className="flex items-center justify-center p-12 bg-white border border-[#E2E8F0] rounded-2xl shadow-xs">
+        <RefreshCw className="w-5 h-5 animate-spin text-[#0050FF]" />
+      </div>
+    );
+  }
+
+  if (!isMasterAdmin) {
+    return (
+      <div className="p-8 bg-white border border-[#E2E8F0] rounded-2xl shadow-xs space-y-4 max-w-xl mx-auto font-sans select-none">
+        <div className="flex items-center gap-3 text-rose-600">
+          <AlertCircle className="w-6 h-6 text-rose-600" />
+          <h2 className="text-base font-bold text-[#0F172A]">Acesso Restrito ao Master Admin</h2>
+        </div>
+        <p className="text-xs text-[#64748B] leading-relaxed">
+          O gerenciamento de credenciais e integrações é de uso restrito da Administração Master da Swiftsail.
+        </p>
+        <div className="pt-2 border-t border-[#F1F5F9]">
+          <Link
+            href="/client"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0050FF] hover:bg-[#0040D6] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Voltar ao Portal do Cliente</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const handleSave = async () => {
     if (!selectedClientId || selectedClientId === 'ALL') {

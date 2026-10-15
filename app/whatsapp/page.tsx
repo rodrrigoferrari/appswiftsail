@@ -67,7 +67,9 @@ function WhatsAppContent() {
 
   // Para cliente comum, targetId NUNCA é 'swiftsail'. É SEMPRE o cliente_id do cliente atribuído!
   const effectiveClientId = !isMasterAdmin
-    ? (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : 'ADRIATICA_INCORPORADORA'))
+    ? (availableClients.some((c) => c.cliente_id === selectedClientId)
+        ? selectedClientId
+        : (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : '')))
     : (selectedClientId && selectedClientId !== 'ALL' ? selectedClientId : 'swiftsail');
 
   const targetId = effectiveClientId;
