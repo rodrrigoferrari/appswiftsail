@@ -29,9 +29,10 @@ import {
   ChevronRight,
   Layers,
   ArrowUpRight,
+  Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
-import { ContaAdsPainel, Cliente } from '@/types/database';
+import { ContaAdsPainel, Cliente, KommoPipelineResumo } from '@/types/database';
 
 function ClientCredentialsContent() {
   const searchParams = useSearchParams();
@@ -48,6 +49,7 @@ function ClientCredentialsContent() {
 
   // Estados principais
   const [allContasAds, setAllContasAds] = useState<ContaAdsPainel[]>([]);
+  const [kommoPipelines, setKommoPipelines] = useState<KommoPipelineResumo[]>([]);
   const [isLoadingContas, setIsLoadingContas] = useState(true);
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
@@ -57,7 +59,7 @@ function ClientCredentialsContent() {
   );
 
   // Filtros da Matriz Geral
-  const [matrixFilterType, setMatrixFilterType] = useState<'all' | 'meta' | 'google' | 'whatsapp' | 'drive' | 'crm'>('all');
+  const [matrixFilterType, setMatrixFilterType] = useState<'all' | 'meta' | 'google' | 'crm' | 'whatsapp' | 'drive'>('all');
   const [matrixSearch, setMatrixSearch] = useState('');
   const [onlyAlerts, setOnlyAlerts] = useState(false);
 
@@ -81,18 +83,19 @@ function ClientCredentialsContent() {
     }
   }, [searchParams, setSelectedClientId]);
 
-  // Carrega todas as contas de anúncio diretamente do bootstrap
+  // Carrega todas as contas de anúncio e funis do Kommo diretamente do bootstrap
   useEffect(() => {
     async function loadAllAccounts() {
       setIsLoadingContas(true);
       try {
         const res = await fetch('/api/bootstrap');
         const data = await res.json();
-        if (data.success && Array.isArray(data.contasAds)) {
-          setAllContasAds(data.contasAds);
+        if (data.success) {
+          if (Array.isArray(data.contasAds)) setAllContasAds(data.contasAds);
+          if (Array.isArray(data.kommoPipelines)) setKommoPipelines(data.kommoPipelines);
         }
       } catch (err) {
-        console.error('Falha ao carregar contas de anúncio:', err);
+        console.error('Falha ao carregar contas de anúncio e Kommo:', err);
       } finally {
         setIsLoadingContas(false);
       }
@@ -192,6 +195,12 @@ function ClientCredentialsContent() {
     [selectedClientAccounts]
   );
 
+  // Pipelines do cliente selecionado no Kommo
+  const selectedClientKommoPipelines = useMemo(() => {
+    if (!selectedClientId || selectedClientId === 'ALL') return [];
+    return kommoPipelines.filter((k) => k.cliente_id === selectedClientId);
+  }, [kommoPipelines, selectedClientId]);
+
   // Usuários e convites do cliente selecionado
   const clientUsers = useMemo(
     () => users.filter((u) => u.cliente_id === selectedClientId),
@@ -207,6 +216,7 @@ function ClientCredentialsContent() {
     const totalContas = allContasAds.length;
     const totalMeta = allContasAds.filter((a) => a.plataforma === 'meta').length;
     const totalGoogle = allContasAds.filter((a) => a.plataforma === 'google').length;
+    const totalKommo = kommoPipelines.length;
     const totalWhatsapp = clients.filter((c) => !!c.grupo_whatsapp_id).length;
     const totalDrive = clients.filter((c) => !!c.drive_folder_id).length;
 
@@ -220,8 +230,8 @@ function ClientCredentialsContent() {
       if (saldoBaixo || limiteBaixo) alertasCount++;
     });
 
-    return { totalContas, totalMeta, totalGoogle, totalWhatsapp, totalDrive, alertasCount };
-  }, [allContasAds, clients]);
+    return { totalContas, totalMeta, totalGoogle, totalKommo, totalWhatsapp, totalDrive, alertasCount };
+  }, [allContasAds, kommoPipelines, clients]);
 
   // Lista da Matriz Geral com Filtros e Busca
   const matrixItems = useMemo(() => {
@@ -232,8 +242,6 @@ function ClientCredentialsContent() {
       const clientObj = clientsMap.get(a.cliente_id);
       const clientName = clientObj?.nome || a.cliente_id;
       const isPre = a.tipo_pagamento === 'pre_paga' || a.tipo_pagamento === 'limite_orcamento';
-      const isPos = a.tipo_pagamento === 'pos_paga';
-      const isAuto = a.tipo_pagamento === 'automatico';
       const saldo = Number(a.saldo_disponivel);
       const limite = Number(a.limite_restante);
       const isSaldoBaixo = isPre && a.saldo_disponivel !== null && a.saldo_disponivel !== undefined && saldo < 50;
@@ -269,7 +277,31 @@ function ClientCredentialsContent() {
       };
     });
 
-    // 2. Grupos de WhatsApp
+    // 2. Kommo CRM (Funis e Pipelines Mapeados no Supabase)
+    const kommoRows = kommoPipelines.map((k) => {
+      const clientObj = clientsMap.get(k.cliente_id);
+      const clientName = clientObj?.nome || k.cliente_id;
+      const sub = k.cliente_id.toLowerCase().replace(/_/g, '');
+      return {
+        id: `crm_${k.cliente_id}_${k.pipeline_id}`,
+        tipo: 'crm' as const,
+        tipoLabel: 'Kommo CRM',
+        nome: `Funil: ${k.pipeline_nome}`,
+        identificador: `Funil ID: ${k.pipeline_id}`,
+        clienteId: k.cliente_id,
+        clienteNome: clientName,
+        status: 'ACTIVE',
+        tipoPagamento: `${k.etapas_count} etapas mapeadas`,
+        saldo: null,
+        limite: null,
+        cartaoFinal: null,
+        contaPagamento: null,
+        hasAlert: false,
+        billingUrl: `https://${sub}.kommo.com/leads/pipeline/${k.pipeline_id}`,
+      };
+    });
+
+    // 3. Grupos de WhatsApp
     const whatsappRows = clients
       .filter((c) => !!c.grupo_whatsapp_id)
       .map((c) => ({
@@ -290,7 +322,7 @@ function ClientCredentialsContent() {
         billingUrl: '',
       }));
 
-    // 3. Pastas Google Drive
+    // 4. Pastas Google Drive
     const driveRows = clients
       .filter((c) => !!c.drive_folder_id)
       .map((c) => ({
@@ -312,7 +344,7 @@ function ClientCredentialsContent() {
       }));
 
     // Une todos os recursos
-    let combined = [...adRows, ...whatsappRows, ...driveRows];
+    let combined = [...adRows, ...kommoRows, ...whatsappRows, ...driveRows];
 
     // Filtro por tipo selecionado
     if (matrixFilterType !== 'all') {
@@ -336,7 +368,7 @@ function ClientCredentialsContent() {
     }
 
     return combined;
-  }, [allContasAds, clients, clientsMap, matrixFilterType, onlyAlerts, matrixSearch]);
+  }, [allContasAds, kommoPipelines, clients, clientsMap, matrixFilterType, onlyAlerts, matrixSearch]);
 
   // Guardas de autenticação e permissão
   if (!isAuthChecked) {
@@ -383,7 +415,7 @@ function ClientCredentialsContent() {
             </span>
             {selectedClientId === 'ALL' && (
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                {stats.totalContas} Contas Mapeadas
+                {stats.totalContas} Contas Ads + {stats.totalKommo} Funis Kommo
               </span>
             )}
           </div>
@@ -404,8 +436,8 @@ function ClientCredentialsContent() {
 
           <p className="text-xs text-[#64748B] max-w-3xl leading-relaxed">
             {selectedClientId === 'ALL'
-              ? 'Visualize todas as contas separadas por tipo (Meta Ads, Google Ads, WhatsApp, CRM e Drive) e confira exatamente a qual cliente cada uma está vinculada.'
-              : `Gerencie as contas de anúncio, integrações do Kommo CRM, WhatsApp, Drive e a equipe autorizada deste cliente.`}
+              ? 'Visualize todas as contas separadas por tipo (Meta Ads, Google Ads, Kommo CRM, WhatsApp e Drive) e confira exatamente a qual cliente cada uma está vinculada.'
+              : `Gerencie as contas de anúncio, integrações do Kommo CRM, canais de WhatsApp, Drive e a equipe autorizada deste cliente.`}
           </p>
         </div>
 
@@ -429,10 +461,10 @@ function ClientCredentialsContent() {
       </div>
 
       {/* KPI Cards / Resumo Executivo */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
         <div className="bg-white border border-[#E2E8F0] p-4 rounded-xl shadow-xs space-y-1">
           <span className="text-[10px] uppercase font-bold text-[#64748B] flex items-center gap-1.5">
-            <Zap className="w-3.5 h-3.5 text-[#0050FF]" /> Total Contas
+            <Zap className="w-3.5 h-3.5 text-[#0050FF]" /> Total Contas Ads
           </span>
           <p className="text-xl font-bold text-[#0F172A] font-mono">{stats.totalContas}</p>
           <p className="text-[10px] text-[#64748B]">Meta + Google Ads</p>
@@ -452,6 +484,14 @@ function ClientCredentialsContent() {
           </span>
           <p className="text-xl font-bold text-[#0F172A] font-mono">{stats.totalGoogle}</p>
           <p className="text-[10px] text-[#64748B]">MCC Swiftsail</p>
+        </div>
+
+        <div className="bg-white border border-[#E2E8F0] p-4 rounded-xl shadow-xs space-y-1">
+          <span className="text-[10px] uppercase font-bold text-[#64748B] flex items-center gap-1.5">
+            <KanbanSquare className="w-3.5 h-3.5 text-orange-600" /> Kommo CRM
+          </span>
+          <p className="text-xl font-bold text-orange-700 font-mono">{stats.totalKommo}</p>
+          <p className="text-[10px] text-[#64748B]">Funis Conectados</p>
         </div>
 
         <div className="bg-white border border-[#E2E8F0] p-4 rounded-xl shadow-xs space-y-1">
@@ -505,7 +545,7 @@ function ClientCredentialsContent() {
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>🏢 Matriz de Todas as Contas & Vínculos ({allContasAds.length})</span>
+            <span>🏢 Matriz de Todas as Contas & Vínculos ({matrixItems.length})</span>
           </button>
 
           {selectedClientId !== 'ALL' && (
@@ -560,7 +600,7 @@ function ClientCredentialsContent() {
                     : 'bg-[#F8FAFC] text-[#64748B] hover:bg-[#F1F5F9] border border-[#E2E8F0]'
                 }`}
               >
-                Todas ({allContasAds.length + clients.filter((c) => c.grupo_whatsapp_id).length + clients.filter((c) => c.drive_folder_id).length})
+                Todas ({allContasAds.length + kommoPipelines.length + clients.filter((c) => c.grupo_whatsapp_id).length + clients.filter((c) => c.drive_folder_id).length})
               </button>
 
               <button
@@ -588,6 +628,18 @@ function ClientCredentialsContent() {
               </button>
 
               <button
+                onClick={() => setMatrixFilterType('crm')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  matrixFilterType === 'crm'
+                    ? 'bg-orange-600 text-white shadow-xs'
+                    : 'bg-[#F8FAFC] text-orange-700 hover:bg-orange-50 border border-[#E2E8F0]'
+                }`}
+              >
+                <KanbanSquare className="w-3.5 h-3.5 text-orange-600" />
+                Kommo CRM ({stats.totalKommo})
+              </button>
+
+              <button
                 onClick={() => setMatrixFilterType('whatsapp')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                   matrixFilterType === 'whatsapp'
@@ -595,7 +647,7 @@ function ClientCredentialsContent() {
                     : 'bg-[#F8FAFC] text-emerald-700 hover:bg-emerald-50 border border-[#E2E8F0]'
                 }`}
               >
-                <MessageSquare className="w-3.5 h-3.5" />
+                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
                 WhatsApp Grupos ({stats.totalWhatsapp})
               </button>
 
@@ -607,7 +659,7 @@ function ClientCredentialsContent() {
                     : 'bg-[#F8FAFC] text-amber-700 hover:bg-amber-50 border border-[#E2E8F0]'
                 }`}
               >
-                <FolderTree className="w-3.5 h-3.5" />
+                <FolderTree className="w-3.5 h-3.5 text-amber-600" />
                 Google Drive ({stats.totalDrive})
               </button>
             </div>
@@ -619,7 +671,7 @@ function ClientCredentialsContent() {
                 type="text"
                 value={matrixSearch}
                 onChange={(e) => setMatrixSearch(e.target.value)}
-                placeholder="Buscar por conta, ID ou cliente..."
+                placeholder="Buscar por conta, ID, funil ou cliente..."
                 className="w-full pl-9 pr-3 py-1.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#0F172A] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#0050FF] focus:outline-none transition-all"
               />
             </div>
@@ -629,11 +681,11 @@ function ClientCredentialsContent() {
           {isLoadingContas ? (
             <div className="p-12 text-center text-[#64748B] flex items-center justify-center gap-2">
               <RefreshCw className="w-4 h-4 animate-spin text-[#0050FF]" />
-              <span>Carregando matriz de contas...</span>
+              <span>Carregando matriz de contas e funis...</span>
             </div>
           ) : matrixItems.length === 0 ? (
             <div className="p-12 text-center bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] text-[#64748B] text-xs">
-              Nenhuma conta encontrada para os filtros selecionados.
+              Nenhuma conta ou recurso encontrado para os filtros selecionados.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -644,7 +696,7 @@ function ClientCredentialsContent() {
                     <th className="py-3 px-3.5">Nome da Conta / Recurso</th>
                     <th className="py-3 px-3.5">ID / Identificador</th>
                     <th className="py-3 px-3.5">Cliente Vinculado</th>
-                    <th className="py-3 px-3.5">Saldo / Pagamento / Limite</th>
+                    <th className="py-3 px-3.5">Saldo / Pagamento / Detalhes</th>
                     <th className="py-3 px-3.5">Status</th>
                     <th className="py-3 px-3.5 rounded-r-lg text-right">Ações</th>
                   </tr>
@@ -653,6 +705,7 @@ function ClientCredentialsContent() {
                   {matrixItems.map((item) => {
                     const isMeta = item.tipo === 'meta';
                     const isGoogle = item.tipo === 'google';
+                    const isCrm = item.tipo === 'crm';
                     const isWhatsapp = item.tipo === 'whatsapp';
                     const isDrive = item.tipo === 'drive';
 
@@ -675,6 +728,12 @@ function ClientCredentialsContent() {
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
                               <span className="w-2 h-2 rounded-full bg-sky-600" />
                               Google Ads
+                            </span>
+                          )}
+                          {isCrm && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                              <KanbanSquare className="w-3 h-3 text-orange-600" />
+                              Kommo CRM
                             </span>
                           )}
                           {isWhatsapp && (
@@ -730,7 +789,7 @@ function ClientCredentialsContent() {
                           </button>
                         </td>
 
-                        {/* Saldo / Pagamento / Limite */}
+                        {/* Saldo / Pagamento / Limite / Detalhes */}
                         <td className="py-3.5 px-3.5">
                           {isMeta && (
                             <div className="space-y-0.5">
@@ -786,6 +845,15 @@ function ClientCredentialsContent() {
                             </div>
                           )}
 
+                          {isCrm && (
+                            <div className="space-y-0.5">
+                              <span className="text-orange-700 font-semibold text-[11px] flex items-center gap-1">
+                                <Sparkles className="w-3 h-3 text-orange-500" />
+                                {item.tipoPagamento}
+                              </span>
+                            </div>
+                          )}
+
                           {isWhatsapp && (
                             <span className="text-emerald-700 font-semibold text-[11px]">
                               Canal Ativo no Supabase
@@ -827,7 +895,7 @@ function ClientCredentialsContent() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="p-1.5 rounded-lg bg-white hover:bg-[#EFF4FF] text-[#64748B] hover:text-[#0050FF] border border-[#E2E8F0] hover:border-[#BFDBFE] transition-all shadow-2xs"
-                                title="Abrir faturamento na plataforma externa"
+                                title={isCrm ? 'Abrir funil no Kommo CRM' : 'Abrir faturamento na plataforma externa'}
                               >
                                 <ArrowUpRight className="w-3.5 h-3.5" />
                               </a>
@@ -836,8 +904,9 @@ function ClientCredentialsContent() {
                               onClick={() => {
                                 setSelectedClientId(item.clienteId);
                                 setMainView('client_detail');
+                                if (isCrm) setClientDetailTab('crm');
                               }}
-                              className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] hover:bg-[#E0EAFF] text-[#0050FF] font-semibold text-[11px] transition-colors"
+                              className="px-2.5 py-1 rounded-lg bg-[#EFF4FF] hover:bg-[#E0EAFF] text-[#0050FF] font-semibold text-[11px] transition-colors cursor-pointer"
                               title="Configurar este cliente"
                             >
                               Configurar
@@ -875,12 +944,12 @@ function ClientCredentialsContent() {
               onClick={() => setClientDetailTab('crm')}
               className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${
                 clientDetailTab === 'crm'
-                  ? 'bg-white text-[#0050FF] shadow-xs border border-[#E2E8F0]'
+                  ? 'bg-white text-orange-700 shadow-xs border border-[#E2E8F0]'
                   : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
             >
-              <KanbanSquare className="w-3.5 h-3.5" />
-              Kommo CRM
+              <KanbanSquare className="w-3.5 h-3.5 text-orange-600" />
+              Kommo CRM ({selectedClientKommoPipelines.length} funis)
             </button>
 
             <button
@@ -1087,68 +1156,144 @@ function ClientCredentialsContent() {
             </div>
           )}
 
-          {/* Subaba 2: Kommo CRM Form */}
+          {/* Subaba 2: Kommo CRM Form & Funis Detectados */}
           {clientDetailTab === 'crm' && (
-            <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs max-w-2xl space-y-5">
-              <div className="border-b border-[#F1F5F9] pb-3 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
-                    <KanbanSquare className="w-4 h-4 text-[#0050FF]" />
-                    Kommo CRM de {clientName}
-                  </h3>
-                  <p className="text-xs text-[#64748B]">Sincronização do funil de vendas comercial</p>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Formulário de Configuração */}
+              <div className="lg:col-span-7 bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
+                <div className="border-b border-[#F1F5F9] pb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                      <KanbanSquare className="w-4 h-4 text-orange-600" />
+                      Credenciais Kommo CRM de {clientName}
+                    </h3>
+                    <p className="text-xs text-[#64748B]">Sincronização do funil de vendas comercial</p>
+                  </div>
+
+                  <button
+                    onClick={handleSaveKommo}
+                    disabled={isSaving}
+                    className="bg-[#0050FF] hover:bg-[#0040D6] text-white px-5 py-2.5 rounded-full font-semibold text-xs flex items-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    <span>Salvar Kommo</span>
+                  </button>
                 </div>
 
-                <button
-                  onClick={handleSaveKommo}
-                  disabled={isSaving}
-                  className="bg-[#0050FF] hover:bg-[#0040D6] text-white px-5 py-2.5 rounded-full font-semibold text-xs flex items-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-                >
-                  {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                  <span>Salvar Kommo</span>
-                </button>
-              </div>
-
-              <div className="space-y-4 text-xs">
-                <div>
-                  <label className="block text-[#475569] font-semibold mb-1">Subdomínio Kommo do Cliente</label>
-                  <input
-                    type="text"
-                    value={subdomain}
-                    onChange={(e) => setSubdomain(e.target.value)}
-                    placeholder="ex: adriatica (sem .kommo.com)"
-                    className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3.5 py-2 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[#475569] font-semibold mb-1">Long-Lived Access Token (Kommo)</label>
-                  <div className="relative">
+                <div className="space-y-4 text-xs">
+                  <div>
+                    <label className="block text-[#475569] font-semibold mb-1">Subdomínio Kommo do Cliente</label>
                     <input
-                      type={showToken ? 'text' : 'password'}
-                      value={token}
-                      onChange={(e) => setToken(e.target.value)}
-                      placeholder="Insira o token de longa duração gerado no Kommo do cliente"
-                      className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3.5 py-2 pr-10 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
+                      type="text"
+                      value={subdomain}
+                      onChange={(e) => setSubdomain(e.target.value)}
+                      placeholder="ex: adriatica (sem .kommo.com)"
+                      className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3.5 py-2 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
                     />
-                    <button
-                      onClick={() => setShowToken(!showToken)}
-                      className="absolute right-3 top-2.5 text-[#94A3B8] hover:text-[#0F172A] cursor-pointer"
-                    >
-                      {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-[#475569] font-semibold mb-1">Long-Lived Access Token (Kommo)</label>
+                    <div className="relative">
+                      <input
+                        type={showToken ? 'text' : 'password'}
+                        value={token}
+                        onChange={(e) => setToken(e.target.value)}
+                        placeholder="Insira o token de longa duração gerado no Kommo do cliente"
+                        className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3.5 py-2 pr-10 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
+                      />
+                      <button
+                        onClick={() => setShowToken(!showToken)}
+                        className="absolute right-3 top-2.5 text-[#94A3B8] hover:text-[#0F172A] cursor-pointer"
+                      >
+                        {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[#475569] font-semibold mb-1">ID do Pipeline Principal</label>
+                    <input
+                      type="text"
+                      value={pipelineId}
+                      onChange={(e) => setPipelineId(e.target.value)}
+                      placeholder="ex: 13629291"
+                      className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3.5 py-2 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
+                    />
+                    <p className="text-[10px] text-[#64748B] mt-1">
+                      Você pode clicar em &quot;Usar como Principal&quot; na lista ao lado para preencher automaticamente.
+                    </p>
                   </div>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-[#475569] font-semibold mb-1">ID do Pipeline Principal</label>
-                  <input
-                    type="text"
-                    value={pipelineId}
-                    onChange={(e) => setPipelineId(e.target.value)}
-                    placeholder="ex: 889210"
-                    className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3.5 py-2 text-[#0F172A] font-mono focus:border-[#0050FF] focus:bg-white focus:outline-none transition-colors"
-                  />
+              {/* Funis Detectados no Kommo */}
+              <div className="lg:col-span-5 bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-4">
+                <div className="border-b border-[#F1F5F9] pb-3">
+                  <h3 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-orange-600" />
+                    Funis Detectados no Kommo ({selectedClientKommoPipelines.length})
+                  </h3>
+                  <p className="text-[11px] text-[#64748B]">Sincronizados na base de dados pública do Supabase</p>
+                </div>
+
+                <div className="space-y-2.5">
+                  {selectedClientKommoPipelines.length === 0 ? (
+                    <div className="p-6 text-center bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] text-[#64748B] text-xs">
+                      Nenhum funil importado para este cliente ainda. Salve o token e subdomínio para sincronizar.
+                    </div>
+                  ) : (
+                    selectedClientKommoPipelines.map((p) => {
+                      const isCurrentPrimary = pipelineId === p.pipeline_id;
+                      const kommoUrl = `https://${subdomain || selectedClientId.toLowerCase().replace(/_/g, '')}.kommo.com/leads/pipeline/${p.pipeline_id}`;
+
+                      return (
+                        <div
+                          key={p.pipeline_id}
+                          className={`p-3.5 rounded-xl border transition-all ${
+                            isCurrentPrimary
+                              ? 'bg-orange-50/70 border-orange-300'
+                              : 'bg-[#F8FAFC] border-[#E2E8F0] hover:bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-[#0F172A]">{p.pipeline_nome}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-mono text-[#64748B]">ID: {p.pipeline_id}</span>
+                              <a
+                                href={kommoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[#0050FF] hover:underline p-0.5"
+                                title="Abrir este funil no Kommo"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2">
+                            <span className="text-[11px] text-orange-700 font-semibold">
+                              {p.etapas_count} etapas mapeadas
+                            </span>
+
+                            {isCurrentPrimary ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-800 border border-orange-200">
+                                Principal
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => setPipelineId(p.pipeline_id)}
+                                className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white hover:bg-orange-100 text-orange-700 border border-orange-200 transition-colors cursor-pointer shadow-2xs"
+                              >
+                                Definir como Principal
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>

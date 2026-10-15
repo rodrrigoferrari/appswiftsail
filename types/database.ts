@@ -114,6 +114,13 @@ export interface KommoEtapaPainel {
   conta_como: 'aberta' | 'ganho' | 'perda' | string;
 }
 
+export interface KommoPipelineResumo {
+  cliente_id: string;
+  pipeline_id: string;
+  pipeline_nome: string;
+  etapas_count: number;
+}
+
 // painel.campanhas_status (Cleide): status e orçamento diário em reais
 export interface CampanhaStatusPainel {
   cliente_id: string;

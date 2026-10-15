@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { Cliente, ContaAdsPainel, GoogleAnuncioPainel } from '@/types/database';
+import { Cliente, ContaAdsPainel, GoogleAnuncioPainel, KommoPipelineResumo } from '@/types/database';
 
 /**
  * Busca clientes com status 'ativo' diretamente da tabela pública clientes.
@@ -160,3 +160,41 @@ export async function getCsStatusList() {
     return [];
   }
 }
+
+/**
+ * Consulta pipelines/funis do Kommo CRM agrupados por cliente a partir de public.painel_kommo_etapas.
+ */
+export async function getKommoPipelinesResumo(clienteId?: string): Promise<KommoPipelineResumo[]> {
+  try {
+    let query = supabaseAdmin
+      .from('painel_kommo_etapas')
+      .select('cliente_id,pipeline_id,pipeline_nome,status_id');
+
+    if (clienteId && clienteId !== 'ALL') {
+      query = query.eq('cliente_id', clienteId.toUpperCase());
+    }
+
+    const { data, error } = await query;
+    if (error || !data) return [];
+
+    const map = new Map<string, KommoPipelineResumo>();
+    data.forEach((e) => {
+      const key = `${e.cliente_id}::${e.pipeline_id}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          cliente_id: e.cliente_id,
+          pipeline_id: String(e.pipeline_id),
+          pipeline_nome: e.pipeline_nome || `Pipeline ${e.pipeline_id}`,
+          etapas_count: 0,
+        });
+      }
+      map.get(key)!.etapas_count++;
+    });
+
+    return Array.from(map.values());
+  } catch (err) {
+    console.error('Error fetching kommo pipelines:', err);
+    return [];
+  }
+}
+
