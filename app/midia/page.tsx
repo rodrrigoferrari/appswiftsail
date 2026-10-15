@@ -665,13 +665,25 @@ function MidiaContent() {
 
   // Lista achatada de conjuntos derivados das campanhas reais
   const adsetsData = useMemo(() => {
-    return hierarchyData.flatMap((c: any) => c.adsets);
-  }, [hierarchyData]);
+    const list = hierarchyData.flatMap((c: any) => c.adsets);
+    if (statusFilter === 'all') return list;
+    return list.filter((as: any) => {
+      const s = String(as.status || '').toUpperCase();
+      const isPaused = s.includes('PAUS');
+      return statusFilter === 'active' ? !isPaused : isPaused;
+    });
+  }, [hierarchyData, statusFilter]);
 
   // Lista achatada de criativos derivados das campanhas reais
   const adsData = useMemo(() => {
-    return hierarchyData.flatMap((c: any) => c.adsets.flatMap((as: any) => as.criativos));
-  }, [hierarchyData]);
+    const list = hierarchyData.flatMap((c: any) => c.adsets.flatMap((as: any) => as.criativos));
+    if (statusFilter === 'all') return list;
+    return list.filter((ad: any) => {
+      const s = String(ad.effective_status || ad.status || '').toUpperCase();
+      const isPaused = s.includes('PAUS') || s.includes('ARCHIV');
+      return statusFilter === 'active' ? !isPaused : isPaused;
+    });
+  }, [hierarchyData, statusFilter]);
 
   const toggleAll = (expand: boolean) => {
     const newCamps: Record<string, boolean> = {};

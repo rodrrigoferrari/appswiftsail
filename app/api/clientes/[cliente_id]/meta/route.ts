@@ -120,20 +120,29 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
           rawAdsPorCamp.set(row.campaign_id, list);
         }
 
-        // Filtra anúncios da campanha: prioriza anúncios ativos ou com status ACTIVE,
-        // garantindo que anúncios com conjuntos pausados temporariamente (ADSET_PAUSED) também sejam visualizados
+        // Filtra estritamente por anúncios e conjuntos que tiveram veiculação no período selecionado:
+        // 1. Efetivamente ATIVOS no leilão (effective_status === 'ACTIVE')
+        // 2. Anúncios ativos em campanhas que foram pausadas recentemente (CAMPAIGN_PAUSED com status ACTIVE)
+        // 3. Anúncios criados ou pausados/atualizados durante o período selecionado (from <= data <= to)
+        // Anúncios com ADSET_PAUSED antigos ou PAUSED há meses/anos são estritamente excluídos.
         for (const [campId, ads] of rawAdsPorCamp.entries()) {
           const adsComVeiculacao = ads.filter((a) => {
             if (a.effective_status === 'ACTIVE') return true;
-            if (a.status === 'ACTIVE') return true;
-            if (a.effective_status === 'CAMPAIGN_PAUSED' || a.effective_status === 'ADSET_PAUSED') return true;
+            if (a.effective_status === 'CAMPAIGN_PAUSED' && a.status === 'ACTIVE') return true;
+
+            const updatedDate = a.updated_time ? a.updated_time.slice(0, 10) : '';
+            const createdDate = a.created_time ? a.created_time.slice(0, 10) : '';
+            const inPeriod = (updatedDate >= from && updatedDate <= to) || (createdDate >= from && createdDate <= to);
+
+            if (inPeriod && (a.effective_status === 'PAUSED' || a.effective_status === 'CAMPAIGN_PAUSED') && a.status !== 'DELETED' && a.status !== 'ARCHIVED') {
+              return true;
+            }
+
             return false;
           });
 
           if (adsComVeiculacao.length > 0) {
             anunciosPorCampanha.set(campId, adsComVeiculacao);
-          } else if (ads.length > 0) {
-            anunciosPorCampanha.set(campId, ads);
           }
         }
       } catch {
