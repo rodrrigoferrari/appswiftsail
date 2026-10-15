@@ -153,24 +153,41 @@ export async function POST(req: Request) {
       // 1.1 EXCLUIR INSTÂNCIA DEFINITIVAMENTE (UAZAPI + BANCO)
       case 'delete_instance': {
         const instanceName = body.instance_name || `swiftsail-${cliente_id.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+        const targetToken = body.instance_token || instance_token;
         
         try {
-          await deleteClientInstance(instanceName);
+          await deleteClientInstance(instanceName, targetToken);
         } catch (delErr: any) {
-          console.warn('[Uazapi Delete Instance Warning]:', delErr?.message);
+          console.error('[Uazapi Delete Instance Error]:', delErr?.message);
+          return NextResponse.json({
+            success: false,
+            error: delErr?.message || 'Falha ao excluir instância na UAZAPI.',
+          }, { status: 400 });
         }
 
-        // Remove vínculo na knowledge_base se houver
-        if (cliente_id && cliente_id !== 'swiftsail') {
-          await supabaseAdmin
-            .from('knowledge_base')
-            .delete()
-            .contains('tags', ['uazapi_instance', cliente_id]);
+        // Remove vínculo na knowledge_base
+        try {
+          if (cliente_id && cliente_id !== 'swiftsail') {
+            await supabaseAdmin
+              .from('knowledge_base')
+              .delete()
+              .contains('tags', ['uazapi_instance', cliente_id]);
+          }
+
+          if (targetToken) {
+            await supabaseAdmin
+              .from('knowledge_base')
+              .delete()
+              .contains('tags', ['uazapi_instance'])
+              .ilike('content', `%${targetToken}%`);
+          }
+        } catch (kbErr) {
+          console.warn('[KB Delete Warning]:', kbErr);
         }
 
         return NextResponse.json({
           success: true,
-          message: `Instância [${instanceName}] excluída com sucesso.`,
+          message: `Instância [${instanceName}] excluída com sucesso da UAZAPI e do sistema.`,
         });
       }
 

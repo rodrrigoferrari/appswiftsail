@@ -67,11 +67,11 @@ export async function createClientInstance(instanceName: string) {
 }
 
 /**
- * Deletes a WhatsApp instance completely from UAZAPI using Master Admin Token
- * Endpoint: DELETE /instance?name=INSTANCE_NAME
- * Header: admintoken: ADMIN_TOKEN
+ * Deletes a WhatsApp instance completely from UAZAPI using Instance Token & Master Admin Token
+ * Endpoint: DELETE /instance
+ * Headers: token: INSTANCE_TOKEN, admintoken: ADMIN_TOKEN
  */
-export async function deleteClientInstance(instanceName: string) {
+export async function deleteClientInstance(instanceName: string, instanceToken?: string) {
   const { baseUrl, adminToken } = await getUazapiAdminConfig();
 
   if (!adminToken) {
@@ -79,10 +79,34 @@ export async function deleteClientInstance(instanceName: string) {
   }
 
   const cleanUrl = baseUrl.replace(/\/+$/, '');
-  const res = await fetch(`${cleanUrl}/instance?name=${encodeURIComponent(instanceName)}`, {
+
+  // Se não foi fornecido instanceToken, busca dinamicamente em /instance/all
+  let targetToken = instanceToken;
+  if (!targetToken) {
+    try {
+      const resAll = await fetch(`${cleanUrl}/instance/all`, {
+        headers: { admintoken: adminToken },
+        cache: 'no-store',
+      });
+      if (resAll.ok) {
+        const list = await resAll.json();
+        if (Array.isArray(list)) {
+          const match = list.find((i: any) => i.name === instanceName);
+          if (match && match.token) targetToken = match.token;
+        }
+      }
+    } catch {}
+  }
+
+  if (!targetToken) {
+    throw new Error(`Não foi possível localizar o token da instância [${instanceName}] para exclusão.`);
+  }
+
+  const res = await fetch(`${cleanUrl}/instance`, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
+      token: targetToken,
       admintoken: adminToken,
     },
   });

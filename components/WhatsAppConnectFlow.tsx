@@ -208,6 +208,7 @@ export function WhatsAppConnectFlow({ clienteId = 'swiftsail', onStatusChange }:
           action: 'delete_instance',
           cliente_id: clienteId,
           instance_name: instance.name,
+          instance_token: instance.token,
         }),
       });
 
@@ -216,14 +217,20 @@ export function WhatsAppConnectFlow({ clienteId = 'swiftsail', onStatusChange }:
         throw new Error(data.error || 'Falha ao excluir instância da UAZAPI.');
       }
 
-      setSuccessMsg(`Instância [${instance.name}] foi excluída com sucesso.`);
-      setShowDeleteModal(null);
+      // Atualização imediata do estado visual
+      setInstances((prev) => prev.filter((i) => i.name !== instance.name));
       if (selectedInstance?.name === instance.name) {
         setSelectedInstance(null);
         setQrCode('');
         setPairingCode('');
       }
-      await fetchInstances();
+      setShowDeleteModal(null);
+      setSuccessMsg(`Instância [${instance.name}] foi excluída com sucesso.`);
+
+      // Sincroniza em segundo plano
+      setTimeout(() => {
+        fetchInstances();
+      }, 500);
     } catch (err: any) {
       setErrorMsg(err.message || 'Erro ao deletar instância.');
     } finally {
