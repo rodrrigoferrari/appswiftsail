@@ -305,13 +305,14 @@ export default function AdminUsuariosPage() {
           whatsappMessage: data.whatsapp_message,
           clientNames: selectedNames.join(', '),
         });
+        setActiveTab('users');
         await refreshUsers();
         // Reset inputs
         setFormName('');
         setFormWhatsapp('');
         setFormEmail('');
       } else {
-        setFormFeedback({ type: 'error', text: data.error || 'Erro ao criar convite.' });
+        setFormFeedback({ type: 'error', text: data.error || 'Erro ao efetivar cadastro.' });
       }
     } catch {
       setFormFeedback({ type: 'error', text: 'Falha de comunicação com o servidor.' });
@@ -911,9 +912,9 @@ export default function AdminUsuariosPage() {
                   <UserPlus className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#0F172A]">Convidar Novo Membro</h3>
+                  <h3 className="text-sm font-bold text-[#0F172A]">Efetivar Membro & Gerar Convite</h3>
                   <p className="text-[11px] text-[#64748B]">
-                    Defina o workspace, o perfil de acesso e os módulos permitidos
+                    Efetiva o usuário diretamente como membro ativo e prepara o convite de WhatsApp
                   </p>
                 </div>
               </div>
@@ -931,10 +932,10 @@ export default function AdminUsuariosPage() {
                 <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 space-y-2">
                   <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs">
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Convite gerado com sucesso!</span>
+                    <span>Cadastro efetivado e mensagem de convite pronta!</span>
                   </div>
                   <p className="text-xs text-[#0F172A]">
-                    O convite para <b>{inviteSuccessData.name}</b> foi gerado com acesso liberado a: <b>{inviteSuccessData.clientNames || 'Swiftsail HQ'}</b>.
+                    O usuário <b>{inviteSuccessData.name}</b> foi cadastrado como membro ativo com acesso liberado a: <b>{inviteSuccessData.clientNames || 'Swiftsail HQ'}</b>.
                   </p>
                   {inviteSuccessData.whatsapp && (
                     <p className="text-[11px] text-emerald-800 font-mono">
@@ -1251,9 +1252,9 @@ export default function AdminUsuariosPage() {
                     {isSubmitting ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <Send className="w-3.5 h-3.5" />
+                      <CheckCircle2 className="w-3.5 h-3.5" />
                     )}
-                    <span>Gerar Convite de Acesso</span>
+                    <span>Efetivar Cadastro & Gerar Convite</span>
                   </button>
                 </div>
               </form>

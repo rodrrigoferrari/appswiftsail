@@ -44,63 +44,98 @@ export function cleanPhoneNumber(phone?: string | null): string {
 }
 
 /**
- * Salva um convite de forma permanente no Supabase (knowledge_base e profiles) e na memória
+ * Normaliza número com DDI 55 do Brasil se tiver 10 ou 11 dígitos
+ */
+export function normalizePhoneE164(phone?: string | null): string {
+  if (!phone) return '';
+  const clean = String(phone).replace(/\D/g, '');
+  if (!clean) return '';
+  if ((clean.length === 10 || clean.length === 11) && !clean.startsWith('55')) {
+    return `55${clean}`;
+  }
+  return clean;
+}
+
+/**
+ * Retorna número local (sem 55) se tiver 12 ou 13 dígitos
+ */
+export function cleanPhoneLocal(phone?: string | null): string {
+  if (!phone) return '';
+  const clean = String(phone).replace(/\D/g, '');
+  if (clean.startsWith('55') && (clean.length === 12 || clean.length === 13)) {
+    return clean.slice(2);
+  }
+  return clean;
+}
+
+/**
+ * Efetiva o cadastro do usuário no Supabase (auth.users e public.profiles)
+ * e gera o link de acesso/mensagem, sem deixar convite pendente duplicado.
  */
 export async function persistInvite(invite: UserInvite): Promise<UserInvite> {
-  const cleanPhone = cleanPhoneNumber(invite.whatsapp);
+  const rawPhone = cleanPhoneNumber(invite.whatsapp);
+  const normalizedPhone = normalizePhoneE164(rawPhone);
+  const localPhone = cleanPhoneLocal(rawPhone);
 
-  // 1. Armazena na memória local para respostas ultra-rápidas
-  addInviteToStore(invite);
+  const phoneVariants = Array.from(
+    new Set([rawPhone, normalizedPhone, localPhone, `+${normalizedPhone}`, `+${localPhone}`].filter(Boolean))
+  );
 
-  // 2. Persiste na tabela knowledge_base do Supabase com tags indexadas
+  // 1. Limpa qualquer convite pendente anterior para esse número
+  removeInviteFromStore(invite.id);
+  removeInviteFromStore(invite.token);
+
   try {
-    const inviteTags = ['user_invite'];
-    if (cleanPhone) inviteTags.push(cleanPhone);
-    if (invite.token) inviteTags.push(invite.token);
-    if (invite.id) inviteTags.push(invite.id);
+    const { data: rows } = await supabaseAdmin
+      .from('knowledge_base')
+      .select('id, content, tags')
+      .eq('source', 'user_invite');
 
-    // Remove convites anteriores para o mesmo telefone ou ID
-    if (cleanPhone) {
-      await supabaseAdmin
-        .from('knowledge_base')
-        .delete()
-        .contains('tags', ['user_invite', cleanPhone]);
+    if (rows && rows.length > 0) {
+      for (const r of rows) {
+        const matchesTag = r.tags && r.tags.some((t: string) => phoneVariants.includes(t));
+        const matchesContent = r.content && phoneVariants.some((p) => r.content.includes(p));
+        if (matchesTag || matchesContent) {
+          await supabaseAdmin.from('knowledge_base').delete().eq('id', r.id);
+        }
+      }
     }
-
-    await supabaseAdmin.from('knowledge_base').insert({
-      content: JSON.stringify(invite),
-      summary: `Convite: ${invite.nome} (${cleanPhone || invite.email}) - ${invite.cliente_nome}`,
-      source: 'user_invite',
-      tags: inviteTags,
-    });
   } catch (kbErr) {
-    console.warn('[UserInvitesService] Falha ao persistir na knowledge_base:', kbErr);
+    console.warn('[UserInvitesService] Aviso ao limpar convites anteriores:', kbErr);
   }
 
-  // 3. Pré-cria / Sincroniza usuário e perfil no Supabase Auth e na tabela public.profiles
-  if (cleanPhone) {
+  // 2. Efetiva o cadastro diretamente no Supabase Auth e na tabela public.profiles
+  if (normalizedPhone) {
     try {
       const emailMascarado = invite.email && !invite.email.endsWith('@convite.swiftsail.co')
         ? invite.email
-        : `${cleanPhone}@swiftsail.local`;
+        : `${normalizedPhone}@swiftsail.local`;
 
       let authUserId: string | null = null;
 
-      // Verifica se o usuário já existe no Supabase Auth
+      // Localiza se o usuário já existe no Supabase Auth por telefone ou email
       const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = userList?.users?.find(
-        (u) =>
-          u.phone?.replace(/\D/g, '') === cleanPhone ||
-          u.email?.toLowerCase() === emailMascarado.toLowerCase()
-      );
+      const existingUser = userList?.users?.find((u) => {
+        const uPhone = cleanPhoneNumber(u.phone);
+        const metaPhone = cleanPhoneNumber(u.user_metadata?.whatsapp || u.user_metadata?.phone);
+        return (
+          phoneVariants.includes(uPhone) ||
+          phoneVariants.includes(metaPhone) ||
+          (u.email && u.email.toLowerCase() === emailMascarado.toLowerCase())
+        );
+      });
 
       if (existingUser) {
         authUserId = existingUser.id;
         await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+          email: emailMascarado,
+          email_confirm: true,
+          phone: `+${normalizedPhone}`,
+          phone_confirm: true,
           user_metadata: {
             nome: invite.nome,
             role: invite.role,
-            whatsapp: cleanPhone,
+            whatsapp: normalizedPhone,
             cliente_id: invite.cliente_id,
             cliente_ids: invite.cliente_ids,
           },
@@ -109,12 +144,12 @@ export async function persistInvite(invite: UserInvite): Promise<UserInvite> {
         const { data: newUser, error: createAuthErr } = await supabaseAdmin.auth.admin.createUser({
           email: emailMascarado,
           email_confirm: true,
-          phone: cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`,
+          phone: `+${normalizedPhone}`,
           phone_confirm: true,
           user_metadata: {
             nome: invite.nome,
             role: invite.role,
-            whatsapp: cleanPhone,
+            whatsapp: normalizedPhone,
             cliente_id: invite.cliente_id,
             cliente_ids: invite.cliente_ids,
           },
@@ -127,19 +162,57 @@ export async function persistInvite(invite: UserInvite): Promise<UserInvite> {
         }
       }
 
-      // Se temos o authUserId, garante o upsert em public.profiles
+      // Se temos o authUserId, garante o upsert definitivo em public.profiles
       if (authUserId) {
         await supabaseAdmin.from('profiles').upsert({
           id: authUserId,
-          phone: cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`,
+          phone: normalizedPhone,
           name: invite.nome,
           role: invite.role,
           cliente_id: invite.cliente_id,
           cliente_ids: invite.cliente_ids || (invite.cliente_id ? [invite.cliente_id] : []),
         });
+
+        // Limpa possíveis registros duplicados em profiles com ID antigo do mesmo telefone
+        const { data: oldProfiles } = await supabaseAdmin
+          .from('profiles')
+          .select('id, phone')
+          .in('phone', [normalizedPhone, localPhone, rawPhone]);
+
+        if (oldProfiles && oldProfiles.length > 0) {
+          for (const op of oldProfiles) {
+            if (op.id !== authUserId) {
+              await supabaseAdmin.from('profiles').delete().eq('id', op.id);
+            }
+          }
+        }
       }
+
+      // 3. Adiciona imediatamente ao store de usuários ativos em memória
+      const newActiveUser: AppUser = {
+        id: authUserId || `usr_${Date.now()}`,
+        nome: invite.nome,
+        email: emailMascarado,
+        whatsapp: normalizedPhone,
+        role: invite.role,
+        cliente_id: invite.cliente_id,
+        cliente_ids: invite.cliente_ids || (invite.cliente_id ? [invite.cliente_id] : []),
+        cliente_nome: invite.cliente_nome,
+        status: 'ativo',
+        modulos: invite.modulos || ['midia', 'whatsapp', 'crm', 'criativos', 'financeiro'],
+        ultimo_acesso: 'Cadastrado agora',
+        criado_em: new Date().toISOString().split('T')[0],
+      };
+
+      const existingStore = getUsersStore();
+      const dedupedStore = existingStore.filter(
+        (u) =>
+          u.id !== newActiveUser.id &&
+          !phoneVariants.includes(cleanPhoneNumber(u.whatsapp))
+      );
+      setUsersStore([newActiveUser, ...dedupedStore]);
     } catch (profErr) {
-      console.warn('[UserInvitesService] Falha ao sincronizar profile do convite:', profErr);
+      console.warn('[UserInvitesService] Falha ao efetivar cadastro no Supabase:', profErr);
     }
   }
 
@@ -147,31 +220,24 @@ export async function persistInvite(invite: UserInvite): Promise<UserInvite> {
 }
 
 /**
- * Lista todos os convites salvos no Supabase com fallback para memória,
- * filtrando e consumindo automaticamente convites de usuários que já ativaram a conta/logaram.
+ * Lista convites pendentes reais salvos no Supabase,
+ * expurgando automaticamente qualquer convite cujo telefone já pertença a um usuário cadastrado.
  */
 export async function listAllInvites(): Promise<UserInvite[]> {
-  const memoryInvites = getInvitesStore();
-  const inviteMap = new Map<string, UserInvite>();
-
-  // Adiciona convites da memória
-  memoryInvites.forEach((i) => inviteMap.set(i.id || i.token, i));
-
   try {
-    // 1. Busca usuários que já realizaram login no Supabase Auth para expurgar convites já ativados
-    const { data: authList } = await supabaseAdmin.auth.admin.listUsers();
-    const activatedPhones = new Set<string>();
+    // 1. Busca todos os telefones de usuários cadastrados em profiles
+    const { data: profiles } = await supabaseAdmin
+      .from('profiles')
+      .select('phone');
 
-    if (authList && authList.users) {
-      for (const u of authList.users) {
-        if (u.last_sign_in_at) {
-          if (u.phone) activatedPhones.add(cleanPhoneNumber(u.phone));
-          const metaPhone = u.user_metadata?.whatsapp || u.user_metadata?.phone;
-          if (metaPhone) activatedPhones.add(cleanPhoneNumber(metaPhone));
-          if (u.email && u.email.endsWith('@swiftsail.local')) {
-            const num = u.email.split('@')[0];
-            activatedPhones.add(cleanPhoneNumber(num));
-          }
+    const registeredPhones = new Set<string>();
+    if (profiles) {
+      for (const p of profiles) {
+        if (p.phone) {
+          const raw = cleanPhoneNumber(p.phone);
+          registeredPhones.add(raw);
+          registeredPhones.add(normalizePhoneE164(raw));
+          registeredPhones.add(cleanPhoneLocal(raw));
         }
       }
     }
@@ -182,40 +248,38 @@ export async function listAllInvites(): Promise<UserInvite[]> {
       .eq('source', 'user_invite')
       .order('created_at', { ascending: false });
 
+    const validInvites: UserInvite[] = [];
+
     if (!error && rows) {
       for (const row of rows) {
         try {
           const parsed: UserInvite = JSON.parse(row.content);
           if (parsed && (parsed.id || parsed.token)) {
-            const phone = cleanPhoneNumber(parsed.whatsapp);
-            const key = parsed.id || parsed.token;
+            const rawPhone = cleanPhoneNumber(parsed.whatsapp);
+            const isAlreadyUser =
+              rawPhone &&
+              (registeredPhones.has(rawPhone) ||
+                registeredPhones.has(normalizePhoneE164(rawPhone)) ||
+                registeredPhones.has(cleanPhoneLocal(rawPhone)));
 
-            // Se o usuário já realizou login na plataforma, o convite já foi ATIVADO (não é mais pendente)
-            const isAlreadyActivated =
-              (phone && (activatedPhones.has(phone) || (phone.startsWith('55') && activatedPhones.has(phone.slice(2))) || activatedPhones.has(`55${phone}`))) ||
-              parsed.status === 'aceito' ||
-              (parsed.status as string) === 'ativado';
-
-            if (isAlreadyActivated) {
-              // Remove da memória e limpa do Supabase
-              inviteMap.delete(key);
-              removeInviteFromStore(key);
-              await supabaseAdmin
-                .from('knowledge_base')
-                .delete()
-                .eq('id', row.id);
+            if (isAlreadyUser || parsed.status === 'aceito' || (parsed.status as string) === 'ativado') {
+              // Se o usuário já está cadastrado, limpa da knowledge_base
+              await supabaseAdmin.from('knowledge_base').delete().eq('id', row.id);
+              removeInviteFromStore(parsed.id);
+              removeInviteFromStore(parsed.token);
             } else {
-              inviteMap.set(key, parsed);
+              validInvites.push(parsed);
             }
           }
         } catch {}
       }
     }
+
+    return validInvites;
   } catch (err) {
     console.error('[UserInvitesService] Erro ao buscar convites no Supabase:', err);
+    return [];
   }
-
-  return Array.from(inviteMap.values());
 }
 
 /**
@@ -385,7 +449,27 @@ export async function listAllUsers(): Promise<AppUser[]> {
         if (isMaster) {
           usersMap.set('usr_rodrigo_ferrari', { ...rodrigoMaster, id: p.id });
         } else {
-          usersMap.set(p.id, appUser);
+          const normPhone = normalizePhoneE164(p.phone);
+          const userKey = normPhone || p.id;
+          const existing = usersMap.get(userKey);
+
+          if (existing) {
+            // Mescla empresas atribuídas sem duplicar registros para o mesmo usuário
+            const mergedClientIds = Array.from(
+              new Set([
+                ...(existing.cliente_ids || (existing.cliente_id ? [existing.cliente_id] : [])),
+                ...(appUser.cliente_ids || (appUser.cliente_id ? [appUser.cliente_id] : [])),
+              ])
+            );
+            appUser.cliente_ids = mergedClientIds;
+            appUser.cliente_id = mergedClientIds[0] || existing.cliente_id || appUser.cliente_id;
+            appUser.cliente_nome = resolveClientName(appUser.cliente_id, mergedClientIds);
+            if (!appUser.nome || appUser.nome.startsWith('Cliente ')) {
+              appUser.nome = existing.nome || appUser.nome;
+            }
+          }
+
+          usersMap.set(userKey, appUser);
         }
       }
     }
