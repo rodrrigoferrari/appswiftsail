@@ -37,6 +37,8 @@ import {
   UserCheck,
   FileText,
   CheckCheck,
+  Smartphone,
+  QrCode,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -492,6 +494,16 @@ function WhatsAppContent() {
       return;
     }
 
+    if (selectedInstanceObj && selectedInstanceObj.status !== 'connected') {
+      const proceed = confirm(
+        `Atenção: A linha de disparo "${selectedInstanceName}" consta como Desconectada.\n\nDeseja abrir a aba "Conexão Uazapi" para conectar seu WhatsApp via QR Code agora?`
+      );
+      if (proceed) {
+        setSubTab('conexao');
+      }
+      return;
+    }
+
     const confirmSend = confirm(
       `Confirma o início da transmissão para ${activeRecipients.length} contatos usando a linha ${selectedInstanceName || 'WhatsApp'}?`
     );
@@ -879,6 +891,127 @@ function WhatsAppContent() {
       {subTab === 'disparos' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-7 bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs space-y-5">
+            {/* 0. PICKER VISUAL DE INSTÂNCIAS UAZAPI (LINHA DE DISPARO) */}
+            <div className="bg-[#F8FAFC] border border-[#CBD5E1] rounded-2xl p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E2E8F0] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-[#0050FF]" />
+                  <div>
+                    <h3 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                      Linha de Disparo WhatsApp (Instância UAZAPI)
+                    </h3>
+                    <p className="text-[11px] text-[#64748B]">
+                      Selecione por qual número ou instância conectada os disparos serão transmitidos.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchInstances}
+                  className="px-2.5 py-1 rounded-lg border border-[#CBD5E1] bg-white hover:bg-[#F1F5F9] text-[#475569] text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer self-start sm:self-auto shadow-2xs"
+                  title="Atualizar status das instâncias em tempo real"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Atualizar Linhas</span>
+                </button>
+              </div>
+
+              {availableInstances.length === 0 ? (
+                <div className="p-4 bg-white rounded-xl border border-dashed border-[#CBD5E1] text-center space-y-2">
+                  <p className="text-xs font-semibold text-[#0F172A]">Nenhuma instância UAZAPI encontrada para este workspace.</p>
+                  <button
+                    type="button"
+                    onClick={() => setSubTab('conexao')}
+                    className="px-3 py-1.5 rounded-lg bg-[#0050FF] text-white text-xs font-bold inline-flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                    <span>Conectar Instância via QR Code</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {availableInstances.map((inst) => {
+                    const isSelected = selectedInstanceToken === inst.token;
+                    const isConnected = inst.status === 'connected';
+
+                    return (
+                      <div
+                        key={inst.token || inst.name}
+                        onClick={() => {
+                          setSelectedInstanceToken(inst.token);
+                        }}
+                        className={`p-3 rounded-xl border transition-all cursor-pointer relative ${
+                          isSelected
+                            ? 'bg-[#EFF4FF] border-[#0050FF] shadow-xs ring-1 ring-[#0050FF]'
+                            : 'bg-white border-[#E2E8F0] hover:border-[#CBD5E1] hover:bg-[#F8FAFC]'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div
+                              className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                                isConnected
+                                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                                  : 'bg-slate-100 text-slate-500 border border-slate-200'
+                              }`}
+                            >
+                              <Smartphone className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-[#0F172A] truncate" title={inst.name}>
+                                {inst.name}
+                              </p>
+                              {(inst as any).owner && (
+                                <p className="text-[10px] text-[#64748B] font-mono">
+                                  {(inst as any).owner}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 flex items-center gap-1.5">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1 ${
+                                isConnected
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200'
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                                }`}
+                              />
+                              {isConnected ? '🟢 Conectada' : '⚪ Desconectada'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {isSelected && !isConnected && (
+                          <div className="mt-2 pt-2 border-t border-[#BFDBFE] flex items-center justify-between text-[10px]">
+                            <span className="text-amber-700 font-semibold flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3 text-amber-600 shrink-0" />
+                              Requer conexão para disparar
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSubTab('conexao');
+                              }}
+                              className="text-[#0050FF] font-bold hover:underline cursor-pointer"
+                            >
+                              Reconectar agora ➔
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* 1. SELETOR DE ORIGEM DOS DESTINATÁRIOS (GRUPOS RASPADOS OU PLANILHA) */}
             <div className="bg-[#F8FAFC] border border-[#CBD5E1] rounded-2xl p-4 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">

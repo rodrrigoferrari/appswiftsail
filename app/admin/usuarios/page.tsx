@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import {
   Users,
@@ -22,7 +22,7 @@ import {
   Phone,
   Pencil,
 } from 'lucide-react';
-import { UserRole, UserModulePermission } from '@/types/database';
+import { UserRole, UserModulePermission, AppUser, UserInvite } from '@/types/database';
 
 const ROLE_CONFIG: Record<string, { label: string; badgeClass: string; desc: string }> = {
   master_admin: {
@@ -46,12 +46,36 @@ const ALL_MODULES: { id: UserModulePermission; label: string; icon: string }[] =
 ];
 
 export default function AdminUsuariosPage() {
-  const { clients, users, invites, refreshUsers, selectClientAndSwitchToWorkspace, activeClient, viewMode } = useTenant();
+  const {
+    clients,
+    users,
+    invites,
+    refreshUsers,
+    selectClientAndSwitchToWorkspace,
+    activeClient,
+    viewMode,
+    isMasterAdmin,
+    currentUser,
+  } = useTenant();
+
+  // Detecta se está na visão de cliente ou perfil com workspace restrito
+  const isClientView = !isMasterAdmin || (viewMode === 'client' && Boolean(activeClient));
+  const effectiveClientId = !isMasterAdmin
+    ? (currentUser?.cliente_id || (activeClient ? activeClient.cliente_id : ''))
+    : (activeClient ? activeClient.cliente_id : '');
 
   const [activeTab, setActiveTab] = useState<'users' | 'invites'>('users');
   const [searchTerm, setSearchTerm] = useState('');
   const [clientFilter, setClientFilter] = useState('ALL');
   const [roleFilter, setRoleFilter] = useState('ALL');
+
+  // Ao montar ou mudar o workspace de cliente, atualiza os dados restritos
+  useEffect(() => {
+    if (isClientView && effectiveClientId) {
+      setClientFilter(effectiveClientId);
+      refreshUsers(effectiveClientId);
+    }
+  }, [isClientView, effectiveClientId]);
 
   // Modal State
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -181,9 +205,6 @@ export default function AdminUsuariosPage() {
       setIsEditingSaving(false);
     }
   };
-
-  // Detecta se está na view do cliente
-  const isClientView = viewMode === 'client' && Boolean(activeClient);
 
   // Sincroniza clientes selecionados ao abrir o modal
   useEffect(() => {
@@ -327,32 +348,73 @@ export default function AdminUsuariosPage() {
     }
   };
 
+  // Usuários e convites isolados do workspace
+  const workspaceUsers = useMemo(() => {
+    if (!isClientView) return users;
+    return users.filter((u: AppUser) => {
+      // Bloqueia qualquer gestor master ou equipe da agência
+      if (
+        u.role === 'master_admin' ||
+        u.whatsapp === '41992332996' ||
+        u.whatsapp === '5541992332996' ||
+        u.email === 'rodrigo@swiftsail.co'
+      ) {
+        return false;
+      }
+      if (!effectiveClientId) return true;
+      return (
+        u.cliente_id === effectiveClientId ||
+        (Array.isArray(u.cliente_ids) && u.cliente_ids.includes(effectiveClientId))
+      );
+    });
+  }, [users, isClientView, effectiveClientId]);
+
+  const workspaceInvites = useMemo(() => {
+    if (!isClientView) return invites;
+    return invites.filter((i: UserInvite) => {
+      if (i.role === 'master_admin') return false;
+      if (!effectiveClientId) return true;
+      return (
+        i.cliente_id === effectiveClientId ||
+        (Array.isArray(i.cliente_ids) && i.cliente_ids.includes(effectiveClientId))
+      );
+    });
+  }, [invites, isClientView, effectiveClientId]);
+
   // Filtered lists
-  const filteredUsers = users.filter((u) => {
+  const filteredUsers = workspaceUsers.filter((u: AppUser) => {
     const matchesSearch =
       u.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.whatsapp && u.whatsapp.includes(searchTerm)) ||
       (u.cliente_nome && u.cliente_nome.toLowerCase().includes(searchTerm.toLowerCase()));
+
     const matchesClient =
-      clientFilter === 'ALL' ||
-      u.cliente_id === clientFilter ||
-      (u.cliente_ids && u.cliente_ids.includes(clientFilter)) ||
-      (clientFilter === 'AGENCY' && !u.cliente_id);
-    const matchesRole = roleFilter === 'ALL' || u.role === roleFilter;
+      isClientView
+        ? true
+        : clientFilter === 'ALL' ||
+          u.cliente_id === clientFilter ||
+          (u.cliente_ids && u.cliente_ids.includes(clientFilter)) ||
+          (clientFilter === 'AGENCY' && !u.cliente_id);
+
+    const matchesRole = isClientView || roleFilter === 'ALL' || u.role === roleFilter;
     return matchesSearch && matchesClient && matchesRole;
   });
 
-  const filteredInvites = invites.filter((i) => {
+  const filteredInvites = workspaceInvites.filter((i: UserInvite) => {
     const matchesSearch =
       i.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       i.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (i.whatsapp && i.whatsapp.includes(searchTerm));
+
     const matchesClient =
-      clientFilter === 'ALL' ||
-      i.cliente_id === clientFilter ||
-      (i.cliente_ids && i.cliente_ids.includes(clientFilter)) ||
-      (clientFilter === 'AGENCY' && !i.cliente_id);
+      isClientView
+        ? true
+        : clientFilter === 'ALL' ||
+          i.cliente_id === clientFilter ||
+          (i.cliente_ids && i.cliente_ids.includes(clientFilter)) ||
+          (clientFilter === 'AGENCY' && !i.cliente_id);
+
     return matchesSearch && matchesClient;
   });
 
@@ -363,15 +425,19 @@ export default function AdminUsuariosPage() {
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE] uppercase tracking-wider">
-              Governança & Controle de Acessos
+              {isClientView ? `Workspace • ${activeClient?.nome || 'Cliente'}` : 'Governança & Controle de Acessos'}
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-[#0F172A] flex items-center gap-2.5">
             <Users className="w-6 h-6 text-[#0050FF]" />
-            Gestão de Usuários & Convites dos Clientes
+            {isClientView
+              ? `Gestão de Usuários & Convites • ${activeClient?.nome || 'Workspace'}`
+              : 'Gestão de Usuários & Convites dos Clientes'}
           </h1>
           <p className="text-xs text-[#64748B] max-w-2xl leading-relaxed">
-            Convide usuários e membros para cada cliente individual (com acesso isolado aos seus respectivos dashboards e permissões modulares).
+            {isClientView
+              ? `Gerencie os usuários e convites com acesso aos dashboards e ferramentas do workspace ${activeClient?.nome || 'atribuído'}.`
+              : 'Convide usuários e membros para cada cliente individual (com acesso isolado aos seus respectivos dashboards e permissões modulares).'}
           </p>
         </div>
 
@@ -391,30 +457,44 @@ export default function AdminUsuariosPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
           <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Total de Usuários</p>
-          <p className="text-2xl sm:text-3xl font-bold text-[#0F172A] mt-1">{users.length}</p>
-          <p className="text-[11px] text-emerald-600 font-medium mt-0.5">Ativos na plataforma</p>
+          <p className="text-2xl sm:text-3xl font-bold text-[#0F172A] mt-1">{workspaceUsers.length}</p>
+          <p className="text-[11px] text-emerald-600 font-medium mt-0.5">
+            {isClientView ? 'Cadastrados no workspace' : 'Ativos na plataforma'}
+          </p>
         </div>
 
         <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
           <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Convites Pendentes</p>
-          <p className="text-2xl sm:text-3xl font-bold text-amber-600 mt-1">{invites.length}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-amber-600 mt-1">{workspaceInvites.length}</p>
           <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Aguardando ativação</p>
         </div>
 
         <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
-          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Usuários de Clientes</p>
-          <p className="text-2xl sm:text-3xl font-bold text-[#0050FF] mt-1">
-            {users.filter((u) => !!u.cliente_id).length}
+          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+            {isClientView ? 'Usuários Ativos' : 'Usuários de Clientes'}
           </p>
-          <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Isolados por workspace</p>
+          <p className="text-2xl sm:text-3xl font-bold text-[#0050FF] mt-1">
+            {isClientView
+              ? workspaceUsers.filter((u: AppUser) => u.status === 'ativo').length
+              : users.filter((u: AppUser) => !!u.cliente_id).length}
+          </p>
+          <p className="text-[11px] text-[#64748B] font-medium mt-0.5">
+            {isClientView ? 'Com acesso liberado' : 'Isolados por workspace'}
+          </p>
         </div>
 
         <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-xs">
-          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Administradores</p>
-          <p className="text-2xl sm:text-3xl font-bold text-purple-600 mt-1">
-            {users.filter((u) => !u.cliente_id || u.role === 'master_admin').length}
+          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+            {isClientView ? 'Gestores do Workspace' : 'Administradores'}
           </p>
-          <p className="text-[11px] text-[#64748B] font-medium mt-0.5">Gestores com visão Admin</p>
+          <p className="text-2xl sm:text-3xl font-bold text-purple-600 mt-1">
+            {isClientView
+              ? workspaceUsers.filter((u: AppUser) => u.role === 'cliente_admin').length
+              : users.filter((u: AppUser) => !u.cliente_id || u.role === 'master_admin').length}
+          </p>
+          <p className="text-[11px] text-[#64748B] font-medium mt-0.5">
+            {isClientView ? 'Membros com papel gestor' : 'Gestores com visão Admin'}
+          </p>
         </div>
       </div>
 
@@ -460,21 +540,28 @@ export default function AdminUsuariosPage() {
             />
           </div>
 
-          <select
-            value={clientFilter}
-            onChange={(e) => setClientFilter(e.target.value)}
-            className="bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-2.5 py-1.5 text-xs font-medium text-[#0F172A] focus:outline-none focus:border-[#0050FF] cursor-pointer"
-          >
-            <option value="ALL">🏢 Todos os Clientes</option>
-            <option value="AGENCY">👑 Apenas Admin (Agência)</option>
-            {clients.map((c) => (
-              <option key={c.cliente_id} value={c.cliente_id}>
-                {c.nome}
-              </option>
-            ))}
-          </select>
+          {isClientView ? (
+            <div className="bg-[#EFF4FF] border border-[#BFDBFE] text-[#0050FF] rounded-xl px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 shadow-2xs">
+              <Building className="w-3.5 h-3.5" />
+              <span>{activeClient?.nome || 'Workspace Atribuído'}</span>
+            </div>
+          ) : (
+            <select
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+              className="bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-2.5 py-1.5 text-xs font-medium text-[#0F172A] focus:outline-none focus:border-[#0050FF] cursor-pointer"
+            >
+              <option value="ALL">🏢 Todos os Clientes</option>
+              <option value="AGENCY">👑 Apenas Admin (Agência)</option>
+              {clients.map((c) => (
+                <option key={c.cliente_id} value={c.cliente_id}>
+                  {c.nome}
+                </option>
+              ))}
+            </select>
+          )}
 
-          {activeTab === 'users' && (
+          {!isClientView && activeTab === 'users' && (
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
@@ -512,7 +599,7 @@ export default function AdminUsuariosPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((user) => {
+                  filteredUsers.map((user: AppUser) => {
                     const roleInfo = ROLE_CONFIG[user.role] || {
                       label: user.role === 'master_admin' ? '👑 Admin' : '🏢 Cliente',
                       badgeClass: user.role === 'master_admin' ? 'bg-[#EFF4FF] text-[#0050FF] border-[#BFDBFE]' : 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -561,7 +648,7 @@ export default function AdminUsuariosPage() {
 
                         <td className="p-4">
                           <div className="flex flex-wrap gap-1 max-w-xs">
-                            {user.modulos.map((m) => (
+                            {user.modulos.map((m: UserModulePermission) => (
                               <span
                                 key={m}
                                 className="px-2 py-0.5 rounded bg-[#F8FAFC] border border-[#E2E8F0] text-[10px] font-semibold text-[#475569] capitalize"
@@ -595,7 +682,7 @@ export default function AdminUsuariosPage() {
 
                         <td className="p-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {user.cliente_id && (
+                            {!isClientView && user.cliente_id && (
                               <button
                                 onClick={() => selectClientAndSwitchToWorkspace(user.cliente_id!)}
                                 className="p-1.5 rounded-lg bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0050FF] hover:border-[#BFDBFE] transition-colors cursor-pointer shadow-xs"
@@ -627,9 +714,11 @@ export default function AdminUsuariosPage() {
                                 )}
                               </button>
                             ) : (
-                              <span className="p-1.5 text-[10px] font-bold text-[#0050FF] bg-[#EFF4FF] border border-[#BFDBFE] rounded-lg">
-                                Master
-                              </span>
+                              isMasterAdmin && (
+                                <span className="p-1.5 text-[10px] font-bold text-[#0050FF] bg-[#EFF4FF] border border-[#BFDBFE] rounded-lg">
+                                  Master
+                                </span>
+                              )
                             )}
                           </div>
                         </td>
@@ -667,7 +756,7 @@ export default function AdminUsuariosPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredInvites.map((invite) => {
+                  filteredInvites.map((invite: UserInvite) => {
                     const isCopied = copiedId === invite.id;
                     const roleInfo = ROLE_CONFIG[invite.role] || {
                       label: invite.role === 'master_admin' ? '👑 Admin' : '🏢 Cliente',
@@ -943,30 +1032,42 @@ export default function AdminUsuariosPage() {
                 {/* Role Selector: Apenas 2 Hierarquias (Admin Agência e Cliente Workspace) */}
                 <div>
                   <label className="block font-semibold text-[#475569] mb-1.5">Hierarquia de Acesso *</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {(['master_admin', 'cliente_admin'] as UserRole[]).map((r) => {
-                      const isSelected = formRole === r;
-                      return (
-                        <div
-                          key={r}
-                          onClick={() => setFormRole(r)}
-                          className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
-                            isSelected
-                              ? 'bg-[#EFF4FF] border-[#0050FF] text-[#0050FF] shadow-xs'
-                              : 'bg-[#F8FAFC] border-[#E2E8F0] text-[#475569] hover:border-[#CBD5E1]'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-xs">{ROLE_CONFIG[r]?.label}</span>
-                            {isSelected && <Check className="w-3.5 h-3.5 text-[#0050FF]" />}
+                  {isClientView ? (
+                    <div className="p-3 bg-[#EFF4FF] border border-[#BFDBFE] rounded-xl flex items-center justify-between shadow-2xs">
+                      <div>
+                        <span className="font-bold text-xs text-[#0050FF]">🏢 Membro do Workspace ({activeClient?.nome || 'Cliente'})</span>
+                        <p className="text-[10px] text-[#64748B] mt-0.5">
+                          Acesso isolado aos módulos e dados deste workspace atribuído.
+                        </p>
+                      </div>
+                      <Check className="w-4 h-4 text-[#0050FF]" />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {(['master_admin', 'cliente_admin'] as UserRole[]).map((r) => {
+                        const isSelected = formRole === r;
+                        return (
+                          <div
+                            key={r}
+                            onClick={() => setFormRole(r)}
+                            className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
+                              isSelected
+                                ? 'bg-[#EFF4FF] border-[#0050FF] text-[#0050FF] shadow-xs'
+                                : 'bg-[#F8FAFC] border-[#E2E8F0] text-[#475569] hover:border-[#CBD5E1]'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-xs">{ROLE_CONFIG[r]?.label}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-[#0050FF]" />}
+                            </div>
+                            <p className="text-[10px] text-[#64748B] mt-1 line-clamp-2 leading-relaxed">
+                              {ROLE_CONFIG[r]?.desc}
+                            </p>
                           </div>
-                          <p className="text-[10px] text-[#64748B] mt-1 line-clamp-2 leading-relaxed">
-                            {ROLE_CONFIG[r]?.desc}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Workspaces Assignment (Quando role for Cliente Workspace) */}
@@ -1222,47 +1323,61 @@ export default function AdminUsuariosPage() {
               {/* Hierarquia */}
               <div className="space-y-1">
                 <label className="font-semibold text-[#475569]">Perfil / Hierarquia de Acesso</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditRole('cliente_admin')}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                      editRole === 'cliente_admin'
-                        ? 'bg-emerald-50/60 border-emerald-400 ring-2 ring-emerald-500/20 shadow-xs'
-                        : 'bg-[#F8FAFC] border-[#CBD5E1] hover:bg-white'
-                    }`}
-                  >
+                {isClientView ? (
+                  <div className="p-3 rounded-xl border bg-emerald-50/60 border-emerald-400">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-[#0F172A]">🏢 Cliente</span>
+                      <span className="font-bold text-[#0F172A] text-xs">🏢 Membro do Workspace</span>
                       <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
                         Workspace
                       </span>
                     </div>
                     <p className="text-[10px] text-[#64748B]">
-                      Acessa exclusivamente as empresas vinculadas e os módulos autorizados.
+                      Acessa exclusivamente este workspace e os módulos autorizados.
                     </p>
-                  </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditRole('cliente_admin')}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        editRole === 'cliente_admin'
+                          ? 'bg-emerald-50/60 border-emerald-400 ring-2 ring-emerald-500/20 shadow-xs'
+                          : 'bg-[#F8FAFC] border-[#CBD5E1] hover:bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-[#0F172A]">🏢 Cliente</span>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                          Workspace
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-[#64748B]">
+                        Acessa exclusivamente as empresas vinculadas e os módulos autorizados.
+                      </p>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setEditRole('master_admin')}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                      editRole === 'master_admin'
-                        ? 'bg-[#EFF4FF] border-[#BFDBFE] ring-2 ring-[#0050FF]/20 shadow-xs'
-                        : 'bg-[#F8FAFC] border-[#CBD5E1] hover:bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-[#0F172A]">👑 Admin (Agência)</span>
-                      <span className="text-[10px] font-bold text-[#0050FF] bg-blue-100 px-1.5 py-0.5 rounded">
-                        Master
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-[#64748B]">
-                      Acesso global e irrestrito a todos os clientes, métricas e credenciais.
-                    </p>
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditRole('master_admin')}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        editRole === 'master_admin'
+                          ? 'bg-[#EFF4FF] border-[#BFDBFE] ring-2 ring-[#0050FF]/20 shadow-xs'
+                          : 'bg-[#F8FAFC] border-[#CBD5E1] hover:bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-[#0F172A]">👑 Admin (Agência)</span>
+                        <span className="text-[10px] font-bold text-[#0050FF] bg-blue-100 px-1.5 py-0.5 rounded">
+                          Master
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-[#64748B]">
+                        Acesso global e irrestrito a todos os clientes, métricas e credenciais.
+                      </p>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Seleção de Empresas Vinculadas (Apenas para role cliente_admin) */}

@@ -47,17 +47,22 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Regra de Ouro: Checagem segura de tipos para evitar quebra com objetos no campo status
+    // Regra de Ouro: Checagem rigorosa de tipos e status da UAZAPI/Baileys
     const rawStatus = response.instance?.status ?? response.instance?.state ?? response.status ?? response.state ?? '';
     const stateStr = typeof rawStatus === 'string' ? rawStatus.toLowerCase() : '';
 
+    const isExplicitlyDisconnected =
+      stateStr === 'disconnected' ||
+      stateStr === 'close' ||
+      response.status?.connected === false ||
+      response.instance?.connected === false;
+
     const isConnected =
-      stateStr === 'connected' ||
-      stateStr === 'open' ||
-      response.status?.connected === true ||
-      response.status?.loggedIn === true ||
-      response.loggedIn === true ||
-      response.instance?.connected === true;
+      !isExplicitlyDisconnected &&
+      (stateStr === 'connected' ||
+        stateStr === 'open' ||
+        response.status?.connected === true ||
+        response.instance?.connected === true);
 
     const finalStatus = isConnected
       ? 'connected'

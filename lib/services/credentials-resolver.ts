@@ -256,11 +256,29 @@ export async function getAllUazapiInstances(): Promise<Array<{ name: string; sta
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
-        return data.map((inst: any) => ({
-          name: inst.name || 'Instância sem nome',
-          status: inst.status || inst.state || 'disconnected',
-          token: inst.token || '',
-        }));
+        return data.map((inst: any) => {
+          const rawStatus = inst.status ?? inst.state ?? '';
+          let normalizedStatus = 'disconnected';
+
+          if (typeof rawStatus === 'string') {
+            const lower = rawStatus.toLowerCase();
+            if (lower === 'connected' || lower === 'open') normalizedStatus = 'connected';
+            else if (lower === 'connecting' || lower === 'pairing') normalizedStatus = 'connecting';
+            else normalizedStatus = 'disconnected';
+          } else if (typeof rawStatus === 'object' && rawStatus !== null) {
+            if (rawStatus.connected === true) normalizedStatus = 'connected';
+            else if (rawStatus.connecting === true) normalizedStatus = 'connecting';
+            else normalizedStatus = 'disconnected';
+          }
+
+          return {
+            name: inst.name || 'Instância sem nome',
+            status: normalizedStatus,
+            token: inst.token || '',
+            owner: inst.owner || inst.phone || '',
+            profileName: inst.profileName || '',
+          };
+        });
       }
     }
     return [];

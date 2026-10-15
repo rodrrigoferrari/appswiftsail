@@ -26,11 +26,19 @@ export async function GET(request: Request) {
     let filteredInvites = [...allInvites];
 
     if (clienteId && clienteId !== 'ALL') {
+      // Isolamento estrito de workspace: Administradores da agência/master nunca aparecem para o cliente
       filteredUsers = filteredUsers.filter(
-        (u) => u.cliente_id === clienteId || (u.cliente_ids && u.cliente_ids.includes(clienteId))
+        (u) =>
+          u.role !== 'master_admin' &&
+          u.whatsapp !== '41992332996' &&
+          u.whatsapp !== '5541992332996' &&
+          u.email !== 'rodrigo@swiftsail.co' &&
+          (u.cliente_id === clienteId || (u.cliente_ids && u.cliente_ids.includes(clienteId)))
       );
       filteredInvites = filteredInvites.filter(
-        (i) => i.cliente_id === clienteId || (i.cliente_ids && i.cliente_ids.includes(clienteId))
+        (i) =>
+          i.role !== 'master_admin' &&
+          (i.cliente_id === clienteId || (i.cliente_ids && i.cliente_ids.includes(clienteId)))
       );
     }
 
@@ -39,16 +47,27 @@ export async function GET(request: Request) {
       filteredInvites = filteredInvites.filter((i) => i.role === role);
     }
 
+    // Se for consulta restrita por cliente, os stats refletem estritamente o workspace
+    const isRestrictedWorkspace = Boolean(clienteId && clienteId !== 'ALL');
+
     return NextResponse.json({
       success: true,
       users: filteredUsers,
       invites: filteredInvites,
       stats: {
-        totalUsers: allUsers.length,
-        activeUsers: allUsers.filter((u) => u.status === 'ativo').length,
-        pendingInvites: allInvites.filter((i) => i.status === 'pendente').length,
-        agencyMembers: allUsers.filter((u) => !u.cliente_id && (!u.cliente_ids || u.cliente_ids.length === 0)).length,
-        clientMembers: allUsers.filter((u) => !!u.cliente_id || (u.cliente_ids && u.cliente_ids.length > 0)).length,
+        totalUsers: isRestrictedWorkspace ? filteredUsers.length : allUsers.length,
+        activeUsers: isRestrictedWorkspace
+          ? filteredUsers.filter((u) => u.status === 'ativo').length
+          : allUsers.filter((u) => u.status === 'ativo').length,
+        pendingInvites: isRestrictedWorkspace
+          ? filteredInvites.filter((i) => i.status === 'pendente').length
+          : allInvites.filter((i) => i.status === 'pendente').length,
+        agencyMembers: isRestrictedWorkspace
+          ? 0
+          : allUsers.filter((u) => !u.cliente_id && (!u.cliente_ids || u.cliente_ids.length === 0)).length,
+        clientMembers: isRestrictedWorkspace
+          ? filteredUsers.length
+          : allUsers.filter((u) => !!u.cliente_id || (u.cliente_ids && u.cliente_ids.length > 0)).length,
       },
     });
   } catch (err: unknown) {

@@ -32,7 +32,7 @@ interface TenantContextType {
   activeClientCsStatus: CsStatus | undefined;
   selectClientAndSwitchToWorkspace: (clientId: string) => void;
   switchToAdminHQ: () => void;
-  refreshUsers: () => Promise<void>;
+  refreshUsers: (targetClientId?: string) => Promise<void>;
   restoreMasterAdmin: () => void;
 }
 
@@ -206,9 +206,19 @@ export function TenantProvider({
     }
   }, [pathname, clients]);
 
-  const refreshUsers = async () => {
+  const refreshUsers = async (targetClientId?: string) => {
     try {
-      const res = await fetch('/api/users');
+      const effectiveId = targetClientId !== undefined
+        ? targetClientId
+        : !isMasterAdmin
+        ? (currentUser?.cliente_id || (availableClients.length > 0 ? availableClients[0].cliente_id : ''))
+        : (viewMode === 'client' && selectedClientId !== 'ALL' ? selectedClientId : 'ALL');
+
+      const url = effectiveId && effectiveId !== 'ALL'
+        ? `/api/users?cliente_id=${encodeURIComponent(effectiveId)}`
+        : '/api/users';
+
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
         if (data.users) setUsers(data.users);
