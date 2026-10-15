@@ -8,7 +8,7 @@ import Link from 'next/link';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isMasterAdmin, isAuthChecked, availableClients } = useTenant();
+  const { isMasterAdmin, isAuthChecked, currentUser } = useTenant();
 
   // /admin/usuarios é permitido para cliente_admin gerenciar os membros da sua própria empresa
   const isUsuariosPage = pathname === '/admin/usuarios';
@@ -21,7 +21,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  // Se não for Master Admin e tentar acessar qualquer página de governança, bloqueia e protege
+  // Se o usuário não está autenticado de todo, redireciona para a tela de login
+  if (!currentUser) {
+    if (typeof window !== 'undefined') {
+      window.location.href = `/login?redirect=${encodeURIComponent(pathname)}`;
+    }
+    return (
+      <div className="flex items-center justify-center p-12 bg-white border border-[#E2E8F0] rounded-2xl shadow-xs">
+        <RefreshCw className="w-5 h-5 animate-spin text-[#0050FF]" />
+      </div>
+    );
+  }
+
+  // Se for usuário autenticado mas não for Master Admin tentando acessar telas de governança:
   if (!isMasterAdmin && !isUsuariosPage) {
     return (
       <div className="p-8 bg-white border border-[#E2E8F0] rounded-2xl shadow-xs space-y-4 max-w-xl mx-auto font-sans select-none">

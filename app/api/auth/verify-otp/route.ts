@@ -204,13 +204,32 @@ export async function POST(req: NextRequest) {
       redirectTo = `/client/${slug}`;
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       userId,
       user: appUser,
       session: sessionData.session,
       redirectTo,
     });
+
+    // Grava cookies HTTP para persistência garantida em Mobile Safari / Webviews do WhatsApp
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieOpts = {
+      path: '/',
+      sameSite: 'lax' as const,
+      secure: isProd,
+      maxAge: 60 * 60 * 24 * 30, // 30 dias
+    };
+
+    response.cookies.set('swiftsail_user_phone', cleanPhone, cookieOpts);
+    response.cookies.set('swiftsail_phone', cleanPhone, cookieOpts);
+    response.cookies.set('swiftsail_role', appUser.role, cookieOpts);
+    if (sessionData.session?.access_token) {
+      response.cookies.set('sb-access-token', sessionData.session.access_token, cookieOpts);
+    }
+    response.cookies.set('swiftsail_user', JSON.stringify(appUser), cookieOpts);
+
+    return response;
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Erro ao validar código OTP';
     return NextResponse.json({ error: message }, { status: 400 });

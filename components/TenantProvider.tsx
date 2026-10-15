@@ -63,7 +63,7 @@ export function TenantProvider({
     label: 'Últimos 30 Dias',
   }));
 
-  // Carrega usuário autenticado do localStorage e valida em segundo plano com Supabase /api/auth/me
+  // Carrega usuário autenticado do localStorage e cookies, e valida em segundo plano com Supabase /api/auth/me
   useEffect(() => {
     let isMounted = true;
 
@@ -71,26 +71,50 @@ export function TenantProvider({
       let initialUser: AppUser | null = null;
       let userPhone = '';
 
+      // 1. Tenta carregar do localStorage
       try {
         const stored = localStorage.getItem('swiftsail_user');
         userPhone = localStorage.getItem('swiftsail_user_phone') || '';
         if (stored) {
           initialUser = JSON.parse(stored);
-          if (
-            initialUser?.role === 'master_admin' ||
-            initialUser?.whatsapp === '41992332996' ||
-            initialUser?.whatsapp === '5541992332996' ||
-            initialUser?.email === 'rodrigo@swiftsail.co'
-          ) {
-            localStorage.setItem('swiftsail_is_master_admin', 'true');
-          }
-          if (isMounted) setCurrentUser(initialUser);
         }
       } catch {
         initialUser = null;
       }
 
-      // Consulta /api/auth/me para obter dados frescos do perfil no Supabase
+      // 2. Fallback resiliente para document.cookie (Mobile Safari / Webviews do WhatsApp)
+      if (!initialUser && typeof document !== 'undefined') {
+        try {
+          const matchUser = document.cookie.match(/(?:^|;\s*)swiftsail_user=([^;]+)/);
+          if (matchUser && matchUser[1]) {
+            initialUser = JSON.parse(decodeURIComponent(matchUser[1]));
+          }
+          if (!userPhone) {
+            const matchPhone = document.cookie.match(/(?:^|;\s*)swiftsail_user_phone=([^;]+)/);
+            if (matchPhone && matchPhone[1]) {
+              userPhone = decodeURIComponent(matchPhone[1]);
+            }
+          }
+        } catch {}
+      }
+
+      if (initialUser) {
+        const cleanWp = (initialUser?.whatsapp || '').replace(/\D/g, '');
+        if (
+          initialUser?.role === 'master_admin' ||
+          cleanWp === '41992332996' ||
+          cleanWp === '5541992332996' ||
+          cleanWp.endsWith('41992332996') ||
+          (initialUser?.email || '').toLowerCase() === 'rodrigo@swiftsail.co'
+        ) {
+          try {
+            localStorage.setItem('swiftsail_is_master_admin', 'true');
+          } catch {}
+        }
+        if (isMounted) setCurrentUser(initialUser);
+      }
+
+      // 3. Consulta /api/auth/me para obter dados frescos do perfil no Supabase
       try {
         const token = localStorage.getItem('sb-access-token') || '';
         const phoneToQuery = initialUser?.whatsapp || userPhone;
@@ -130,13 +154,14 @@ export function TenantProvider({
   }, []);
 
   // É Master Admin se o perfil for master_admin ou Rodrigo Ferrari.
-  // SE deslogado ou se for cliente_admin, é ESTRITAMENTE falso.
+  // SE deslogado ou se for cliente_admin estrito, é falso.
   const isMasterAdmin = useMemo(() => {
     if (!currentUser) return false;
-    if (currentUser.role === 'cliente_admin') return false;
     if (currentUser.role === 'master_admin') return true;
-    if (currentUser.whatsapp === '41992332996' || currentUser.whatsapp === '5541992332996') return true;
-    if (currentUser.email === 'rodrigo@swiftsail.co') return true;
+    const cleanPhone = (currentUser.whatsapp || '').replace(/\D/g, '');
+    if (cleanPhone === '41992332996' || cleanPhone === '5541992332996' || cleanPhone.endsWith('41992332996')) return true;
+    if ((currentUser.email || '').toLowerCase() === 'rodrigo@swiftsail.co') return true;
+    if (currentUser.role === 'cliente_admin') return false;
     return false;
   }, [currentUser]);
 

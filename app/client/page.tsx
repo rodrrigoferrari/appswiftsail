@@ -23,8 +23,15 @@ export default function ClientPortalDirectoryPage() {
     setViewMode('client');
     // Se a autenticação foi verificada e não há usuário logado, redireciona para login
     if (isAuthChecked && !currentUser) {
-      router.replace('/login?redirect=/client');
-      return;
+      const hasStoredUser = typeof window !== 'undefined' && (
+        Boolean(localStorage.getItem('swiftsail_user')) ||
+        document.cookie.includes('swiftsail_user=') ||
+        document.cookie.includes('swiftsail_phone=')
+      );
+      if (!hasStoredUser) {
+        router.replace('/login?redirect=/client');
+        return;
+      }
     }
 
     // Se for cliente com apenas 1 workspace atribuído, redireciona direto para ele

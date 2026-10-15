@@ -42,7 +42,14 @@ export default function ClientWorkspacePage() {
   // Se a verificação terminou e o usuário não está autenticado, redireciona imediatamente para o login
   useEffect(() => {
     if (isAuthChecked && !currentUser) {
-      router.replace(`/login?redirect=${encodeURIComponent(`/client/${slug}`)}`);
+      const hasStoredUser = typeof window !== 'undefined' && (
+        Boolean(localStorage.getItem('swiftsail_user')) ||
+        document.cookie.includes('swiftsail_user=') ||
+        document.cookie.includes('swiftsail_phone=')
+      );
+      if (!hasStoredUser) {
+        router.replace(`/login?redirect=${encodeURIComponent(`/client/${slug}`)}`);
+      }
     }
   }, [isAuthChecked, currentUser, router, slug]);
 

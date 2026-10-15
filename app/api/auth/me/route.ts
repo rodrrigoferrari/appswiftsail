@@ -11,13 +11,21 @@ export async function GET(req: NextRequest) {
     const phoneParam = searchParams.get('phone');
     const authHeader = req.headers.get('authorization');
 
-    let phone = phoneParam ? phoneParam.replace(/\D/g, '') : '';
+    // Suporte a cookies HTTP para mobile Safari / Webviews do WhatsApp
+    const cookiePhone = req.cookies.get('swiftsail_user_phone')?.value || req.cookies.get('swiftsail_phone')?.value;
+    const cookieToken = req.cookies.get('sb-access-token')?.value || req.cookies.get('swiftsail_session')?.value;
+    const cookieUserRaw = req.cookies.get('swiftsail_user')?.value;
+
+    let phone = phoneParam ? phoneParam.replace(/\D/g, '') : (cookiePhone ? cookiePhone.replace(/\D/g, '') : '');
     let email = '';
     let authUserId = '';
 
-    // Se veio token JWT Bearer, valida no Supabase Auth
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.replace('Bearer ', '').trim();
+    const token = (authHeader && authHeader.startsWith('Bearer '))
+      ? authHeader.replace('Bearer ', '').trim()
+      : cookieToken || '';
+
+    // Se veio token JWT (seja por Header ou Cookie), valida no Supabase Auth
+    if (token) {
       try {
         const { data: authData, error: authErr } = await supabaseAdmin.auth.getUser(token);
         if (!authErr && authData.user) {
@@ -33,6 +41,16 @@ export async function GET(req: NextRequest) {
       } catch (tokenErr) {
         console.warn('[auth/me] Erro ao validar token JWT:', tokenErr);
       }
+    }
+
+    // Se ainda não temos phone/email/authUserId, tenta ler do cookieUserRaw
+    if (!phone && !email && !authUserId && cookieUserRaw) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(cookieUserRaw));
+        if (parsed?.whatsapp) phone = String(parsed.whatsapp).replace(/\D/g, '');
+        if (parsed?.email) email = parsed.email;
+        if (parsed?.id) authUserId = parsed.id;
+      } catch {}
     }
 
     if (!phone && !email && !authUserId) {

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
+import { useTenant } from '@/components/TenantProvider';
 import {
   MessageSquare,
   ArrowRight,
@@ -19,6 +20,7 @@ import {
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { currentUser, setCurrentUser, isAuthChecked, isMasterAdmin } = useTenant();
 
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [ddi, setDdi] = useState('+55');
@@ -28,6 +30,23 @@ function LoginContent() {
   const [errorMessage, setErrorMessage] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
   const [countdown, setCountdown] = useState(0);
+
+  // Se o usuário já estiver autenticado e acessar /login, redireciona diretamente sem exigir novo código
+  useEffect(() => {
+    if (isAuthChecked && currentUser) {
+      const redirectParam = searchParams.get('redirect');
+      if (redirectParam) {
+        window.location.href = redirectParam;
+      } else if (isMasterAdmin) {
+        window.location.href = '/admin';
+      } else if (currentUser.cliente_id) {
+        const slug = currentUser.cliente_id.toLowerCase().replace(/_/g, '-');
+        window.location.href = `/client/${slug}`;
+      } else {
+        window.location.href = '/client';
+      }
+    }
+  }, [isAuthChecked, currentUser, isMasterAdmin, searchParams]);
 
   // Preenche telefone se vier na URL (?phone=...)
   useEffect(() => {
@@ -147,9 +166,12 @@ function LoginContent() {
         }
       }
 
-      // Salva identificação local de backup
+      // Salva identificação local de backup e cookies client-side
       try {
         localStorage.setItem('swiftsail_user_phone', fullPhone);
+        if (data.session?.access_token) {
+          localStorage.setItem('sb-access-token', data.session.access_token);
+        }
         if (data.user) {
           localStorage.setItem('swiftsail_user', JSON.stringify(data.user));
           if (data.user.role === 'master_admin') {
@@ -157,12 +179,23 @@ function LoginContent() {
           } else {
             localStorage.removeItem('swiftsail_is_master_admin');
           }
+          setCurrentUser(data.user);
+        }
+        // Grava cookies client-side adicionais para garantia máxima
+        const maxAge = 60 * 60 * 24 * 30;
+        document.cookie = `swiftsail_user_phone=${encodeURIComponent(fullPhone)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+        if (data.user) {
+          document.cookie = `swiftsail_user=${encodeURIComponent(JSON.stringify(data.user))}; path=/; max-age=${maxAge}; SameSite=Lax`;
+        }
+        if (data.session?.access_token) {
+          document.cookie = `sb-access-token=${encodeURIComponent(data.session.access_token)}; path=/; max-age=${maxAge}; SameSite=Lax`;
         }
       } catch {}
 
-      // Redireciona para o destino baseado no perfil
-      const destination = data.redirectTo || (data.user?.role === 'master_admin' ? '/admin' : '/client');
-      router.push(destination);
+      // Redireciona com navegação real de página para hidratar todo o estado sem loops
+      const redirectParam = searchParams.get('redirect');
+      const destination = redirectParam || data.redirectTo || (data.user?.role === 'master_admin' ? '/admin' : '/client');
+      window.location.href = destination;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Falha ao validar código.';
       setErrorMessage(msg);
