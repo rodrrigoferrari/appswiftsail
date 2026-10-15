@@ -86,7 +86,39 @@ export default function CreativePreviewModal({
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState<'embed' | 'media'>('media');
+  const [viewMode, setViewMode] = useState<'embed' | 'media'>('embed');
+
+  // URLs oficiais no Meta / Instagram
+  const igUrl =
+    creative?.instagram_permalink_url ||
+    (creative?.link_permanente?.includes('instagram.com') ? creative.link_permanente : null) ||
+    (creative?.preview_link?.includes('instagram.com') ? creative.preview_link : null);
+
+  const fbUrl =
+    creative?.link_permanente?.includes('facebook.com')
+      ? creative.link_permanente
+      : creative?.preview_link?.includes('facebook.com')
+      ? creative.preview_link
+      : null;
+
+  const directMetaUrl = creative?.preview_link || creative?.link_permanente || igUrl || fbUrl;
+
+  // Extrai shortcode para Embed Oficial do Instagram
+  let igEmbedUrl: string | null = null;
+  if (igUrl) {
+    const match = igUrl.match(/instagram\.com\/(?:p|reel|tv)\/([^/?#&]+)/i);
+    if (match && match[1]) {
+      igEmbedUrl = `https://www.instagram.com/p/${match[1]}/embed/`;
+    }
+  }
+
+  // Embed Oficial do Facebook Post Plugin
+  let fbEmbedUrl: string | null = null;
+  if (fbUrl) {
+    fbEmbedUrl = `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(fbUrl)}&show_text=true&width=450`;
+  }
+
+  const hasEmbed = Boolean(igEmbedUrl || fbEmbedUrl);
 
   useEffect(() => {
     setCurrentSlide(0);
@@ -94,8 +126,8 @@ export default function CreativePreviewModal({
     setLiked(false);
     setSaved(false);
     setCopied(false);
-    setViewMode('media');
-  }, [creative]);
+    setViewMode(hasEmbed ? 'embed' : 'media');
+  }, [creative, hasEmbed]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -115,30 +147,6 @@ export default function CreativePreviewModal({
     val != null
       ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
       : 'R$ 0,00';
-
-  // URLs oficiais no Meta / Instagram
-  const igUrl =
-    creative.instagram_permalink_url ||
-    (creative.link_permanente?.includes('instagram.com') ? creative.link_permanente : null);
-  const fbUrl = creative.link_permanente?.includes('facebook.com') ? creative.link_permanente : null;
-  const directMetaUrl = creative.preview_link || creative.link_permanente || igUrl || fbUrl;
-
-  // Extrai shortcode para Embed Oficial do Instagram
-  let igEmbedUrl: string | null = null;
-  if (igUrl) {
-    const match = igUrl.match(/instagram\.com\/(?:p|reel|tv)\/([^/?#&]+)/i);
-    if (match && match[1]) {
-      igEmbedUrl = `https://www.instagram.com/p/${match[1]}/embed/`;
-    }
-  }
-
-  // Embed Oficial do Facebook Post Plugin
-  let fbEmbedUrl: string | null = null;
-  if (fbUrl) {
-    fbEmbedUrl = `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(fbUrl)}&show_text=true&width=450`;
-  }
-
-  const hasEmbed = Boolean(igEmbedUrl || fbEmbedUrl);
 
   // URL da Thumbnail / Imagem Real
   const realImageUrl =
@@ -300,24 +308,26 @@ export default function CreativePreviewModal({
             {/* MODO 1: IFRAME INCORPORADO REAL DO INSTAGRAM / FACEBOOK */}
             {hasEmbed && viewMode === 'embed' ? (
               <div className="w-full max-w-[440px] flex flex-col items-center">
-                <iframe
-                  src={igEmbedUrl || fbEmbedUrl!}
-                  className="w-full h-[540px] rounded-2xl border border-slate-800 shadow-2xl bg-black"
-                  frameBorder="0"
-                  scrolling="yes"
-                  allowTransparency={true}
-                  allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                />
+                <div className="w-full h-[560px] rounded-2xl border border-[#CBD5E1] shadow-xl overflow-hidden bg-white flex items-center justify-center">
+                  <iframe
+                    src={igEmbedUrl || fbEmbedUrl!}
+                    className="w-full h-full border-0"
+                    frameBorder="0"
+                    scrolling="yes"
+                    allowTransparency={true}
+                    allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                  />
+                </div>
                 {directMetaUrl && (
-                  <div className="mt-2.5 text-center">
+                  <div className="mt-3 text-center">
                     <a
                       href={directMetaUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-cyan-400 hover:text-cyan-300 hover:underline flex items-center justify-center gap-1 font-semibold"
+                      className="text-xs text-[#0050FF] hover:underline flex items-center justify-center gap-1.5 font-semibold"
                     >
-                      <ExternalLink className="w-3 h-3" />
-                      <span>Abrir publicação diretamente no app do Instagram / Facebook</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Abrir publicação original no Meta / Instagram ↗</span>
                     </a>
                   </div>
                 )}
@@ -358,7 +368,7 @@ export default function CreativePreviewModal({
                       alt={defaultHeadline}
                       className="absolute inset-0 w-full h-full object-cover"
                       onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
+                        (e.target as HTMLImageElement).src = '/api/meta/thumbnail?url=default';
                       }}
                     />
                   )}
@@ -370,9 +380,9 @@ export default function CreativePreviewModal({
                   {formatoNorm === 'reels' && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <button
-                        onClick={directMetaUrl ? () => window.open(directMetaUrl, '_blank') : handleOpenCTA}
+                        onClick={hasEmbed ? () => setViewMode('embed') : (directMetaUrl ? () => window.open(directMetaUrl, '_blank') : handleOpenCTA)}
                         className="w-14 h-14 rounded-full bg-white/90 hover:bg-white text-zinc-900 flex items-center justify-center shadow-2xl backdrop-blur-xs transition-transform hover:scale-110 active:scale-95 cursor-pointer pl-1 group"
-                        title="Ver vídeo completo no Instagram / Meta"
+                        title={hasEmbed ? 'Assistir no Embed Oficial Interativo' : 'Ver vídeo completo no Instagram / Meta'}
                       >
                         <Play className="w-6 h-6 fill-zinc-900 text-zinc-900" />
                       </button>
