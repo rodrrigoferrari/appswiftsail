@@ -63,32 +63,70 @@ export function TenantProvider({
     label: 'Últimos 30 Dias',
   }));
 
-  // Carrega usuário autenticado do localStorage
+  // Carrega usuário autenticado do localStorage e valida em segundo plano com Supabase /api/auth/me
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('swiftsail_user');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (
-          parsed.role === 'master_admin' ||
-          parsed.whatsapp === '41992332996' ||
-          parsed.whatsapp === '5541992332996' ||
-          parsed.email === 'rodrigo@swiftsail.co'
-        ) {
-          localStorage.setItem('swiftsail_is_master_admin', 'true');
+    let isMounted = true;
+
+    async function initAuth() {
+      let initialUser: AppUser | null = null;
+      let userPhone = '';
+
+      try {
+        const stored = localStorage.getItem('swiftsail_user');
+        userPhone = localStorage.getItem('swiftsail_user_phone') || '';
+        if (stored) {
+          initialUser = JSON.parse(stored);
+          if (
+            initialUser?.role === 'master_admin' ||
+            initialUser?.whatsapp === '41992332996' ||
+            initialUser?.whatsapp === '5541992332996' ||
+            initialUser?.email === 'rodrigo@swiftsail.co'
+          ) {
+            localStorage.setItem('swiftsail_is_master_admin', 'true');
+          }
+          if (isMounted) setCurrentUser(initialUser);
         }
-        setCurrentUser(parsed);
-      } else {
-        setCurrentUser(null);
-        try {
-          localStorage.removeItem('swiftsail_is_master_admin');
-        } catch {}
+      } catch {
+        initialUser = null;
       }
-    } catch {
-      setCurrentUser(null);
-    } finally {
-      setIsAuthChecked(true);
+
+      // Consulta /api/auth/me para obter dados frescos do perfil no Supabase
+      try {
+        const token = localStorage.getItem('sb-access-token') || '';
+        const phoneToQuery = initialUser?.whatsapp || userPhone;
+        const query = phoneToQuery ? `?phone=${encodeURIComponent(phoneToQuery)}` : '';
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`/api/auth/me${query}`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated && data.user) {
+            if (isMounted) {
+              setCurrentUser(data.user);
+              try {
+                localStorage.setItem('swiftsail_user', JSON.stringify(data.user));
+                if (data.user.role === 'master_admin') {
+                  localStorage.setItem('swiftsail_is_master_admin', 'true');
+                } else {
+                  localStorage.removeItem('swiftsail_is_master_admin');
+                }
+              } catch {}
+            }
+          }
+        }
+      } catch (meErr) {
+        console.warn('[TenantProvider] Falha ao sincronizar perfil do usuário com o servidor:', meErr);
+      } finally {
+        if (isMounted) setIsAuthChecked(true);
+      }
     }
+
+    initAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // É Master Admin se o perfil for master_admin ou Rodrigo Ferrari.
@@ -108,13 +146,29 @@ export function TenantProvider({
     if (isMasterAdmin) return clients;
 
     const allowed = new Set<string>();
-    if (currentUser?.cliente_id) allowed.add(currentUser.cliente_id);
+    if (currentUser?.cliente_id) allowed.add(String(currentUser.cliente_id).trim().toUpperCase());
     if (Array.isArray(currentUser?.cliente_ids)) {
-      currentUser.cliente_ids.forEach((id) => allowed.add(id));
+      currentUser.cliente_ids.forEach((id) => {
+        if (id) allowed.add(String(id).trim().toUpperCase());
+      });
     }
 
-    const filtered = clients.filter((c) => allowed.has(c.cliente_id));
-    return filtered.length > 0 ? filtered : clients.filter((c) => c.cliente_id === currentUser?.cliente_id);
+    if (allowed.size === 0) return [];
+
+    return clients.filter((c) => {
+      const cIdUpper = (c.cliente_id || '').toUpperCase();
+      const cSlug = (c.cliente_id || '').toLowerCase().replace(/_/g, '-');
+      const cNomeSlug = (c.nome || '').toLowerCase().replace(/\s+/g, '-');
+
+      for (const a of allowed) {
+        const aUpper = a.toUpperCase();
+        const aSlug = a.toLowerCase().replace(/_/g, '-');
+        if (cIdUpper === aUpper || cSlug === aSlug || cNomeSlug === aSlug) {
+          return true;
+        }
+      }
+      return false;
+    });
   }, [clients, currentUser, isMasterAdmin]);
 
   // Efeito de contenção estrita: se for cliente, NUNCA permite selectedClientId === 'ALL'

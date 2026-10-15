@@ -12,10 +12,25 @@ export default function ClientWorkspacePage() {
   const params = useParams();
   const router = useRouter();
   const slug = (params?.slug as string) || '';
-  const { clients, availableClients, isMasterAdmin, isAuthChecked, setViewMode, setSelectedClientId } = useTenant();
+  const { clients, availableClients, isMasterAdmin, isAuthChecked, currentUser, setViewMode, setSelectedClientId } = useTenant();
 
   const client = findClientBySlug(clients, slug);
-  const isAllowed = isMasterAdmin || (client && availableClients.some((c) => c.cliente_id === client.cliente_id));
+
+  // Validação segura de permissão com tolerância a case e correspondência direta com o perfil
+  const isAllowed = Boolean(
+    isMasterAdmin ||
+    (client && (
+      availableClients.some((c) => c.cliente_id.toUpperCase() === client.cliente_id.toUpperCase()) ||
+      (currentUser?.cliente_id && (
+        String(currentUser.cliente_id).toUpperCase() === client.cliente_id.toUpperCase() ||
+        String(currentUser.cliente_id).toLowerCase().replace(/_/g, '-') === client.cliente_id.toLowerCase().replace(/_/g, '-')
+      )) ||
+      (Array.isArray(currentUser?.cliente_ids) && currentUser.cliente_ids.some((id) => (
+        String(id).toUpperCase() === client.cliente_id.toUpperCase() ||
+        String(id).toLowerCase().replace(/_/g, '-') === client.cliente_id.toLowerCase().replace(/_/g, '-')
+      )))
+    ))
+  );
 
   useEffect(() => {
     setViewMode('client');
@@ -24,16 +39,24 @@ export default function ClientWorkspacePage() {
     }
   }, [client, isAllowed, setViewMode, setSelectedClientId]);
 
-  if (!isAuthChecked || (!client && clients.length === 0)) {
+  // Se a verificação terminou e o usuário não está autenticado, redireciona imediatamente para o login
+  useEffect(() => {
+    if (isAuthChecked && !currentUser) {
+      router.replace(`/login?redirect=${encodeURIComponent(`/client/${slug}`)}`);
+    }
+  }, [isAuthChecked, currentUser, router, slug]);
+
+  // Aguarda carregamento da autenticação e lista de clientes
+  if (!isAuthChecked || !currentUser || clients.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-white border border-[#E2E8F0] rounded-2xl shadow-xs space-y-3 font-sans">
         <RefreshCw className="w-6 h-6 animate-spin text-[#0050FF]" />
-        <p className="text-xs font-semibold text-[#64748B]">Carregando workspace do cliente...</p>
+        <p className="text-xs font-semibold text-[#64748B]">Verificando acesso e carregando workspace...</p>
       </div>
     );
   }
 
-  // Se o usuário não for Master Admin e tentar acessar um workspace de outro cliente pela URL
+  // Se o usuário estiver autenticado e for cliente comum tentando acessar outro cliente pela URL
   if (client && !isAllowed) {
     const assignedClient = availableClients[0];
     const assignedSlug = assignedClient ? getClientSlug(assignedClient) : '';

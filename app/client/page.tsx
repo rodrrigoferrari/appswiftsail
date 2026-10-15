@@ -17,16 +17,22 @@ import Link from 'next/link';
 
 export default function ClientPortalDirectoryPage() {
   const router = useRouter();
-  const { clients, availableClients, isMasterAdmin, isAuthChecked, adAccounts, setViewMode } = useTenant();
+  const { clients, availableClients, isMasterAdmin, isAuthChecked, currentUser, adAccounts, setViewMode } = useTenant();
 
   useEffect(() => {
     setViewMode('client');
+    // Se a autenticação foi verificada e não há usuário logado, redireciona para login
+    if (isAuthChecked && !currentUser) {
+      router.replace('/login?redirect=/client');
+      return;
+    }
+
     // Se for cliente com apenas 1 workspace atribuído, redireciona direto para ele
     if (isAuthChecked && !isMasterAdmin && availableClients.length === 1) {
       const slug = getClientSlug(availableClients[0]);
       router.replace(`/client/${slug}`);
     }
-  }, [setViewMode, isAuthChecked, isMasterAdmin, availableClients, router]);
+  }, [setViewMode, isAuthChecked, currentUser, isMasterAdmin, availableClients, router]);
 
   const displayedClients = isMasterAdmin ? clients : availableClients;
   const activeClients = displayedClients.filter((c) => c.status === 'ativo');
