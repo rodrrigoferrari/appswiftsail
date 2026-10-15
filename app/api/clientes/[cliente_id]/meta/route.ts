@@ -120,20 +120,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
           rawAdsPorCamp.set(row.campaign_id, list);
         }
 
-        // Filtra por veiculação real no período:
-        // Apenas anúncios que estão efetivamente ATIVOS no leilão (effective_status === 'ACTIVE')
-        // ou cuja campanha foi pausada recentemente mas o anúncio estava ativo (status === 'ACTIVE' && effective_status === 'CAMPAIGN_PAUSED').
-        // Anúncios com ADSET_PAUSED, PAUSED ou ARCHIVED nunca veiculam e são ignorados para não poluir com histórico inativo.
+        // Filtra anúncios da campanha: prioriza anúncios ativos ou com status ACTIVE,
+        // garantindo que anúncios com conjuntos pausados temporariamente (ADSET_PAUSED) também sejam visualizados
         for (const [campId, ads] of rawAdsPorCamp.entries()) {
           const adsComVeiculacao = ads.filter((a) => {
             if (a.effective_status === 'ACTIVE') return true;
-            if (a.effective_status === 'CAMPAIGN_PAUSED' && a.status === 'ACTIVE') return true;
+            if (a.status === 'ACTIVE') return true;
+            if (a.effective_status === 'CAMPAIGN_PAUSED' || a.effective_status === 'ADSET_PAUSED') return true;
             return false;
           });
 
-          // Apenas registra anúncios que realmente tiveram veiculação no leilão, sem fallback para anúncios pausados
           if (adsComVeiculacao.length > 0) {
             anunciosPorCampanha.set(campId, adsComVeiculacao);
+          } else if (ads.length > 0) {
+            anunciosPorCampanha.set(campId, ads);
           }
         }
       } catch {
@@ -175,12 +175,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
             campanha: campNome,
             adsetId: asId,
             adset: asName,
-            nome: ad.anuncio || `Anúncio ${ad.ad_id}`,
+            nome: ad.anuncio || ad.criativo_nome || `Anúncio ${ad.ad_id}`,
             status: ad.status || 'ACTIVE',
             effective_status: ad.effective_status || 'ACTIVE',
             creative_id: ad.creative_id,
             criativo_nome: ad.criativo_nome,
-            criativo_titulo: ad.criativo_titulo,
+            criativo_titulo: ad.criativo_titulo?.trim() || ad.anuncio || `Anúncio ${ad.ad_id}`,
             criativo_tipo: ad.criativo_tipo,
             preview_link: ad.preview_link,
             link_permanente: ad.link_permanente || ad.instagram_permalink_url,

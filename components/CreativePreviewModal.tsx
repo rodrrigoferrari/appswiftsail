@@ -86,7 +86,7 @@ export default function CreativePreviewModal({
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState<'embed' | 'media'>('embed');
+  const [viewMode, setViewMode] = useState<'embed' | 'media'>('media');
 
   useEffect(() => {
     setCurrentSlide(0);
@@ -94,7 +94,7 @@ export default function CreativePreviewModal({
     setLiked(false);
     setSaved(false);
     setCopied(false);
-    setViewMode('embed');
+    setViewMode('media');
   }, [creative]);
 
   useEffect(() => {
@@ -200,7 +200,7 @@ export default function CreativePreviewModal({
   };
 
   const accountHandle = creative.accountHandle || 'swiftsail.midia';
-  const defaultHeadline = creative.headline || creative.nome || 'Anúncio Meta Ads';
+  const defaultHeadline = creative.headline?.trim() || creative.nome || 'Anúncio Meta Ads';
   const defaultCopy =
     creative.copy ||
     `Campanha publicada no Meta Ads para ${creative.campanha || 'a conta oficial'}. Clique em "Ver no Meta" para conferir a publicação original.`;

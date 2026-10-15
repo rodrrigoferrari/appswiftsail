@@ -609,14 +609,23 @@ function MidiaContent() {
                 : targetLink
                 ? `/api/meta/thumbnail?url=${encodeURIComponent(targetLink)}`
                 : `/api/meta/thumbnail?url=default`;
-              const fNorm = cr.criativo_tipo === 'VIDEO' ? ('reels' as const) : cr.criativo_tipo === 'SHARE' ? ('carousel' as const) : ('image' as const);
+              const isVideo =
+                cr.criativo_tipo === 'VIDEO' ||
+                Boolean(cr.video_storage_path) ||
+                cr.midia_storage_path?.toLowerCase().endsWith('.mp4');
+              const isCarousel =
+                cr.criativo_tipo === 'CAROUSEL' ||
+                (Array.isArray(cr.slides) && cr.slides.length > 1);
+              const fNorm = isVideo ? ('reels' as const) : isCarousel ? ('carousel' as const) : ('image' as const);
+              const badge = isVideo ? 'REELS' : isCarousel ? 'CARROSSEL' : '1:1';
+              const cleanHeadline = cr.criativo_titulo?.trim() || cr.nome;
               return {
                 id: cr.id,
                 campaignId: campId,
                 adsetId: as.id,
                 nome: cr.nome,
                 formato: fNorm,
-                badge: cr.criativo_tipo || (fNorm === 'reels' ? 'REELS' : fNorm === 'carousel' ? 'CARROSSEL' : '1:1'),
+                badge,
                 thumbUrl: realThumb,
                 adset: as.nome,
                 campanha: campNome,
@@ -626,7 +635,7 @@ function MidiaContent() {
                 ctr: cr.ctr !== null && cr.ctr !== undefined ? `${cr.ctr}%` : null,
                 cpl: cr.cpl,
                 status: cr.status || status,
-                headline: cr.criativo_titulo || cr.nome,
+                headline: cleanHeadline,
                 copy: cr.criativo_nome || '',
                 ctaText: '💬 Falar no WhatsApp',
                 accountHandle: `${brand.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
@@ -638,7 +647,7 @@ function MidiaContent() {
                 thumbnail_storage_path: cr.thumbnail_storage_path,
                 imageUrl: realThumb,
                 slides: realThumb
-                  ? [{ num: 1, title: cr.criativo_titulo || cr.nome, desc: cr.criativo_nome || '', imgUrl: realThumb }]
+                  ? [{ num: 1, title: cleanHeadline, desc: cr.criativo_nome || '', imgUrl: realThumb }]
                   : undefined,
               };
             }),

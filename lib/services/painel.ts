@@ -22,7 +22,16 @@ export async function resolveClientesAtivos(clienteId: string): Promise<string[]
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data || data.status !== 'ativo') return null;
-  return [data.cliente_id];
+
+  // Busca se há clientes filhos vinculados a este cliente pai (ex: REALIZACOES_GONZAGA -> GONZAGA_AMST)
+  const { data: children } = await supabaseAdmin
+    .from('clientes')
+    .select('cliente_id')
+    .eq('parent_cliente_id', data.cliente_id)
+    .eq('status', 'ativo');
+
+  const childIds = (children || []).map((c) => c.cliente_id);
+  return [data.cliente_id, ...childIds];
 }
 
 /**
