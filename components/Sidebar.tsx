@@ -35,12 +35,18 @@ import {
   Image as ImageIcon,
   Video,
   Cpu,
+  X,
 } from 'lucide-react';
 
 import { useTenant } from './TenantProvider';
 import { getClientSlug } from '@/lib/clientSlug';
 
-function SidebarContent() {
+export interface SidebarProps {
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
+}
+
+function SidebarContent({ isMobileOpen, onCloseMobile }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -103,23 +109,55 @@ function SidebarContent() {
     }
   }, [pathname, currentPlataforma]);
 
+  // Fecha o menu lateral automaticamente no mobile ao navegar
+  useEffect(() => {
+    if (isMobileOpen && onCloseMobile) {
+      onCloseMobile();
+    }
+  }, [pathname, currentPlataforma, currentTab]);
+
   return (
-    <aside className="w-64 bg-white border-r border-[#E2E8F0] flex flex-col h-screen sticky top-0 z-40 select-none font-sans">
-      {/* Brand Header */}
-      <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
-        <Link
-          href={viewMode === 'admin' && isMasterAdmin ? '/admin' : activeClient ? `/client/${getClientSlug(activeClient)}` : '/client'}
-          className="flex items-center gap-3"
-        >
-          <div className="w-9 h-9 rounded-xl bg-[#EFF4FF] border border-[#BFDBFE] flex items-center justify-center overflow-hidden p-1 shadow-xs">
-            <img src="/logo.png" alt="Swiftsail Logo" className="w-full h-full object-contain" />
-          </div>
-          <div>
-            <h1 className="font-bold text-[#0F172A] text-sm leading-tight tracking-wide">SWIFTSAIL</h1>
-            <p className="text-[9px] text-[#0050FF] font-bold tracking-wider uppercase">Enterprise OS</p>
-          </div>
-        </Link>
-      </div>
+    <>
+      {/* Backdrop Mobile Escurecido com Blur */}
+      {isMobileOpen && (
+        <div
+          onClick={onCloseMobile}
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40 md:hidden transition-opacity"
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`w-64 bg-white border-r border-[#E2E8F0] flex flex-col h-screen select-none font-sans md:sticky md:top-0 md:z-30 md:translate-x-0 fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none ${
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
+        {/* Brand Header */}
+        <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
+          <Link
+            href={viewMode === 'admin' && isMasterAdmin ? '/admin' : activeClient ? `/client/${getClientSlug(activeClient)}` : '/client'}
+            className="flex items-center gap-3"
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#EFF4FF] border border-[#BFDBFE] flex items-center justify-center overflow-hidden p-1 shadow-xs">
+              <img src="/logo.png" alt="Swiftsail Logo" className="w-full h-full object-contain" />
+            </div>
+            <div>
+              <h1 className="font-bold text-[#0F172A] text-sm leading-tight tracking-wide">SWIFTSAIL</h1>
+              <p className="text-[9px] text-[#0050FF] font-bold tracking-wider uppercase">Enterprise OS</p>
+            </div>
+          </Link>
+
+          {/* Botão de Fechar no Mobile */}
+          <button
+            type="button"
+            onClick={onCloseMobile}
+            className="p-1.5 rounded-lg text-[#64748B] hover:text-[#0F172A] hover:bg-[#F1F5F9] md:hidden cursor-pointer transition-colors"
+            title="Fechar menu lateral"
+            aria-label="Fechar menu lateral"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
       {/* Mode Switcher Tabs: Exibido SOMENTE para Master Admin */}
       {isMasterAdmin && (
@@ -1045,17 +1083,18 @@ function SidebarContent() {
         )}
       </div>
     </aside>
+    </>
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({ isMobileOpen, onCloseMobile }: SidebarProps) {
   return (
     <Suspense
       fallback={
-        <aside className="w-64 bg-white border-r border-[#E2E8F0] flex flex-col h-screen sticky top-0 z-40 select-none font-sans" />
+        <aside className="w-64 bg-white border-r border-[#E2E8F0] hidden md:flex flex-col h-screen sticky top-0 z-40 select-none font-sans" />
       }
     >
-      <SidebarContent />
+      <SidebarContent isMobileOpen={isMobileOpen} onCloseMobile={onCloseMobile} />
     </Suspense>
   );
 }

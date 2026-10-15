@@ -813,8 +813,8 @@ function WhatsAppContent() {
                 </button>
               </div>
 
-              <div className="border border-[#E2E8F0] rounded-xl overflow-hidden">
-                <table className="w-full text-xs text-left">
+              <div className="border border-[#E2E8F0] rounded-xl overflow-hidden overflow-x-auto">
+                <table className="w-full text-xs text-left min-w-[620px]">
                   <thead className="bg-[#F8FAFC] text-[#64748B] font-bold border-b border-[#E2E8F0]">
                     <tr>
                       <th className="py-2.5 px-4">Nome / Identificação no WhatsApp</th>
@@ -1535,8 +1535,8 @@ function WhatsAppContent() {
                 </p>
               </div>
             ) : (
-              <div className="border border-[#E2E8F0] rounded-xl overflow-hidden">
-                <table className="w-full text-xs text-left">
+              <div className="border border-[#E2E8F0] rounded-xl overflow-hidden overflow-x-auto">
+                <table className="w-full text-xs text-left min-w-[620px]">
                   <thead className="bg-[#F8FAFC] text-[#64748B] font-bold border-b border-[#E2E8F0]">
                     <tr>
                       <th className="py-2.5 px-4">Lead / Contato</th>

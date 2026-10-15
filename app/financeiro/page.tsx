@@ -551,7 +551,7 @@ export default function FinanceiroPage() {
 
         {/* Tabela Read-Only com Dados Reais */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[700px]">
             <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] uppercase font-semibold tracking-wider text-[10px]">
               <tr>
                 <th className="py-3 px-4">Identificador & Descrição</th>

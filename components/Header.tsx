@@ -3,11 +3,15 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { RefreshCw, Crown, Building, Smartphone, ArrowLeft, ChevronDown, Check } from 'lucide-react';
+import { RefreshCw, Crown, Building, Smartphone, ArrowLeft, ChevronDown, Check, Menu } from 'lucide-react';
 import { useTenant } from './TenantProvider';
 import { getClientSlug } from '@/lib/clientSlug';
 
-export default function Header() {
+interface HeaderProps {
+  onToggleMobileMenu?: () => void;
+}
+
+export default function Header({ onToggleMobileMenu }: HeaderProps) {
   const {
     clients,
     availableClients,
@@ -64,14 +68,23 @@ export default function Header() {
   const isSimulatingClient = currentUser && currentUser.role !== 'master_admin';
 
   return (
-    <header className="h-16 border-b border-[#E2E8F0] bg-white px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none">
-      {/* Lado Esquerdo: Modo (Admin / Cliente) + Seletor de Workspace */}
+    <header className="h-16 border-b border-[#E2E8F0] bg-white px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none">
+      {/* Lado Esquerdo: Botão Menu Mobile + Seletor de Workspace */}
       <div className="flex items-center gap-2 sm:gap-3">
-
+        {/* Botão Hambúrguer Mobile (Apenas visível em telas menores que md) */}
+        <button
+          type="button"
+          onClick={onToggleMobileMenu}
+          className="p-2 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-[#0F172A] hover:bg-[#EFF4FF] hover:border-[#BFDBFE] transition-colors cursor-pointer md:hidden shadow-xs shrink-0"
+          title="Abrir menu de navegação"
+          aria-label="Abrir menu lateral"
+        >
+          <Menu className="w-4 h-4 text-[#0050FF]" />
+        </button>
 
         {/* SELETOR DE WORKSPACE INTERATIVO */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-[#0F172A] shadow-xs hover:border-[#0050FF] transition-colors">
+          <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-[#0F172A] shadow-xs hover:border-[#0050FF] transition-colors">
             <Building className="w-3.5 h-3.5 text-[#0050FF] shrink-0" />
             <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider hidden md:inline">
               Workspace:

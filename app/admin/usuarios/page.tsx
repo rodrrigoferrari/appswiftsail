@@ -579,7 +579,7 @@ export default function AdminUsuariosPage() {
       {activeTab === 'users' && (
         <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[720px]">
               <thead className="bg-[#F8FAFC] text-[#64748B] font-bold uppercase tracking-wider text-[10px] border-b border-[#E2E8F0]">
                 <tr>
                   <th className="p-4">Usuário</th>
@@ -736,7 +736,7 @@ export default function AdminUsuariosPage() {
       {activeTab === 'invites' && (
         <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[720px]">
               <thead className="bg-[#F8FAFC] text-[#64748B] font-bold uppercase tracking-wider text-[10px] border-b border-[#E2E8F0]">
                 <tr>
                   <th className="p-4">Convidado</th>

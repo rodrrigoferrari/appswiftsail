@@ -1389,7 +1389,7 @@ function MidiaContent() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left">
+                  <table className="w-full text-xs text-left min-w-[850px]">
                     <thead>
                       <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
                         <th className="py-3 px-4">Status</th>
@@ -1729,7 +1729,7 @@ function MidiaContent() {
                 </button>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left">
+                <table className="w-full text-xs text-left min-w-[850px]">
                   <thead>
                     <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
                       <th className="py-3 px-4">Status</th>
@@ -1851,7 +1851,7 @@ function MidiaContent() {
                 </span>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left">
+                <table className="w-full text-xs text-left min-w-[850px]">
                   <thead>
                     <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
                       <th className="py-3 px-4">Thumbnail</th>
@@ -2204,7 +2204,7 @@ function MidiaContent() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left">
+                  <table className="w-full text-xs text-left min-w-[900px]">
                     <thead>
                       <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
                         <th className="py-3 px-4">Status</th>
@@ -2283,7 +2283,7 @@ function MidiaContent() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left">
+                  <table className="w-full text-xs text-left min-w-[900px]">
                     <thead>
                       <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
                         <th className="py-3 px-4">Status</th>
@@ -2435,7 +2435,7 @@ function MidiaContent() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left">
+                  <table className="w-full text-xs text-left min-w-[850px]">
                     <thead>
                       <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
                         <th className="py-3 px-4">Status</th>
@@ -2536,7 +2536,7 @@ function MidiaContent() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left">
+                  <table className="w-full text-xs text-left min-w-[850px]">
                     <thead>
                       <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
                         <th className="py-3 px-4">Status</th>
@@ -2690,7 +2690,7 @@ function MidiaContent() {
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left">
+                    <table className="w-full text-xs text-left min-w-[900px]">
                       <thead>
                         <tr className="border-b border-[#E2E8F0] text-[#64748B] bg-[#F8FAFC]">
                           <th className="py-3 px-4">Termo Real Digitado</th>

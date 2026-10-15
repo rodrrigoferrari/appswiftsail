@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Header from './Header';
@@ -8,6 +8,7 @@ import Header from './Header';
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === '/login';
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   if (isLoginPage) {
     return (
@@ -19,10 +20,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex w-full h-screen overflow-hidden bg-[#F8FAFC]">
-      <Sidebar />
+      <Sidebar
+        isMobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+      />
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-[#F8FAFC]">
-        <Header />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-6">
+        <Header onToggleMobileMenu={() => setMobileMenuOpen((prev) => !prev)} />
+        <main className="flex-1 overflow-y-auto p-3.5 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
           {children}
         </main>
       </div>
