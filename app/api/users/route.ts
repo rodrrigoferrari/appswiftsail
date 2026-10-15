@@ -156,12 +156,18 @@ export async function DELETE(request: Request) {
       await deleteInvite(id);
       return NextResponse.json({ success: true, message: 'Convite revogado com sucesso' });
     } else {
-      await deleteUser(id);
+      const ok = await deleteUser(id);
+      if (!ok) {
+        return NextResponse.json(
+          { success: false, error: 'Não é permitido remover o administrador principal.' },
+          { status: 403 }
+        );
+      }
       return NextResponse.json({ success: true, message: 'Usuário removido com sucesso' });
     }
   } catch (err: unknown) {
     return NextResponse.json(
-      { success: false, error: err instanceof Error ? err.message : 'Erro interno' },
+      { success: false, error: err instanceof Error ? err.message : 'Erro interno ao excluir' },
       { status: 500 }
     );
   }

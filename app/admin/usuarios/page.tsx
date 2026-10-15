@@ -118,6 +118,11 @@ export default function AdminUsuariosPage() {
   const [isEditingSaving, setIsEditingSaving] = useState(false);
   const [editFeedback, setEditFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Delete User Confirmation State
+  const [userToDelete, setUserToDelete] = useState<AppUser | null>(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   const handleOpenEditModal = (user: any) => {
     setEditingUserId(user.id);
     setEditName(user.nome || '');
@@ -345,6 +350,31 @@ export default function AdminUsuariosPage() {
       }
     } catch (err) {
       console.error('Failed to revoke invite:', err);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    setIsDeletingUser(true);
+    setDeleteFeedback(null);
+    try {
+      const res = await fetch(`/api/users?id=${encodeURIComponent(userToDelete.id)}&type=user`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Erro ao remover usuário');
+      }
+      await refreshUsers();
+      setUserToDelete(null);
+      if (showEditModal && editingUserId === userToDelete.id) {
+        setShowEditModal(false);
+      }
+    } catch (err: any) {
+      console.error('Failed to delete user:', err);
+      setDeleteFeedback({ type: 'error', text: err.message || 'Erro ao remover usuário' });
+    } finally {
+      setIsDeletingUser(false);
     }
   };
 
@@ -702,17 +732,30 @@ export default function AdminUsuariosPage() {
                             </button>
 
                             {user.role !== 'master_admin' ? (
-                              <button
-                                onClick={() => handleToggleUserStatus(user.id)}
-                                className="p-1.5 rounded-lg bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer shadow-xs"
-                                title={user.status === 'ativo' ? 'Bloquear Usuário' : 'Ativar Usuário'}
-                              >
-                                {user.status === 'ativo' ? (
-                                  <Lock className="w-3.5 h-3.5 text-amber-500" />
-                                ) : (
-                                  <Unlock className="w-3.5 h-3.5 text-emerald-600" />
-                                )}
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => handleToggleUserStatus(user.id)}
+                                  className="p-1.5 rounded-lg bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer shadow-xs"
+                                  title={user.status === 'ativo' ? 'Bloquear Usuário' : 'Ativar Usuário'}
+                                >
+                                  {user.status === 'ativo' ? (
+                                    <Lock className="w-3.5 h-3.5 text-amber-500" />
+                                  ) : (
+                                    <Unlock className="w-3.5 h-3.5 text-emerald-600" />
+                                  )}
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    setDeleteFeedback(null);
+                                    setUserToDelete(user);
+                                  }}
+                                  className="p-1.5 rounded-lg bg-white border border-[#E2E8F0] text-rose-500 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer shadow-xs"
+                                  title="Excluir Usuário"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
                             ) : (
                               isMasterAdmin && (
                                 <span className="p-1.5 text-[10px] font-bold text-[#0050FF] bg-[#EFF4FF] border border-[#BFDBFE] rounded-lg">
@@ -1483,29 +1526,115 @@ export default function AdminUsuariosPage() {
               </div>
 
               {/* Modal Actions */}
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#F1F5F9]">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 rounded-xl text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
-                >
-                  Cancelar
-                </button>
+              <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9]">
+                {editRole !== 'master_admin' && editingUserId !== 'usr_rodrigo_ferrari' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const user = users.find((u) => u.id === editingUserId);
+                      if (user) {
+                        setDeleteFeedback(null);
+                        setUserToDelete(user);
+                      }
+                    }}
+                    className="px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Excluir Usuário</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
 
-                <button
-                  type="submit"
-                  disabled={isEditingSaving}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white shadow-xs flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {isEditingSaving ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Check className="w-3.5 h-3.5" />
-                  )}
-                  <span>Salvar Alterações</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="px-4 py-2 rounded-xl text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isEditingSaving}
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#0050FF] hover:bg-[#0040D6] text-white shadow-xs flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {isEditingSaving ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
+                    <span>Salvar Alterações</span>
+                  </button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {userToDelete && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-60 flex items-center justify-center p-4">
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-[#0F172A]">Excluir Usuário</h3>
+                <p className="text-xs text-[#64748B] mt-1">
+                  Tem certeza que deseja excluir o acesso de <span className="font-bold text-[#0F172A]">{userToDelete.nome}</span>?
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3 text-xs text-[#475569] space-y-1">
+              <p>
+                <span className="font-semibold">WhatsApp:</span> {userToDelete.whatsapp || 'Não informado'}
+              </p>
+              <p>
+                <span className="font-semibold">Workspace:</span> {userToDelete.cliente_nome || 'Global'}
+              </p>
+              <p className="text-[11px] text-rose-600 font-medium pt-1">
+                ⚠️ Essa ação removerá o perfil, permissões de acesso e sessões ativas deste usuário de forma definitiva.
+              </p>
+            </div>
+
+            {deleteFeedback && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{deleteFeedback.text}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#F1F5F9]">
+              <button
+                type="button"
+                disabled={isDeletingUser}
+                onClick={() => {
+                  setUserToDelete(null);
+                  setDeleteFeedback(null);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingUser}
+                onClick={handleDeleteUser}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingUser ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                <span>{isDeletingUser ? 'Excluindo...' : 'Sim, Excluir'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

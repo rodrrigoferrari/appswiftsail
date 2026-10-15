@@ -310,16 +310,76 @@ export async function listAllUsers(): Promise<AppUser[]> {
  * Remove um usuário da tabela profiles e Auth do Supabase
  */
 export async function deleteUser(userId: string): Promise<boolean> {
-  removeUserFromStore(userId);
+  // Não permite remover Rodrigo Ferrari
+  if (
+    userId === 'usr_rodrigo_ferrari' ||
+    userId === 'rodrigo_master_id'
+  ) return false;
 
   try {
-    // Não permite remover Rodrigo Ferrari
-    if (userId === 'usr_rodrigo_ferrari') return false;
+    let cleanPhone = '';
 
-    // Remove do profiles
+    // 1. Tenta recuperar informações do perfil antes de excluir
+    try {
+      const { data: userProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (userProfile) {
+        const phone = cleanPhoneNumber(userProfile.phone);
+        if (
+          userProfile.role === 'master_admin' ||
+          phone === '41992332996' ||
+          phone === '5541992332996'
+        ) {
+          return false;
+        }
+        cleanPhone = phone;
+      }
+    } catch {}
+
+    // Checa também na memória caso não esteja no profiles
+    const memUser = getUsersStore().find((u) => u.id === userId);
+    if (memUser) {
+      const p = cleanPhoneNumber(memUser.whatsapp);
+      if (
+        memUser.role === 'master_admin' ||
+        p === '41992332996' ||
+        p === '5541992332996' ||
+        memUser.email === 'rodrigo@swiftsail.co'
+      ) {
+        return false;
+      }
+      if (!cleanPhone && p) cleanPhone = p;
+    }
+
+    // 2. Remove da memória
+    removeUserFromStore(userId);
+
+    // 3. Remove convites associados na memória e no Supabase (knowledge_base e otp_codes)
+    if (cleanPhone) {
+      removeInviteFromStore(userId);
+      try {
+        await supabaseAdmin
+          .from('knowledge_base')
+          .delete()
+          .eq('source', 'user_invite')
+          .contains('tags', [cleanPhone]);
+      } catch {}
+      try {
+        await supabaseAdmin
+          .from('otp_codes')
+          .delete()
+          .or(`phone.eq.${cleanPhone},phone.eq.55${cleanPhone}`);
+      } catch {}
+    }
+
+    // 4. Remove do profiles do Supabase
     await supabaseAdmin.from('profiles').delete().eq('id', userId);
 
-    // Tenta remover do Auth
+    // 5. Tenta remover do Supabase Auth
     try {
       await supabaseAdmin.auth.admin.deleteUser(userId);
     } catch {}
