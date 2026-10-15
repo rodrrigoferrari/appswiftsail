@@ -49,7 +49,9 @@ export default function AdminUsuariosPage() {
   const {
     clients,
     users,
+    setUsers,
     invites,
+    setInvites,
     refreshUsers,
     selectClientAndSwitchToWorkspace,
     activeClient,
@@ -342,12 +344,12 @@ export default function AdminUsuariosPage() {
   const handleRevokeInvite = async (inviteId: string) => {
     if (!confirm('Deseja realmente revogar este convite?')) return;
     try {
-      const res = await fetch(`/api/users?id=${inviteId}&type=invite`, {
+      // Remove da interface imediatamente para resposta instantânea ao clique
+      setInvites((prev) => prev.filter((i) => i.id !== inviteId && i.token !== inviteId));
+      const res = await fetch(`/api/users?id=${encodeURIComponent(inviteId)}&type=invite`, {
         method: 'DELETE',
       });
-      if (res.ok) {
-        await refreshUsers();
-      }
+      await refreshUsers();
     } catch (err) {
       console.error('Failed to revoke invite:', err);
     }

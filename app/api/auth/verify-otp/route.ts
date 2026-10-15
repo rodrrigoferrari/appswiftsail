@@ -5,6 +5,7 @@ import {
   verifyAndConsumeOtpCode,
   findUserByPhone,
 } from '@/lib/services/otp-service';
+import { consumeInviteByPhone } from '@/lib/services/user-invites-service';
 import { getUsersStore } from '@/lib/services/users-store';
 
 export async function POST(req: NextRequest) {
@@ -159,6 +160,13 @@ export async function POST(req: NextRequest) {
       });
     } catch (profErr) {
       console.warn('[verify-otp] Erro ao gravar profile no Supabase:', profErr);
+    }
+
+    // Consome e remove qualquer convite pendente associado a este telefone
+    try {
+      await consumeInviteByPhone(cleanPhone);
+    } catch (invErr) {
+      console.warn('[verify-otp] Erro ao consumir convite ativado:', invErr);
     }
 
     // 4. Criar Sessão JWT Legítima (Password Sign-In descartável temporário)

@@ -211,7 +211,7 @@ export function TenantProvider({
 
     async function loadUsers() {
       try {
-        const res = await fetch('/api/users');
+        const res = await fetch(`/api/users?_t=${Date.now()}`, { cache: 'no-store' });
         const data = await res.json();
         if (data.success) {
           if (data.users) setUsers(data.users);
@@ -262,10 +262,10 @@ export function TenantProvider({
         : (viewMode === 'client' && selectedClientId !== 'ALL' ? selectedClientId : 'ALL');
 
       const url = effectiveId && effectiveId !== 'ALL'
-        ? `/api/users?cliente_id=${encodeURIComponent(effectiveId)}`
-        : '/api/users';
+        ? `/api/users?cliente_id=${encodeURIComponent(effectiveId)}&_t=${Date.now()}`
+        : `/api/users?_t=${Date.now()}`;
 
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         if (data.users) setUsers(data.users);

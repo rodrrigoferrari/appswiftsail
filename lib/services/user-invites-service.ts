@@ -147,7 +147,8 @@ export async function persistInvite(invite: UserInvite): Promise<UserInvite> {
 }
 
 /**
- * Lista todos os convites salvos no Supabase com fallback para memória
+ * Lista todos os convites salvos no Supabase com fallback para memória,
+ * filtrando e consumindo automaticamente convites de usuários que já ativaram a conta/logaram.
  */
 export async function listAllInvites(): Promise<UserInvite[]> {
   const memoryInvites = getInvitesStore();
@@ -157,9 +158,27 @@ export async function listAllInvites(): Promise<UserInvite[]> {
   memoryInvites.forEach((i) => inviteMap.set(i.id || i.token, i));
 
   try {
+    // 1. Busca usuários que já realizaram login no Supabase Auth para expurgar convites já ativados
+    const { data: authList } = await supabaseAdmin.auth.admin.listUsers();
+    const activatedPhones = new Set<string>();
+
+    if (authList && authList.users) {
+      for (const u of authList.users) {
+        if (u.last_sign_in_at) {
+          if (u.phone) activatedPhones.add(cleanPhoneNumber(u.phone));
+          const metaPhone = u.user_metadata?.whatsapp || u.user_metadata?.phone;
+          if (metaPhone) activatedPhones.add(cleanPhoneNumber(metaPhone));
+          if (u.email && u.email.endsWith('@swiftsail.local')) {
+            const num = u.email.split('@')[0];
+            activatedPhones.add(cleanPhoneNumber(num));
+          }
+        }
+      }
+    }
+
     const { data: rows, error } = await supabaseAdmin
       .from('knowledge_base')
-      .select('id, content, created_at')
+      .select('id, content, tags, created_at')
       .eq('source', 'user_invite')
       .order('created_at', { ascending: false });
 
@@ -168,7 +187,26 @@ export async function listAllInvites(): Promise<UserInvite[]> {
         try {
           const parsed: UserInvite = JSON.parse(row.content);
           if (parsed && (parsed.id || parsed.token)) {
-            inviteMap.set(parsed.id || parsed.token, parsed);
+            const phone = cleanPhoneNumber(parsed.whatsapp);
+            const key = parsed.id || parsed.token;
+
+            // Se o usuário já realizou login na plataforma, o convite já foi ATIVADO (não é mais pendente)
+            const isAlreadyActivated =
+              (phone && (activatedPhones.has(phone) || (phone.startsWith('55') && activatedPhones.has(phone.slice(2))) || activatedPhones.has(`55${phone}`))) ||
+              parsed.status === 'aceito' ||
+              (parsed.status as string) === 'ativado';
+
+            if (isAlreadyActivated) {
+              // Remove da memória e limpa do Supabase
+              inviteMap.delete(key);
+              removeInviteFromStore(key);
+              await supabaseAdmin
+                .from('knowledge_base')
+                .delete()
+                .eq('id', row.id);
+            } else {
+              inviteMap.set(key, parsed);
+            }
           }
         } catch {}
       }
@@ -181,23 +219,79 @@ export async function listAllInvites(): Promise<UserInvite[]> {
 }
 
 /**
- * Remove um convite do Supabase e da memória
+ * Remove um convite do Supabase e da memória de forma definitiva
  */
 export async function deleteInvite(inviteIdOrToken: string): Promise<boolean> {
   removeInviteFromStore(inviteIdOrToken);
 
   try {
-    // Procura por tag
+    // 1. Tenta deletar por tag
     await supabaseAdmin
       .from('knowledge_base')
       .delete()
       .eq('source', 'user_invite')
       .contains('tags', [inviteIdOrToken]);
 
+    // 2. Fallback: Se o ID for numérico ou se estiver no content
+    const { data: rows } = await supabaseAdmin
+      .from('knowledge_base')
+      .select('id, content')
+      .eq('source', 'user_invite');
+
+    if (rows && rows.length > 0) {
+      for (const r of rows) {
+        if (r.content && r.content.includes(inviteIdOrToken)) {
+          await supabaseAdmin.from('knowledge_base').delete().eq('id', r.id);
+        }
+      }
+    }
+
     return true;
   } catch (err) {
     console.error('[UserInvitesService] Erro ao remover convite do Supabase:', err);
     return false;
+  }
+}
+
+/**
+ * Consome/limpa convites pendentes de um telefone assim que o usuário faz login/ativação
+ */
+export async function consumeInviteByPhone(phone: string): Promise<void> {
+  const cleanPhone = cleanPhoneNumber(phone);
+  if (!cleanPhone) return;
+
+  const phoneVariants = [
+    cleanPhone,
+    cleanPhone.startsWith('55') ? cleanPhone.slice(2) : `55${cleanPhone}`,
+  ];
+
+  try {
+    // 1. Remove da memória local
+    const memory = getInvitesStore();
+    for (const inv of memory) {
+      const invPhone = cleanPhoneNumber(inv.whatsapp);
+      if (phoneVariants.includes(invPhone)) {
+        removeInviteFromStore(inv.id || inv.token);
+      }
+    }
+
+    // 2. Remove de knowledge_base
+    const { data: rows } = await supabaseAdmin
+      .from('knowledge_base')
+      .select('id, content, tags')
+      .eq('source', 'user_invite');
+
+    if (rows && rows.length > 0) {
+      for (const r of rows) {
+        const rowPhone = r.tags ? r.tags.find((t: string) => phoneVariants.includes(t)) : null;
+        const matchesContent = r.content && phoneVariants.some((p) => r.content.includes(p));
+        if (rowPhone || matchesContent) {
+          await supabaseAdmin.from('knowledge_base').delete().eq('id', r.id);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[UserInvitesService] Erro ao consumir convite ativado:', err);
   }
 }
 
