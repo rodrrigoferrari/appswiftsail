@@ -404,7 +404,7 @@ function SidebarContent({ isMobileOpen, onCloseMobile }: SidebarProps) {
                     <span>Notificações</span>
                   </Link>
 
-                  {/* Kommo (Vincular Clientes) */}
+                  {/* Contas de Anúncio & Vínculos (Kommo/Ads) */}
                   <Link
                     href="/credenciais/cliente"
                     className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
@@ -413,8 +413,8 @@ function SidebarContent({ isMobileOpen, onCloseMobile }: SidebarProps) {
                         : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
                     }`}
                   >
-                    <KanbanSquare className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    <span>Kommo</span>
+                    <Layers className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>Contas & Vínculos</span>
                   </Link>
 
                   {/* OpenRouter (Token & Consumo) */}
