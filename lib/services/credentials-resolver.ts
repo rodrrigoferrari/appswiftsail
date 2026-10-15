@@ -277,6 +277,9 @@ export async function getAllUazapiInstances(): Promise<Array<{ name: string; sta
             token: inst.token || '',
             owner: inst.owner || inst.phone || '',
             profileName: inst.profileName || '',
+            profilePicUrl: inst.profilePicUrl || '',
+            systemName: inst.systemName || 'app.swiftsail',
+            updated: inst.updated || inst.created || '',
           };
         });
       }

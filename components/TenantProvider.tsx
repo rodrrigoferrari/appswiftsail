@@ -16,6 +16,7 @@ interface TenantContextType {
   setClients: React.Dispatch<React.SetStateAction<Cliente[]>>;
   currentUser: AppUser | null;
   setCurrentUser: React.Dispatch<React.SetStateAction<AppUser | null>>;
+  isAuthChecked: boolean;
   isMasterAdmin: boolean;
   canAccessModule: (module: UserModulePermission) => boolean;
   adAccounts: GroupAdAccount[];
@@ -55,6 +56,7 @@ export function TenantProvider({
   const [users, setUsers] = useState<AppUser[]>([]);
   const [invites, setInvites] = useState<UserInvite[]>([]);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [isAuthChecked, setIsAuthChecked] = useState<boolean>(false);
   const [dateRange, setDateRange] = useState(() => ({
     start: diasAtrasBRT(29),
     end: hojeBRT(),
@@ -77,31 +79,22 @@ export function TenantProvider({
         }
         setCurrentUser(parsed);
       } else {
-        // Fallback default: Master Admin (Rodrigo Ferrari)
-        const defaultAdmin: AppUser = {
-          id: 'usr_rodrigo_ferrari',
-          nome: 'Rodrigo Ferrari',
-          email: 'rodrigo@swiftsail.co',
-          whatsapp: '41992332996',
-          role: 'master_admin',
-          cliente_id: null,
-          cliente_nome: 'Swiftsail HQ (Master Admin)',
-          status: 'ativo',
-          modulos: ['midia', 'whatsapp', 'criativos', 'crm', 'financeiro'],
-        };
+        setCurrentUser(null);
         try {
-          localStorage.setItem('swiftsail_is_master_admin', 'true');
-          localStorage.setItem('swiftsail_user', JSON.stringify(defaultAdmin));
+          localStorage.removeItem('swiftsail_is_master_admin');
         } catch {}
-        setCurrentUser(defaultAdmin);
       }
-    } catch {}
+    } catch {
+      setCurrentUser(null);
+    } finally {
+      setIsAuthChecked(true);
+    }
   }, []);
 
   // É Master Admin se o perfil for master_admin ou Rodrigo Ferrari.
-  // SE for cliente_admin, é ESTRITAMENTE falso (nunca acessa dados de outras empresas).
+  // SE deslogado ou se for cliente_admin, é ESTRITAMENTE falso.
   const isMasterAdmin = useMemo(() => {
-    if (!currentUser) return true;
+    if (!currentUser) return false;
     if (currentUser.role === 'cliente_admin') return false;
     if (currentUser.role === 'master_admin') return true;
     if (currentUser.whatsapp === '41992332996' || currentUser.whatsapp === '5541992332996') return true;
@@ -369,6 +362,7 @@ export function TenantProvider({
         setClients,
         currentUser,
         setCurrentUser,
+        isAuthChecked,
         isMasterAdmin,
         canAccessModule,
         adAccounts,

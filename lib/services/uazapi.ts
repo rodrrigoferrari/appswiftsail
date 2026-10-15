@@ -33,7 +33,7 @@ export async function getUazapiAdminConfig(): Promise<UazapiConfig> {
 
 /**
  * Creates a dedicated WhatsApp instance for a client using the Master Admin Token
- * Endpoint: POST /instance/create
+ * Endpoint: POST /instance/init
  * Header: admintoken: ADMIN_TOKEN
  */
 export async function createClientInstance(instanceName: string) {
@@ -44,7 +44,7 @@ export async function createClientInstance(instanceName: string) {
   }
 
   const cleanUrl = baseUrl.replace(/\/+$/, '');
-  const res = await fetch(`${cleanUrl}/instance/create`, {
+  const res = await fetch(`${cleanUrl}/instance/init`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -52,6 +52,9 @@ export async function createClientInstance(instanceName: string) {
     },
     body: JSON.stringify({
       name: instanceName,
+      systemName: 'app.swiftsail',
+      fingerprintProfile: 'chrome',
+      browser: 'chrome',
     }),
   });
 
@@ -61,6 +64,56 @@ export async function createClientInstance(instanceName: string) {
   }
 
   return data; // returns { token, name, status, ... }
+}
+
+/**
+ * Deletes a WhatsApp instance completely from UAZAPI using Master Admin Token
+ * Endpoint: DELETE /instance?name=INSTANCE_NAME
+ * Header: admintoken: ADMIN_TOKEN
+ */
+export async function deleteClientInstance(instanceName: string) {
+  const { baseUrl, adminToken } = await getUazapiAdminConfig();
+
+  if (!adminToken) {
+    throw new Error('Admin Token da Uazapi não configurado nas Credenciais Master.');
+  }
+
+  const cleanUrl = baseUrl.replace(/\/+$/, '');
+  const res = await fetch(`${cleanUrl}/instance?name=${encodeURIComponent(instanceName)}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      admintoken: adminToken,
+    },
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || data.error || `Erro HTTP ${res.status} ao excluir instância.`);
+  }
+
+  return data;
+}
+
+/**
+ * Disconnects (logout) a WhatsApp instance session
+ * Endpoint: POST /instance/disconnect
+ * Header: token: INSTANCE_TOKEN
+ */
+export async function disconnectClientInstance(instanceToken: string) {
+  const { baseUrl } = await getUazapiAdminConfig();
+  const cleanUrl = baseUrl.replace(/\/+$/, '');
+
+  const res = await fetch(`${cleanUrl}/instance/disconnect`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      token: instanceToken,
+    },
+  });
+
+  const data = await res.json().catch(() => ({}));
+  return data;
 }
 
 /**

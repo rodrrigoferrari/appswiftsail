@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import {
   createClientInstance,
+  deleteClientInstance,
+  disconnectClientInstance,
   getInstanceStatus,
   connectInstance,
   listInstanceGroups,
@@ -76,6 +78,10 @@ export async function POST(req: Request) {
         }
 
         const cleanTarget = cliente_id.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const clientKeywords = cliente_id
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .filter((k: string) => k.length >= 3 && k !== 'incorporadora' && k !== 'ltda' && k !== 'construtora' && k !== 'grupo');
 
         // Filtra estritamente instâncias que pertençam a este cliente
         const clientInstances = allInstances.filter((inst: any) => {
@@ -85,22 +91,27 @@ export async function POST(req: Request) {
           if (instName.includes(cleanTarget) || (cleanTarget.length > 4 && cleanTarget.includes(instName))) {
             return true;
           }
+          if (clientKeywords.some((kw: string) => instName.includes(kw))) {
+            return true;
+          }
           return false;
         });
 
         return NextResponse.json({ success: true, instances: clientInstances });
       }
 
-      // 1. CRIAR INSTÂNCIA DEDICADA PARA O CLIENTE VIA ADMIN TOKEN
+      // 1. CRIAR INSTÂNCIA DEDICADA PARA O CLIENTE VIA ADMIN TOKEN COM systemName app.swiftsail
       case 'create_instance': {
-        const instanceName = `swiftsail-${cliente_id.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+        const customName = body.instance_name ? body.instance_name.trim() : null;
+        const instanceName = customName || `swiftsail-${cliente_id.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
         const result = await createClientInstance(instanceName);
 
-        if (result && result.token) {
+        if (result && (result.token || result.instance?.token)) {
+          const actualToken = result.token || result.instance?.token;
           const payload = {
             cliente_id,
             instance_name: instanceName,
-            token: result.token,
+            token: actualToken,
             created_at: new Date().toISOString(),
           };
 
@@ -129,12 +140,53 @@ export async function POST(req: Request) {
 
           return NextResponse.json({
             success: true,
-            instance: result,
-            message: `Instância [${instanceName}] criada com sucesso via Admin Token.`,
+            instance: result.instance || result,
+            token: actualToken,
+            name: instanceName,
+            message: `Instância [${instanceName}] criada com sucesso vinculada a app.swiftsail.`,
           });
         }
 
         return NextResponse.json({ success: false, error: 'Falha ao obter token da nova instância.' });
+      }
+
+      // 1.1 EXCLUIR INSTÂNCIA DEFINITIVAMENTE (UAZAPI + BANCO)
+      case 'delete_instance': {
+        const instanceName = body.instance_name || `swiftsail-${cliente_id.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+        
+        try {
+          await deleteClientInstance(instanceName);
+        } catch (delErr: any) {
+          console.warn('[Uazapi Delete Instance Warning]:', delErr?.message);
+        }
+
+        // Remove vínculo na knowledge_base se houver
+        if (cliente_id && cliente_id !== 'swiftsail') {
+          await supabaseAdmin
+            .from('knowledge_base')
+            .delete()
+            .contains('tags', ['uazapi_instance', cliente_id]);
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: `Instância [${instanceName}] excluída com sucesso.`,
+        });
+      }
+
+      // 1.2 DESCONECTAR (LOGOUT) DA SESSÃO WHATSAPP
+      case 'disconnect_instance': {
+        const token = instance_token || (await getClientInstanceToken(cliente_id));
+        if (!token) {
+          return NextResponse.json({ success: false, error: 'Token da instância não encontrado para desconexão.' });
+        }
+
+        const discResult = await disconnectClientInstance(token);
+        return NextResponse.json({
+          success: true,
+          result: discResult,
+          message: 'Sessão WhatsApp desconectada com sucesso.',
+        });
       }
 
       // 2. CONSULTAR STATUS DA INSTÂNCIA DO CLIENTE

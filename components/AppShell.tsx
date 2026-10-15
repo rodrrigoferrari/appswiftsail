@@ -4,10 +4,12 @@ import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import { useTenant } from './TenantProvider';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isLoginPage = pathname === '/login';
+  const { currentUser } = useTenant();
+  const isLoginPage = pathname === '/login' || (pathname === '/' && !currentUser);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   if (isLoginPage) {

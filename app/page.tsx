@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import LoginPage from './login/page';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -43,18 +44,38 @@ export default function DashboardPage() {
     activeClientCsStatus,
     activeClientAdAccounts,
     users,
+    currentUser,
+    isAuthChecked,
   } = useTenant();
 
-  // Roteamento inteligente na raiz / de acordo com o modo
+  // Roteamento inteligente na raiz / de acordo com o estado de autenticação
   useEffect(() => {
-    if (viewMode === 'admin') {
-      router.replace('/admin');
-    } else if (activeClient) {
-      router.replace(`/client/${activeClient.cliente_id.toLowerCase().replace(/_/g, '-')}`);
-    } else {
-      router.replace('/client');
+    if (!isAuthChecked) return;
+
+    if (currentUser) {
+      if (currentUser.role === 'master_admin') {
+        router.replace('/admin');
+      } else if (currentUser.cliente_id) {
+        router.replace(`/client/${currentUser.cliente_id.toLowerCase().replace(/_/g, '-')}`);
+      } else {
+        router.replace('/client');
+      }
     }
-  }, [viewMode, activeClient, router]);
+  }, [isAuthChecked, currentUser, router]);
+
+  // Se ainda estiver validando autenticação, exibe loading suave
+  if (!isAuthChecked) {
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+        <div className="w-8 h-8 border-2 border-[#0050FF] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Se NÃO estiver logado: o próprio endereço raiz app.swiftsail.co é o login
+  if (!currentUser) {
+    return <LoginPage />;
+  }
 
   const isAggregated = viewMode === 'admin' || selectedClientId === 'ALL';
   const clientName = isAggregated
