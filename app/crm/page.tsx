@@ -49,6 +49,7 @@ function CRMContent() {
 
   const [loading, setLoading] = useState(false);
   const [kommoData, setKommoData] = useState<any>(null);
+  const [metaCreatives, setMetaCreatives] = useState<any[]>([]);
   const [unavailable, setUnavailable] = useState<string | null>(null);
   const [selectedPipeline, setSelectedPipeline] = useState<string>('ALL');
   const [leadsDrilldown, setLeadsDrilldown] = useState<{
@@ -107,20 +108,41 @@ function CRMContent() {
   };
 
   useEffect(() => {
-    async function fetchKommoData() {
+    async function fetchData() {
       setLoading(true);
       try {
         const pipeQuery = selectedPipeline && selectedPipeline !== 'ALL' ? `&pipeline=${encodeURIComponent(selectedPipeline)}` : '';
-        const res = await fetch(
-          `/api/clientes/${targetId}/kommo?from=${dateRange.start}&to=${dateRange.end}${pipeQuery}`
-        );
-        const data = await res.json();
+        const [kommoRes, metaRes] = await Promise.all([
+          fetch(`/api/clientes/${targetId}/kommo?from=${dateRange.start}&to=${dateRange.end}${pipeQuery}`),
+          fetch(`/api/clientes/${targetId}/meta?from=${dateRange.start}&to=${dateRange.end}`).catch(() => null),
+        ]);
+
+        const data = await kommoRes.json();
         if (data.success) {
           setKommoData(data);
           setUnavailable(null);
         } else {
           setKommoData(null);
           setUnavailable(data.motivo || data.error || 'Fonte de dados indisponível');
+        }
+
+        if (metaRes && metaRes.ok) {
+          const mData = await metaRes.json();
+          if (mData?.campanhas) {
+            const list: any[] = [];
+            for (const camp of mData.campanhas) {
+              for (const as of (camp.adsets || [])) {
+                for (const cr of (as.criativos || [])) {
+                  list.push({
+                    ...cr,
+                    campanhaNome: camp.nome,
+                    adsetNome: as.nome,
+                  });
+                }
+              }
+            }
+            setMetaCreatives(list);
+          }
         }
       } catch (err) {
         console.error('Error fetching Kommo CRM data:', err);
@@ -129,7 +151,7 @@ function CRMContent() {
       }
     }
 
-    fetchKommoData();
+    fetchData();
   }, [targetId, dateRange, selectedPipeline]);
 
   // Se o cliente selecionado mudar, reseta o funil para 'ALL'
@@ -651,6 +673,7 @@ function CRMContent() {
           clientName={clientName}
           formatBRL={formatBRL}
           valorTotal={valorTotal}
+          metaCreatives={metaCreatives}
           onOpenDrilldown={openDrilldown}
         />
       )}
@@ -835,6 +858,7 @@ function AttributionMatrix({
   clientName = 'Swiftsail Mídia',
   formatBRL,
   valorTotal,
+  metaCreatives = [],
   onOpenDrilldown,
 }: {
   activeDimension?: 'origem' | 'campanha' | 'conjunto' | 'criativo' | 'termo' | 'responsavel';
@@ -850,6 +874,7 @@ function AttributionMatrix({
   clientName?: string;
   formatBRL: (v: number) => string;
   valorTotal: number;
+  metaCreatives?: any[];
   onOpenDrilldown?: (title: string, leads: any[]) => void;
 }) {
   const selectedDimension = (activeDimension && ['origem', 'campanha', 'conjunto', 'criativo', 'termo', 'responsavel'].includes(activeDimension))
@@ -938,46 +963,127 @@ function AttributionMatrix({
     });
   }, [porConjunto, porCampanha, totalLeads]);
 
-  // Criativos derivados dinamicamente das campanhas reais do Supabase / Kommo
+  // Criativos derivados dinamicamente das campanhas reais do Supabase / Kommo e Meta Ads
   const criativosData: (CreativePreviewItem & { convRate?: string })[] = useMemo(() => {
-    const imgList = [
-      'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=600&auto=format&fit=crop&q=80',
-    ];
-
+    // 1. Se temos agregação de criativos do Kommo (por_criativo)
     if (porCriativo && porCriativo.length > 0) {
       return porCriativo.map((item: any, idx: number) => {
-        const cNome = item.campanha || 'Campanha Meta';
-        const img = imgList[idx % imgList.length];
+        const cNome = item.campanha || 'Meta Ads';
         const crNome = item.criativo || `Anúncio ${idx + 1}`;
         const crLeads = Number(item.total || 0);
-        const fNorm = crNome.toLowerCase().includes('video') || crNome.toLowerCase().includes('motion') ? 'reels' as const : crNome.toLowerCase().includes('carrossel') ? 'carousel' as const : 'image' as const;
+
+        // Busca o anúncio correspondente no Meta
+        const matched = metaCreatives.find((m: any) => {
+          const mNome = (m.nome || '').toLowerCase().trim();
+          const mTit = (m.criativo_titulo || '').toLowerCase().trim();
+          const itemNome = crNome.toLowerCase().trim();
+          return (
+            mNome === itemNome ||
+            mTit === itemNome ||
+            itemNome.includes(mNome) ||
+            mNome.includes(itemNome)
+          );
+        });
+
+        const isVideo =
+          matched?.criativo_tipo === 'VIDEO' ||
+          Boolean(matched?.video_storage_path) ||
+          crNome.toLowerCase().includes('video') ||
+          crNome.toLowerCase().includes('motion');
+        const isCarousel =
+          matched?.criativo_tipo === 'CAROUSEL' ||
+          crNome.toLowerCase().includes('carrossel');
+        const fNorm = isVideo ? ('reels' as const) : isCarousel ? ('carousel' as const) : ('image' as const);
+
+        const realThumb =
+          matched?.thumbnail_storage_path ||
+          (matched?.midia_storage_path ? `/api/meta/media?path=${encodeURIComponent(matched.midia_storage_path)}` : null) ||
+          matched?.preview_link ||
+          matched?.instagram_permalink_url ||
+          (metaCreatives[0]?.thumbnail_storage_path) ||
+          (metaCreatives[0]?.midia_storage_path ? `/api/meta/media?path=${encodeURIComponent(metaCreatives[0].midia_storage_path)}` : null) ||
+          null;
+
+        const effectiveId = matched?.id || `cr-${idx + 1}`;
+        const effectiveHeadline = matched?.criativo_titulo?.trim() || matched?.nome || crNome;
+        const effectiveCopy = matched?.criativo_nome || `Anúncio oficial veiculado no Meta Ads para a campanha ${cNome}.`;
+
         return {
-          id: `cr-crm-${idx}`,
+          id: effectiveId,
           nome: crNome,
           formato: fNorm,
-          badge: crNome.toLowerCase().includes('video') ? 'VÍDEO' : fNorm === 'carousel' ? 'CARROSSEL' : '1:1',
-          thumbUrl: img,
-          campanha: cNome,
-          adset: item.conjunto || `[Conjunto] ${cNome}`,
+          badge: isVideo ? 'VÍDEO' : fNorm === 'carousel' ? 'CARROSSEL' : '1:1',
+          thumbUrl: realThumb || undefined,
+          campanha: matched?.campanhaNome || cNome,
+          adset: matched?.adsetNome || item.conjunto || `[Conjunto] ${cNome}`,
           leads: crLeads,
           convRate: totalLeads > 0 ? ((crLeads / totalLeads) * 100).toFixed(1) + '%' : '14.0%',
-          ctr: '3.15%',
-          cpl: 35.0,
-          gasto: Math.round(crLeads * 35),
-          headline: `${crNome} • ${cNome}`,
-          copy: `Criativo real veiculado para a campanha ${cNome}. Clique em 'Ver Anúncio' para ver a prévia completa e respostas enviadas pelos leads.`,
+          ctr: matched?.ctr ? `${matched.ctr}%` : undefined,
+          cpl: matched?.cpl || undefined,
+          gasto: matched?.gasto || undefined,
+          headline: effectiveHeadline,
+          copy: effectiveCopy,
           ctaText: '💬 Falar no WhatsApp com Consultor',
           accountHandle: `${(clientName || 'swiftsail').toLowerCase().replace(/[^a-z0-9]/g, '')}.oficial`,
           accountName: clientName || 'Swiftsail Mídia',
           accountAvatar: '🏢',
-          imageUrl: img,
+          imageUrl: realThumb || undefined,
+          preview_link: matched?.preview_link,
+          link_permanente: matched?.link_permanente || matched?.instagram_permalink_url,
+          instagram_permalink_url: matched?.instagram_permalink_url,
+          thumbnail_storage_path: matched?.thumbnail_storage_path,
+          midia_storage_path: matched?.midia_storage_path,
+          slides: realThumb ? [{ num: 1, title: effectiveHeadline, desc: effectiveCopy, imgUrl: realThumb }] : undefined,
         };
       });
     }
 
+    // 2. Se não há por_criativo do Kommo, mas há anúncios reais do Meta Ads
+    if (metaCreatives.length > 0) {
+      return metaCreatives.map((m: any, idx: number) => {
+        const isVideo = m.criativo_tipo === 'VIDEO' || Boolean(m.video_storage_path);
+        const isCarousel = m.criativo_tipo === 'CAROUSEL';
+        const fNorm = isVideo ? ('reels' as const) : isCarousel ? ('carousel' as const) : ('image' as const);
+        const realThumb =
+          m.thumbnail_storage_path ||
+          (m.midia_storage_path ? `/api/meta/media?path=${encodeURIComponent(m.midia_storage_path)}` : null) ||
+          m.preview_link ||
+          m.instagram_permalink_url ||
+          null;
+        const effectiveHeadline = m.criativo_titulo?.trim() || m.nome || `Anúncio ${idx + 1}`;
+        const effectiveCopy = m.criativo_nome || `Campanha ${m.campanhaNome || 'Meta Ads'}`;
+
+        return {
+          id: m.id || `cr-${idx + 1}`,
+          nome: m.nome || effectiveHeadline,
+          formato: fNorm,
+          badge: isVideo ? 'VÍDEO' : fNorm === 'carousel' ? 'CARROSSEL' : '1:1',
+          thumbUrl: realThumb || undefined,
+          campanha: m.campanhaNome || 'Meta Ads',
+          adset: m.adsetNome || 'Conjunto',
+          leads: m.leads || 0,
+          convRate: '—',
+          ctr: m.ctr ? `${m.ctr}%` : undefined,
+          cpl: m.cpl || undefined,
+          gasto: m.gasto || undefined,
+          headline: effectiveHeadline,
+          copy: effectiveCopy,
+          ctaText: '💬 Falar no WhatsApp com Consultor',
+          accountHandle: `${(clientName || 'swiftsail').toLowerCase().replace(/[^a-z0-9]/g, '')}.oficial`,
+          accountName: clientName || 'Swiftsail Mídia',
+          accountAvatar: '🏢',
+          imageUrl: realThumb || undefined,
+          preview_link: m.preview_link,
+          link_permanente: m.link_permanente || m.instagram_permalink_url,
+          instagram_permalink_url: m.instagram_permalink_url,
+          thumbnail_storage_path: m.thumbnail_storage_path,
+          midia_storage_path: m.midia_storage_path,
+          slides: realThumb ? [{ num: 1, title: effectiveHeadline, desc: effectiveCopy, imgUrl: realThumb }] : undefined,
+        };
+      });
+    }
+
+    // 3. Fallback seguro sem fotos falsas de Unsplash
     const sourceCampanhas = porCampanha && porCampanha.length > 0
       ? porCampanha
       : [{ nome: 'Campanha Comercial Principal', total: totalLeads || 0 }];
@@ -985,31 +1091,24 @@ function AttributionMatrix({
     return sourceCampanhas.map((camp: any, idx: number) => {
       const cLeads = Number(camp.total || 0);
       const cNome = camp.campanha || camp.nome || `Campanha ${idx + 1}`;
-      const img = imgList[idx % imgList.length];
-
       return {
-        id: `cr-crm-${idx}-main`,
+        id: `cr-${idx + 1}-main`,
         nome: `${cNome} (Anúncio Principal)`,
         formato: 'image' as const,
         badge: 'META ADS',
-        thumbUrl: img,
         campanha: cNome,
         adset: `Público • ${cNome}`,
         leads: cLeads,
         convRate: totalLeads > 0 ? ((cLeads / totalLeads) * 100).toFixed(1) + '%' : '10.0%',
-        ctr: '2.50%',
-        cpl: cLeads > 0 ? 35.0 : 0,
-        gasto: Math.round(cLeads * 35),
         headline: `${cNome} • Atendimento Comercial`,
-        copy: `Anúncio vinculado diretamente à campanha "${cNome}". Clique para ver detalhes e leads capturados no CRM.`,
+        copy: `Anúncio vinculado diretamente à campanha "${cNome}".`,
         ctaText: '💬 Falar no WhatsApp com Consultor',
         accountHandle: `${(clientName || 'swiftsail').toLowerCase().replace(/[^a-z0-9]/g, '')}.oficial`,
         accountName: clientName || 'Swiftsail Mídia',
         accountAvatar: '🏢',
-        imageUrl: img,
       };
     });
-  }, [porCriativo, porCampanha, totalLeads, clientName]);
+  }, [porCriativo, metaCreatives, porCampanha, totalLeads, clientName]);
 
   const termosData = useMemo(() => {
     // 1. Se a API retornou agregação válida de termos

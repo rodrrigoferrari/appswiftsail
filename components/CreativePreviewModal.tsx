@@ -390,7 +390,7 @@ export default function CreativePreviewModal({
                         </span>
                       )}
                     </div>
-                    <h4 className="text-base font-black text-white leading-tight drop-shadow-md">
+                    <h4 className="text-base font-black !text-white leading-tight drop-shadow-md" style={{ color: '#ffffff' }}>
                       {defaultHeadline}
                     </h4>
                   </div>

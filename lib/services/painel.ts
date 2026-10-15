@@ -17,21 +17,37 @@ export async function resolveClientesAtivos(clienteId: string): Promise<string[]
 
   const { data, error } = await supabaseAdmin
     .from('clientes')
-    .select('cliente_id, status')
+    .select('cliente_id, status, parent_cliente_id')
     .eq('cliente_id', clienteId.toUpperCase())
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data || data.status !== 'ativo') return null;
 
-  // Busca se há clientes filhos vinculados a este cliente pai (ex: REALIZACOES_GONZAGA -> GONZAGA_AMST)
+  const ids = new Set<string>([data.cliente_id]);
+
+  // Se este cliente é filho de uma conta pai ativa (ex: GONZAGA_AMST -> REALIZACOES_GONZAGA)
+  if (data.parent_cliente_id) {
+    const { data: parent } = await supabaseAdmin
+      .from('clientes')
+      .select('cliente_id, status')
+      .eq('cliente_id', data.parent_cliente_id)
+      .eq('status', 'ativo')
+      .maybeSingle();
+    if (parent) ids.add(parent.cliente_id);
+  }
+
+  // Se este cliente é pai de contas filhas ativas (ex: REALIZACOES_GONZAGA -> GONZAGA_AMST, GONZAGA_SCA_181)
   const { data: children } = await supabaseAdmin
     .from('clientes')
     .select('cliente_id')
     .eq('parent_cliente_id', data.cliente_id)
     .eq('status', 'ativo');
 
-  const childIds = (children || []).map((c) => c.cliente_id);
-  return [data.cliente_id, ...childIds];
+  for (const c of (children || [])) {
+    ids.add(c.cliente_id);
+  }
+
+  return Array.from(ids);
 }
 
 /**
