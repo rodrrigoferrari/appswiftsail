@@ -217,16 +217,28 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
         const campCpl = c.leads > 0 ? Number((c.gasto / c.leads).toFixed(2)) : 0;
         const campCustoConv = c.conversas_iniciadas > 0 ? Number((c.gasto / c.conversas_iniciadas).toFixed(2)) : 0;
 
-        // 1. Identifica todos os conjuntos desta campanha que rodaram no período (via painel_meta_conjuntos_dia)
-        // Se a view não tiver linhas, faz fallback para rawAdsList
-        const campAdsetsFromDb = Array.from(porConjunto.values()).filter((as) => as.campaign_id === c.campaign_id);
+        // 1. Identifica os conjuntos desta campanha que efetivamente rodaram no período (via painel_meta_conjuntos_dia)
+        const campAdsetsFromDb = Array.from(porConjunto.values()).filter(
+          (as) =>
+            as.campaign_id === c.campaign_id &&
+            (Number(as.gasto || 0) > 0 ||
+              Number(as.impressoes || 0) > 0 ||
+              Number(as.cliques || 0) > 0 ||
+              Number(as.leads || 0) > 0 ||
+              Number(as.conversas || 0) > 0)
+        );
         const adsetIds = new Set<string>();
 
-        for (const as of campAdsetsFromDb) {
-          adsetIds.add(as.adset_id);
-        }
-        for (const ad of rawAdsList) {
-          if (ad.adset_id) adsetIds.add(ad.adset_id);
+        if (campAdsetsFromDb.length > 0) {
+          // Traz SOMENTE os conjuntos que veicularam no período
+          for (const as of campAdsetsFromDb) {
+            adsetIds.add(as.adset_id);
+          }
+        } else {
+          // Fallback apenas se a view de conjuntos não possuir dados
+          for (const ad of rawAdsList) {
+            if (ad.adset_id) adsetIds.add(ad.adset_id);
+          }
         }
 
         const adsetsMap = new Map<string, any>();
@@ -278,13 +290,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
         }
 
         // 2. Associa anúncios/criativos aos seus conjuntos com métricas reais por anúncio
-        // Obtém todos os anúncios que rodaram no período para esta campanha
-        const campAdsFromDb = Array.from(porAnuncio.values()).filter((ad) => ad.campaign_id === c.campaign_id);
-        const processedAdIds = new Set<string>();
+        // Obtém apenas anúncios que efetivamente veicularam no período para esta campanha
+        const campAdsFromDb = Array.from(porAnuncio.values()).filter(
+          (ad) =>
+            ad.campaign_id === c.campaign_id &&
+            (Number(ad.gasto || 0) > 0 ||
+              Number(ad.impressoes || 0) > 0 ||
+              Number(ad.cliques || 0) > 0 ||
+              Number(ad.leads || 0) > 0 ||
+              Number(ad.conversas || 0) > 0)
+        );
 
-        // Processa primeiro os anúncios que efetivamente tiveram veiculação no período
+        // Processa os anúncios que efetivamente tiveram veiculação no período
         for (const adMetrics of campAdsFromDb) {
-          processedAdIds.add(adMetrics.ad_id);
           const asId = adMetrics.adset_id || `as-${c.campaign_id}-default`;
           const asItem = adsetsMap.get(asId);
           if (!asItem) continue;
@@ -346,62 +364,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
           });
         }
 
-        // Processa criativos ativos de painel_meta_anuncios_criativos que não tiveram veiculação no período
-        for (const rawAd of rawAdsList) {
-          if (processedAdIds.has(rawAd.ad_id)) continue;
-          const asId = rawAd.adset_id || `as-${c.campaign_id}-default`;
-          const asItem = adsetsMap.get(asId);
-          if (!asItem) continue;
-
-          const effectiveThumb = rawAd.thumbnail_storage_path
-            ? rawAd.thumbnail_storage_path
-            : rawAd.midia_storage_path
-            ? `/api/meta/media?path=${encodeURIComponent(rawAd.midia_storage_path)}`
-            : null;
-
-          asItem.criativos.push({
-            id: rawAd.ad_id,
-            campaignId: c.campaign_id,
-            campanha: campNome,
-            adsetId: asId,
-            adset: asItem.nome,
-            nome: rawAd.anuncio || rawAd.criativo_nome || `Anúncio ${rawAd.ad_id}`,
-            status: rawAd.status || 'ACTIVE',
-            effective_status: rawAd.effective_status || 'ACTIVE',
-            creative_id: rawAd.creative_id,
-            criativo_nome: rawAd.criativo_nome,
-            criativo_titulo: rawAd.criativo_titulo?.trim() || rawAd.anuncio || `Anúncio ${rawAd.ad_id}`,
-            criativo_tipo: rawAd.criativo_tipo,
-            preview_link: rawAd.preview_link,
-            link_permanente: rawAd.link_permanente || rawAd.instagram_permalink_url,
-            instagram_permalink_url: rawAd.instagram_permalink_url,
-            link_destino: rawAd.link_destino,
-            thumbnail_storage_path: effectiveThumb,
-            midia_storage_path: rawAd.midia_storage_path,
-            video_storage_path: rawAd.video_storage_path,
-            objetivo: metaStatus?.objetivo || null,
-            objetivo_padrao: metaStatus?.objetivo_padrao || null,
-            gasto: 0,
-            leads: 0,
-            conversas: 0,
-            cliques: 0,
-            impressoes: 0,
-            ctr: asItem.ctr,
-            cpl: 0,
-            custo_por_conversa: 0,
-            isCbo: asItem.isCbo,
-            campanha_gasto: c.gasto,
-            campanha_leads: c.leads,
-            campanha_conversas: c.conversas_iniciadas,
-            campanha_cpl: campCpl,
-            campanha_custo_por_conversa: campCustoConv,
-            campanha_ctr: campCtr,
-          });
-        }
-
-        // Filtra adsets que efetivamente tiveram veiculação ou criativos ativos
+        // Filtra adsets para manter rigorosamente apenas os que veicularam no período selecionado
         const adsets = Array.from(adsetsMap.values()).filter(
-          (as) => (as.gasto !== null && as.gasto > 0) || (as.impressoes !== null && as.impressoes > 0) || as.criativos.length > 0
+          (as) =>
+            (as.gasto !== null && as.gasto > 0) ||
+            (as.impressoes !== null && as.impressoes > 0) ||
+            (as.cliques !== null && as.cliques > 0) ||
+            (as.leads !== null && as.leads > 0) ||
+            (as.conversas !== null && as.conversas > 0)
         );
 
         return {
