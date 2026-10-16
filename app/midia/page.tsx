@@ -439,10 +439,17 @@ function MidiaContent() {
 
   // Helper de retorno principal adaptativo por objetivo (100% blindado contra null/undefined)
   const formatRetorno = (item: any, obj: 'messages' | 'forms' | 'conversions' | 'reach' | 'traffic') => {
-    const leads = Math.max(0, Number(item?.leads || 0));
-    const conv = Math.max(0, Number(item?.conversas || item?.conversas_iniciadas || 0));
-    const imp = Math.max(0, Number(item?.impressoes || 0));
-    const cliques = Math.max(0, Number(item?.cliques || item?.cliques_link || 0));
+    const directLeads = Math.max(0, Number(item?.leads || 0));
+    const leads = directLeads > 0 ? directLeads : Math.max(0, Number(item?.campanha_leads || 0));
+
+    const directConv = Math.max(0, Number(item?.conversas || item?.conversas_iniciadas || 0));
+    const conv = directConv > 0 ? directConv : Math.max(0, Number(item?.campanha_conversas || 0));
+
+    const directImp = Math.max(0, Number(item?.impressoes || 0));
+    const imp = directImp > 0 ? directImp : Math.max(0, Number(item?.campanha_impressoes || 0));
+
+    const directCliques = Math.max(0, Number(item?.cliques || item?.cliques_link || 0));
+    const cliques = directCliques > 0 ? directCliques : Math.max(0, Number(item?.campanha_cliques || 0));
 
     if (obj === 'forms') {
       return {
@@ -499,18 +506,25 @@ function MidiaContent() {
 
   // Helper de custo unitário de eficiência adaptativo por objetivo (CPL, CPMsg, CPM, CPC, CPA)
   const formatCustoUnitario = (item: any, obj: 'messages' | 'forms' | 'conversions' | 'reach' | 'traffic') => {
-    const gasto = Number(item?.gasto || 0);
-    const leads = Math.max(0, Number(item?.leads || 0));
-    const conv = Math.max(0, Number(item?.conversas || item?.conversas_iniciadas || 0));
-    const imp = Math.max(0, Number(item?.impressoes || 0));
-    const cliques = Math.max(0, Number(item?.cliques || item?.cliques_link || 0));
+    const gasto = Number(item?.gasto || item?.campanha_gasto || 0);
+    const directLeads = Math.max(0, Number(item?.leads || 0));
+    const leads = directLeads > 0 ? directLeads : Math.max(0, Number(item?.campanha_leads || 0));
+
+    const directConv = Math.max(0, Number(item?.conversas || item?.conversas_iniciadas || 0));
+    const conv = directConv > 0 ? directConv : Math.max(0, Number(item?.campanha_conversas || 0));
+
+    const directImp = Math.max(0, Number(item?.impressoes || 0));
+    const imp = directImp > 0 ? directImp : Math.max(0, Number(item?.campanha_impressoes || 0));
+
+    const directCliques = Math.max(0, Number(item?.cliques || item?.cliques_link || 0));
+    const cliques = directCliques > 0 ? directCliques : Math.max(0, Number(item?.campanha_cliques || 0));
 
     if (obj === 'forms') {
-      const cpl = leads > 0 ? gasto / leads : 0;
+      const cpl = item?.cpl > 0 ? Number(item.cpl) : Number(item?.campanha_cpl || 0) > 0 ? Number(item.campanha_cpl) : (leads > 0 && gasto > 0 ? gasto / leads : 0);
       return { label: 'CPL', value: cpl > 0 ? formatBRL(cpl) : '—', color: 'text-cyan-700' };
     }
     if (obj === 'messages') {
-      const cpmsg = conv > 0 ? gasto / conv : 0;
+      const cpmsg = item?.custo_por_conversa > 0 ? Number(item.custo_por_conversa) : Number(item?.campanha_custo_por_conversa || 0) > 0 ? Number(item.campanha_custo_por_conversa) : (conv > 0 && gasto > 0 ? gasto / conv : 0);
       return { label: 'CPMsg', value: cpmsg > 0 ? formatBRL(cpmsg) : '—', color: 'text-emerald-700' };
     }
     if (obj === 'reach') {
@@ -726,6 +740,14 @@ function MidiaContent() {
               cliques: as.cliques || 0,
               impressoes: as.impressoes || 0,
               ctr: asCtr,
+              cpl: as.cpl || c.custo_por_lead,
+              custo_por_conversa: as.custo_por_conversa || c.custo_por_conversa,
+              campanha_gasto: c.gasto,
+              campanha_leads: c.leads,
+              campanha_conversas: c.conversas_iniciadas,
+              campanha_cpl: c.custo_por_lead,
+              campanha_custo_por_conversa: c.custo_por_conversa,
+              isCbo: as.isCbo ?? (as.gasto === null || as.gasto === 0),
               status: as.status || status,
               objetivo: campObj,
               criativos: (as.criativos || []).map((cr: any) => {
@@ -764,15 +786,18 @@ function MidiaContent() {
                   cliques: cr.cliques || 0,
                   impressoes: cr.impressoes || 0,
                   ctr: crCtr,
-                  cpl: cr.cpl,
-                  custo_por_conversa: cr.custo_por_conversa,
+                  cpl: cr.cpl || as.cpl || c.custo_por_lead,
+                  custo_por_conversa: cr.custo_por_conversa || as.custo_por_conversa || c.custo_por_conversa,
                   status: cr.status || status,
                   objetivo: campObj,
                   objetivo_padrao: c.objetivo_padrao || cr.objetivo_padrao || null,
                   campanha_gasto: c.gasto,
                   campanha_leads: c.leads,
                   campanha_conversas: c.conversas_iniciadas,
+                  campanha_cpl: c.custo_por_lead,
+                  campanha_custo_por_conversa: c.custo_por_conversa,
                   campanha_ctr: c.ctr,
+                  isCbo: cr.isCbo ?? as.isCbo ?? (cr.gasto === null || cr.gasto === 0),
                   headline: cleanHeadline,
                   copy: cr.criativo_nome || '',
                   ctaText: campObj === 'forms' ? '📋 Preencher Formulário' : campObj === 'traffic' ? '🌐 Saiba Mais' : '💬 Falar no WhatsApp',
@@ -1417,39 +1442,31 @@ function MidiaContent() {
                                         <>
                                           <span className="text-[#64748B] border-l border-[#E2E8F0] pl-3">
                                             Retorno:{' '}
-                                            {isCboAdset ? (
-                                              <span className="text-[10px] font-medium text-[#0050FF] bg-[#EFF4FF] px-1.5 py-0.5 rounded border border-[#BFDBFE] font-sans" title="A distribuição entre públicos é otimizada dinamicamente pelo algoritmo da Meta">
-                                                Distribuição CBO
-                                              </span>
-                                            ) : (
-                                              <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  openLeadsDrilldown(
-                                                    `${adset.nome} • ${camp.nome}`,
-                                                    asRetorno.type === 'form' ? 'form' : 'whatsapp',
-                                                    asRetorno.count,
-                                                    { conjunto: adset.nome, campanha: camp.nome }
-                                                  );
-                                                }}
-                                                className={`${asRetorno.color} font-bold hover:underline cursor-pointer`}
-                                                title="Ver contatos deste conjunto sincronizados do Kommo"
-                                              >
-                                                {asRetorno.icon} {asRetorno.short}
-                                              </button>
-                                            )}
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                openLeadsDrilldown(
+                                                  `${adset.nome} • ${camp.nome}`,
+                                                  asRetorno.type === 'form' ? 'form' : 'whatsapp',
+                                                  asRetorno.count,
+                                                  { conjunto: adset.nome, campanha: camp.nome }
+                                                );
+                                              }}
+                                              className={`${asRetorno.color} font-bold hover:underline cursor-pointer inline-flex items-center gap-1 font-mono`}
+                                              title={isCboAdset ? "Distribuição CBO gerenciada na campanha. Clique para ver contatos." : "Ver contatos deste conjunto"}
+                                            >
+                                              <span>{asRetorno.icon} {asRetorno.short}</span>
+                                              {isCboAdset && (
+                                                <span className="text-[9px] font-sans font-semibold text-[#0050FF] bg-[#EFF4FF] px-1 py-0.2 rounded border border-[#BFDBFE]">
+                                                  CBO
+                                                </span>
+                                              )}
+                                            </button>
                                           </span>
                                           <span className="text-[#64748B] border-l border-[#E2E8F0] pl-3">
                                             {asCusto.label}:{' '}
-                                            {isCboAdset ? (
-                                              <b className="text-[#0F172A]">
-                                                {camp.custo_por_conversa > 0 ? formatBRL(camp.custo_por_conversa) : camp.custo_por_lead > 0 ? formatBRL(camp.custo_por_lead) : '—'}{' '}
-                                                <span className="text-[9px] font-normal text-[#64748B]">(Campanha)</span>
-                                              </b>
-                                            ) : (
-                                              <b className={asCusto.color}>{asCusto.value}</b>
-                                            )}
+                                            <b className={`${asCusto.color} font-bold`}>{asCusto.value}</b>
                                           </span>
                                         </>
                                       );
@@ -1981,6 +1998,15 @@ function MidiaContent() {
                           ? 'Vendas / Conv.'
                           : 'Leads / Conversas'}
                       </th>
+                      <th className="py-3 px-4">
+                        {metaObjectiveFilter === 'traffic'
+                          ? 'CPC'
+                          : metaObjectiveFilter === 'reach'
+                          ? 'CPM'
+                          : metaObjectiveFilter === 'messages'
+                          ? 'CPMsg'
+                          : 'CPL'}
+                      </th>
                       <th className="py-3 px-4">CTR</th>
                       <th className="py-3 px-4">Criativos</th>
                     </tr>
@@ -1988,6 +2014,10 @@ function MidiaContent() {
                   <tbody className="divide-y divide-[#E2E8F0] bg-white">
                     {adsetsData.map((as: any) => {
                       const isAdSetExp = expandedAdSets[as.id] ?? false;
+                      const asObj = metaObjectiveFilter !== 'all' ? metaObjectiveFilter : (as.objetivo || getCampaignObjective(as));
+                      const asRetorno = formatRetorno(as, asObj);
+                      const asCusto = formatCustoUnitario(as, asObj);
+
                       return (
                         <React.Fragment key={as.id}>
                           <tr className="hover:bg-[#F8FAFC] transition-colors">
@@ -2003,18 +2033,20 @@ function MidiaContent() {
                             <td className="py-3 px-4 font-mono text-[#475569]">{as.orcamento}</td>
                             <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{as.gasto !== null && as.gasto !== undefined && as.gasto > 0 ? formatBRL(as.gasto) : 'CBO'}</td>
                             <td className="py-3 px-4 font-mono font-bold text-[#0050FF]">
-                              {as.gasto !== null && as.gasto !== undefined && as.gasto > 0 ? (
-                                <button
-                                  onClick={() => openLeadsDrilldown(`${as.nome} • ${as.campanhaNome}`, as.leads > 0 ? 'form' : 'whatsapp', as.leads || as.conversas || 0, { conjunto: as.nome, campanha: as.campanhaNome })}
-                                  className="hover:underline transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
-                                  title="Clique para ver os nomes e contatos capturados neste público"
-                                >
-                                  <span>{as.leads > 0 ? `${as.leads} leads` : as.conversas > 0 ? `${as.conversas} conversas` : '—'}</span>
-                                  <span className="text-[9px]">👁️</span>
-                                </button>
-                              ) : (
-                                <span className="text-[#64748B] text-[11px] font-sans font-medium" title="Otimização automática gerenciada pela Meta">Distribuição CBO</span>
-                              )}
+                              <button
+                                onClick={() => openLeadsDrilldown(`${as.nome} • ${as.campanhaNome}`, asRetorno.type === 'form' ? 'form' : 'whatsapp', asRetorno.count, { conjunto: as.nome, campanha: as.campanhaNome })}
+                                className="hover:underline transition-colors flex items-center gap-1.5 cursor-pointer font-bold font-mono"
+                                title="Clique para ver os nomes e contatos capturados"
+                              >
+                                <span>{asRetorno.short}</span>
+                                {as.isCbo && (
+                                  <span className="text-[9px] font-sans font-semibold text-[#0050FF] bg-[#EFF4FF] px-1 py-0.2 rounded border border-[#BFDBFE]">CBO</span>
+                                )}
+                                <span className="text-[9px]">👁️</span>
+                              </button>
+                            </td>
+                            <td className={`py-3 px-4 font-mono font-bold ${asCusto.color}`}>
+                              {asCusto.value}
                             </td>
                             <td className="py-3 px-4 font-mono text-[#475569]">{as.ctr || '—'}</td>
                             <td className="py-3 px-4">
@@ -2035,7 +2067,7 @@ function MidiaContent() {
                           {/* Acordeão Inline de Criativos do AdSet */}
                           {isAdSetExp && (
                             <tr className="bg-[#F8FAFC]">
-                              <td colSpan={8} className="p-4">
+                              <td colSpan={9} className="p-4">
                                 <div className="p-3 bg-white rounded-xl border border-[#E2E8F0] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 shadow-xs">
                                   {as.criativos.map((cr: any) => (
                                     <div
@@ -2107,6 +2139,15 @@ function MidiaContent() {
                           ? 'Compras / Conv.'
                           : 'Leads / Conversas'}
                       </th>
+                      <th className="py-3 px-4">
+                        {metaObjectiveFilter === 'traffic'
+                          ? 'CPC'
+                          : metaObjectiveFilter === 'reach'
+                          ? 'CPM'
+                          : metaObjectiveFilter === 'messages'
+                          ? 'CPMsg'
+                          : 'CPL'}
+                      </th>
                       <th className="py-3 px-4">CTR</th>
                       <th className="py-3 px-4">Status</th>
                       <th className="py-3 px-4">Ação</th>
@@ -2177,21 +2218,34 @@ function MidiaContent() {
                         </td>
 
                         {/* GASTO */}
-                        <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{ad.gasto !== null && ad.gasto !== undefined && ad.gasto > 0 ? formatBRL(ad.gasto) : '—'}</td>
+                        <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{ad.gasto !== null && ad.gasto !== undefined && ad.gasto > 0 ? formatBRL(ad.gasto) : 'CBO'}</td>
 
-                        {/* RETORNO ADAPTATIVO POR OBJETIVO */}
-                        <td className="py-3 px-4 font-mono font-bold text-[#0050FF]">
-                          <button
-                            onClick={() => openLeadsDrilldown(`${ad.nome} • ${ad.adset}`, ad.leads > 0 ? 'form' : 'whatsapp', ad.leads || ad.conversas || 0, { criativo: ad.nome, conjunto: ad.adset })}
-                            className="hover:underline transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
-                            title="Clique para ver os nomes e contatos capturados neste criativo"
-                          >
-                            <span>
-                              {formatRetorno(ad, ad.objetivo || getCampaignObjective(ad)).short}
-                            </span>
-                            <span className="text-[9px]">👁️</span>
-                          </button>
-                        </td>
+                        {/* RETORNO ADAPTATIVO POR OBJETIVO E CPL */}
+                        {(() => {
+                          const adObj = metaObjectiveFilter !== 'all' ? metaObjectiveFilter : (ad.objetivo || getCampaignObjective(ad));
+                          const adRet = formatRetorno(ad, adObj);
+                          const adCusto = formatCustoUnitario(ad, adObj);
+                          return (
+                            <>
+                              <td className="py-3 px-4 font-mono font-bold text-[#0050FF]">
+                                <button
+                                  onClick={() => openLeadsDrilldown(`${ad.nome} • ${ad.adset}`, adRet.type === 'form' ? 'form' : 'whatsapp', adRet.count, { criativo: ad.nome, conjunto: ad.adset })}
+                                  className="hover:underline transition-colors flex items-center gap-1.5 cursor-pointer font-bold font-mono"
+                                  title="Clique para ver os nomes e contatos capturados neste criativo"
+                                >
+                                  <span>{adRet.short}</span>
+                                  {ad.isCbo && (
+                                    <span className="text-[9px] font-sans font-semibold text-[#0050FF] bg-[#EFF4FF] px-1 py-0.2 rounded border border-[#BFDBFE]">CBO</span>
+                                  )}
+                                  <span className="text-[9px]">👁️</span>
+                                </button>
+                              </td>
+                              <td className={`py-3 px-4 font-mono font-bold ${adCusto.color}`}>
+                                {adCusto.value}
+                              </td>
+                            </>
+                          );
+                        })()}
 
                         {/* CTR */}
                         <td className="py-3 px-4 font-mono text-[#475569]">{ad.ctr || '—'}</td>

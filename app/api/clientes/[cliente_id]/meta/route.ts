@@ -209,6 +209,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
 
         const adsets = Array.from(adsetsMap.values());
 
+        const campCtr = c.impressoes > 0 ? Number(((c.cliques / c.impressoes) * 100).toFixed(2)) : 0;
+        const campCpl = c.leads > 0 ? Number((c.gasto / c.leads).toFixed(2)) : 0;
+        const campCustoConv = c.conversas_iniciadas > 0 ? Number((c.gasto / c.conversas_iniciadas).toFixed(2)) : 0;
+
         // Atribuição de métricas respeitando integridade de dados reais:
         // 1. Se a campanha possui apenas 1 conjunto: 100% da métrica pertence a ele
         if (adsets.length === 1) {
@@ -218,7 +222,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
           onlyAdset.conversas = c.conversas_iniciadas;
           onlyAdset.cliques = c.cliques;
           onlyAdset.impressoes = c.impressoes;
-          onlyAdset.ctr = c.impressoes > 0 ? Number(((c.cliques / c.impressoes) * 100).toFixed(2)) : 0;
+          onlyAdset.ctr = campCtr;
+          onlyAdset.cpl = campCpl;
+          onlyAdset.custo_por_conversa = campCustoConv;
+          onlyAdset.campanha_gasto = c.gasto;
+          onlyAdset.campanha_leads = c.leads;
+          onlyAdset.campanha_conversas = c.conversas_iniciadas;
+          onlyAdset.campanha_cpl = campCpl;
+          onlyAdset.campanha_custo_por_conversa = campCustoConv;
           onlyAdset.isCbo = false;
 
           if (onlyAdset.criativos.length === 1) {
@@ -228,30 +239,37 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
             onlyCreative.conversas = c.conversas_iniciadas;
             onlyCreative.cliques = c.cliques;
             onlyCreative.impressoes = c.impressoes;
-            onlyCreative.ctr = onlyAdset.ctr;
-            onlyCreative.cpl = c.leads > 0 ? Number((c.gasto / c.leads).toFixed(2)) : 0;
-            onlyCreative.custo_por_conversa = c.conversas_iniciadas > 0 ? Number((c.gasto / c.conversas_iniciadas).toFixed(2)) : 0;
+            onlyCreative.ctr = campCtr;
+            onlyCreative.cpl = campCpl;
+            onlyCreative.custo_por_conversa = campCustoConv;
+            onlyCreative.campanha_gasto = c.gasto;
+            onlyCreative.campanha_leads = c.leads;
+            onlyCreative.campanha_conversas = c.conversas_iniciadas;
+            onlyCreative.campanha_cpl = campCpl;
+            onlyCreative.campanha_custo_por_conversa = campCustoConv;
             onlyCreative.isCbo = false;
           } else {
-            // Múltiplos criativos no conjunto único: a entrega é otimizada pela Meta
+            // Múltiplos criativos no conjunto único: entrega CBO
             onlyAdset.criativos.forEach((cr: any) => {
               cr.gasto = null;
               cr.leads = null;
               cr.conversas = null;
               cr.cliques = null;
               cr.impressoes = null;
-              cr.ctr = onlyAdset.ctr;
-              cr.cpl = null;
-              cr.custo_por_conversa = null;
+              cr.ctr = campCtr;
+              cr.cpl = campCpl;
+              cr.custo_por_conversa = campCustoConv;
+              cr.campanha_gasto = c.gasto;
+              cr.campanha_leads = c.leads;
+              cr.campanha_conversas = c.conversas_iniciadas;
+              cr.campanha_cpl = campCpl;
+              cr.campanha_custo_por_conversa = campCustoConv;
               cr.isCbo = true;
             });
           }
         } else if (adsets.length > 1) {
           // 2. Múltiplos conjuntos (CBO / Advantage Campaign Budget):
-          // O leilão da Meta aloca o orçamento de forma dinâmica no nível de campanha.
-          // Nunca dividir artificialmente por N (ex: R$ 266 / 3) para não gerar métricas falsas.
-          const campCtr = c.impressoes > 0 ? Number(((c.cliques / c.impressoes) * 100).toFixed(2)) : 0;
-
+          // Orçamento no nível da campanha. Vinculamos o CPL e resultados da campanha para referência
           adsets.forEach((as) => {
             as.gasto = null;
             as.leads = null;
@@ -259,6 +277,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
             as.cliques = null;
             as.impressoes = null;
             as.ctr = campCtr;
+            as.cpl = campCpl;
+            as.custo_por_conversa = campCustoConv;
+            as.campanha_gasto = c.gasto;
+            as.campanha_leads = c.leads;
+            as.campanha_conversas = c.conversas_iniciadas;
+            as.campanha_cpl = campCpl;
+            as.campanha_custo_por_conversa = campCustoConv;
             as.isCbo = true;
 
             as.criativos.forEach((cr: any) => {
@@ -268,8 +293,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
               cr.cliques = null;
               cr.impressoes = null;
               cr.ctr = campCtr;
-              cr.cpl = null;
-              cr.custo_por_conversa = null;
+              cr.cpl = campCpl;
+              cr.custo_por_conversa = campCustoConv;
+              cr.campanha_gasto = c.gasto;
+              cr.campanha_leads = c.leads;
+              cr.campanha_conversas = c.conversas_iniciadas;
+              cr.campanha_cpl = campCpl;
+              cr.campanha_custo_por_conversa = campCustoConv;
               cr.isCbo = true;
             });
           });
