@@ -381,54 +381,178 @@ function MidiaContent() {
     );
   };
 
-  // Mapeamento dinâmico de objetivo para cada campanha
+  // Mapeamento dinâmico e inteligente do objetivo de cada campanha individual baseado em objetivo_padrao
   const getCampaignObjective = (camp: any): 'messages' | 'forms' | 'conversions' | 'reach' | 'traffic' => {
-    const nome = (camp.nome || '').toLowerCase();
-    const obj = (camp.objective || camp.objetivo || '').toLowerCase();
-    if (obj.includes('msg') || obj.includes('message') || nome.includes('whats') || nome.includes('wpp') || nome.includes('msg') || camp.conversas_iniciadas > 0) {
+    const padrao = String(camp?.objetivo_padrao || camp?.objetivoPadrao || '').toUpperCase().trim();
+    const leads = Math.max(0, Number(camp?.leads || 0));
+    const conv = Math.max(0, Number(camp?.conversas_iniciadas || camp?.conversas || 0));
+
+    // Regra oficial: objetivo_padrao vale LEADS, TRAFEGO, ENGAJAMENTO, MENSAGENS, RECONHECIMENTO, VENDAS ou OUTRO
+    if (padrao === 'MENSAGENS') return 'messages';
+    if (padrao === 'LEADS') return conv > 0 && leads === 0 ? 'messages' : 'forms';
+    if (padrao === 'TRAFEGO') return 'traffic';
+    if (padrao === 'RECONHECIMENTO') return 'reach';
+    if (padrao === 'VENDAS') return 'conversions';
+    if (padrao === 'ENGAJAMENTO') return 'traffic';
+
+    const nome = (camp?.nome || camp?.campanha || '').toLowerCase();
+    const obj = (camp?.objective || camp?.objetivo || '').toLowerCase();
+    const cliques = Math.max(0, Number(camp?.cliques || camp?.cliques_link || 0));
+    const imp = Math.max(0, Number(camp?.impressoes || 0));
+
+    // 1. Padrões explícitos no nome ou objetivo bruto da Meta
+    if (nome.includes('whats') || nome.includes('wpp') || nome.includes('msg') || obj.includes('message')) {
       return 'messages';
     }
-    if (obj.includes('lead') || nome.includes('form') || nome.includes('cadastro') || camp.leads > 0) {
+    if (nome.includes('lead') || nome.includes('form') || nome.includes('cadastro') || obj.includes('lead')) {
       return 'forms';
     }
-    if (obj.includes('conv') || obj.includes('sale') || nome.includes('venda') || nome.includes('site') || nome.includes('pixel')) {
-      return 'conversions';
-    }
-    if (obj.includes('reach') || obj.includes('brand') || nome.includes('alcance') || nome.includes('reconhecimento') || nome.includes('video')) {
+    if (nome.includes('alcance') || nome.includes('reach') || nome.includes('reconhecimento') || nome.includes('video') || nome.includes('view') || nome.includes('branding')) {
       return 'reach';
     }
-    if (obj.includes('traffic') || nome.includes('trafego') || nome.includes('clique') || nome.includes('visita')) {
+    if (nome.includes('trafego') || nome.includes('tráfego') || nome.includes('traffic') || nome.includes('seguidor') || nome.includes('visita')) {
       return 'traffic';
     }
-    return 'messages';
+    if (nome.includes('venda') || nome.includes('pixel') || nome.includes('compra') || nome.includes('site') || nome.includes('checkout') || obj.includes('conv')) {
+      return 'conversions';
+    }
+
+    // 2. Inspecionar conjuntos associados da campanha se existirem
+    if (camp?.adsets && Array.isArray(camp.adsets)) {
+      const hasFormAdset = camp.adsets.some((a: any) => (a.nome || '').toLowerCase().includes('form'));
+      if (hasFormAdset) return 'forms';
+      const hasWppAdset = camp.adsets.some((a: any) => (a.nome || '').toLowerCase().includes('wpp') || (a.nome || '').toLowerCase().includes('whats'));
+      if (hasWppAdset) return 'messages';
+      const hasAlcanceAdset = camp.adsets.some((a: any) => (a.nome || '').toLowerCase().includes('alcance') || (a.nome || '').toLowerCase().includes('reels'));
+      if (hasAlcanceAdset && leads === 0 && conv === 0) return 'reach';
+    }
+
+    // 3. Critério determinístico por métricas reais consolidadas
+    if (leads > 0 && conv === 0) return 'forms';
+    if (conv > 0 && leads === 0) return 'messages';
+    if (leads > 0 && conv > 0) return leads >= conv ? 'forms' : 'messages';
+    if (imp > 5000 && cliques <= 3 && leads === 0 && conv === 0) return 'reach';
+    if (cliques > 15 && leads === 0 && conv === 0) return 'traffic';
+
+    return 'forms'; // fallback padrão seguro para campanhas imobiliárias
+  };
+
+  // Helper de retorno principal adaptativo por objetivo (100% blindado contra null/undefined)
+  const formatRetorno = (item: any, obj: 'messages' | 'forms' | 'conversions' | 'reach' | 'traffic') => {
+    const leads = Math.max(0, Number(item?.leads || 0));
+    const conv = Math.max(0, Number(item?.conversas || item?.conversas_iniciadas || 0));
+    const imp = Math.max(0, Number(item?.impressoes || 0));
+    const cliques = Math.max(0, Number(item?.cliques || item?.cliques_link || 0));
+
+    if (obj === 'forms') {
+      return {
+        label: `${leads} ${leads === 1 ? 'lead' : 'leads'}`,
+        short: `${leads} leads`,
+        icon: '📋',
+        type: 'form' as const,
+        count: leads,
+        color: 'text-[#0050FF]',
+      };
+    }
+    if (obj === 'messages') {
+      return {
+        label: `${conv} ${conv === 1 ? 'conversa' : 'conversas'}`,
+        short: `${conv} conv.`,
+        icon: '💬',
+        type: 'whatsapp' as const,
+        count: conv,
+        color: 'text-emerald-600',
+      };
+    }
+    if (obj === 'reach') {
+      const impShort = imp >= 1000 ? `${(imp / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k` : `${imp}`;
+      return {
+        label: `${imp.toLocaleString('pt-BR')} impressões`,
+        short: `${impShort} imp.`,
+        icon: '📢',
+        type: 'reach' as const,
+        count: imp,
+        color: 'text-amber-700',
+      };
+    }
+    if (obj === 'traffic') {
+      return {
+        label: `${cliques} ${cliques === 1 ? 'clique' : 'cliques'}`,
+        short: `${cliques} cliq.`,
+        icon: '🌐',
+        type: 'traffic' as const,
+        count: cliques,
+        color: 'text-teal-700',
+      };
+    }
+    // conversions
+    const total = leads + conv;
+    return {
+      label: `${total} contatos`,
+      short: `${total} contatos`,
+      icon: '🎯',
+      type: 'conversion' as const,
+      count: total,
+      color: 'text-indigo-700',
+    };
+  };
+
+  // Helper de custo unitário de eficiência adaptativo por objetivo (CPL, CPMsg, CPM, CPC, CPA)
+  const formatCustoUnitario = (item: any, obj: 'messages' | 'forms' | 'conversions' | 'reach' | 'traffic') => {
+    const gasto = Number(item?.gasto || 0);
+    const leads = Math.max(0, Number(item?.leads || 0));
+    const conv = Math.max(0, Number(item?.conversas || item?.conversas_iniciadas || 0));
+    const imp = Math.max(0, Number(item?.impressoes || 0));
+    const cliques = Math.max(0, Number(item?.cliques || item?.cliques_link || 0));
+
+    if (obj === 'forms') {
+      const cpl = leads > 0 ? gasto / leads : 0;
+      return { label: 'CPL', value: cpl > 0 ? formatBRL(cpl) : '—', color: 'text-cyan-700' };
+    }
+    if (obj === 'messages') {
+      const cpmsg = conv > 0 ? gasto / conv : 0;
+      return { label: 'CPMsg', value: cpmsg > 0 ? formatBRL(cpmsg) : '—', color: 'text-emerald-700' };
+    }
+    if (obj === 'reach') {
+      const cpm = imp > 0 ? (gasto / imp) * 1000 : 0;
+      return { label: 'CPM', value: cpm > 0 ? formatBRL(cpm) : '—', color: 'text-amber-700' };
+    }
+    if (obj === 'traffic') {
+      const cpc = cliques > 0 ? gasto / cliques : 0;
+      return { label: 'CPC', value: cpc > 0 ? formatBRL(cpc) : '—', color: 'text-teal-700' };
+    }
+    // conversions
+    const total = leads + conv;
+    const cpa = total > 0 ? gasto / total : 0;
+    return { label: 'CPA', value: cpa > 0 ? formatBRL(cpa) : '—', color: 'text-indigo-700' };
   };
 
   const objectiveConfigs = {
     all: {
-      icon: '🌐',
-      title: 'Visão Geral Multi-Objetivo (Métricas Consolidadas)',
-      desc: 'Exibição completa de todas as campanhas com adaptação inteligente dos indicadores de retorno por objetivo.',
+      icon: '⚡',
+      title: 'Modo Inteligente Automático (Métricas Adaptadas por Campanha)',
+      desc: 'Cada campanha identifica seu próprio objetivo (Cadastro, WhatsApp, Alcance ou Tráfego) e exibe automaticamente suas métricas ideais.',
       border: 'border-blue-500/60',
-      color: 'text-blue-400',
-      badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-      label: 'Multi-Objetivo',
+      color: 'text-blue-600',
+      badge: 'bg-blue-50 text-blue-700 border-blue-200',
+      label: '⚡ Automático',
     },
     messages: {
       icon: '💬',
-      title: 'Modo: Campanhas de Mensagens & Leads (Click to WhatsApp)',
+      title: 'Modo: Campanhas de Mensagens & WhatsApp',
       desc: 'Métricas adaptadas para conversas iniciadas no WhatsApp, custo por conversa (CPMsg), taxa de início e agendamentos no CRM.',
       border: 'border-emerald-500/60',
-      color: 'text-emerald-400',
-      badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      color: 'text-emerald-600',
+      badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       label: '💬 Mensagens WPP',
     },
     forms: {
       icon: '📋',
       title: 'Modo: Formulários Nativos & Cadastros (Lead Ads)',
-      desc: 'Métricas adaptadas para envio de formulário nativo Meta, Custo por Lead (CPL), taxa de preenchimento e qualificação no CRM.',
+      desc: 'Métricas adaptadas para envio de formulário nativo Meta, Custo por Lead (CPL), taxa de conversão e qualificação no CRM.',
       border: 'border-cyan-500/60',
-      color: 'text-cyan-400',
-      badge: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+      color: 'text-cyan-600',
+      badge: 'bg-cyan-50 text-cyan-700 border-cyan-200',
       label: '📋 Formulários Lead',
     },
     conversions: {
@@ -436,26 +560,26 @@ function MidiaContent() {
       title: 'Modo: Campanhas de Conversões & Vendas no Site (Pixel & ROAS)',
       desc: 'Métricas adaptadas para compras e agendamentos confirmados no site via Pixel/CAPI, Custo por Aquisição (CPA) e ROAS.',
       border: 'border-indigo-500/60',
-      color: 'text-indigo-400',
-      badge: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+      color: 'text-indigo-600',
+      badge: 'bg-indigo-50 text-indigo-700 border-indigo-200',
       label: '🎯 Conversões Site',
     },
     reach: {
       icon: '📢',
       title: 'Modo: Campanhas de Reconhecimento & Alcance (Branding / Vídeo)',
-      desc: 'Métricas adaptadas para alcance único de pessoas, frequência média de veiculação, CPM e visualizações de vídeo (ThruPlay).',
+      desc: 'Métricas adaptadas para volume de impressões, frequência, CPM e visualizações de vídeo (Reels/ThruPlay).',
       border: 'border-amber-500/60',
-      color: 'text-amber-400',
-      badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+      color: 'text-amber-600',
+      badge: 'bg-amber-50 text-amber-700 border-amber-200',
       label: '📢 Alcance & Vídeo',
     },
     traffic: {
       icon: '🌐',
       title: 'Modo: Campanhas de Tráfego & Visitas na Landing Page',
-      desc: 'Métricas adaptadas para volume de cliques no link, CTR de saída, CPC médio e visualizações de página de destino (LPV).',
+      desc: 'Métricas adaptadas para volume de cliques no link, CTR de saída, CPC médio e visitas à página.',
       border: 'border-teal-500/60',
-      color: 'text-teal-400',
-      badge: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+      color: 'text-teal-600',
+      badge: 'bg-teal-50 text-teal-700 border-teal-200',
       label: '🌐 Tráfego / Cliques',
     },
   };
@@ -582,76 +706,91 @@ function MidiaContent() {
       const brand = clientName || 'Swiftsail Mídia';
 
       // Se a campanha possui conjuntos e anúncios reais carregados do Supabase, utiliza-os diretamente
+      const campObj = getCampaignObjective(c);
       if (c.adsets && c.adsets.length > 0) {
         return {
           ...c,
-          adsets: c.adsets.map((as: any) => ({
-            id: as.id,
-            nome: as.nome,
-            campanhaId: campId,
-            campanhaNome: campNome,
-            segmentacao: as.segmentacao || as.nome,
-            orcamento: as.orcamento || (orcDiario ? formatBRL(orcDiario) + '/dia (CBO)' : 'CBO'),
-            gasto: as.gasto,
-            leads: as.leads,
-            conversas: as.conversas,
-            cliques: as.cliques,
-            impressoes: as.impressoes,
-            ctr: as.ctr !== null && as.ctr !== undefined ? `${as.ctr}%` : null,
-            status: as.status || status,
-            objetivo: getCampaignObjective(c),
-            criativos: (as.criativos || []).map((cr: any) => {
-              const targetLink = cr.instagram_permalink_url || cr.link_permanente || cr.preview_link;
-              const realThumb = cr.thumbnail_storage_path
-                ? cr.thumbnail_storage_path
-                : cr.midia_storage_path
-                ? `/api/meta/media?path=${encodeURIComponent(cr.midia_storage_path)}`
-                : targetLink
-                ? `/api/meta/thumbnail?url=${encodeURIComponent(targetLink)}`
-                : `/api/meta/thumbnail?url=default`;
-              const isVideo =
-                cr.criativo_tipo === 'VIDEO' ||
-                Boolean(cr.video_storage_path) ||
-                cr.midia_storage_path?.toLowerCase().endsWith('.mp4');
-              const isCarousel =
-                cr.criativo_tipo === 'CAROUSEL' ||
-                (Array.isArray(cr.slides) && cr.slides.length > 1);
-              const fNorm = isVideo ? ('reels' as const) : isCarousel ? ('carousel' as const) : ('image' as const);
-              const badge = isVideo ? 'REELS' : isCarousel ? 'CARROSSEL' : '1:1';
-              const cleanHeadline = cr.criativo_titulo?.trim() || cr.nome;
-              return {
-                id: cr.id,
-                campaignId: campId,
-                adsetId: as.id,
-                nome: cr.nome,
-                formato: fNorm,
-                badge,
-                thumbUrl: realThumb,
-                adset: as.nome,
-                campanha: campNome,
-                gasto: cr.gasto,
-                leads: cr.leads,
-                conversas: cr.conversas,
-                ctr: cr.ctr !== null && cr.ctr !== undefined ? `${cr.ctr}%` : null,
-                cpl: cr.cpl,
-                status: cr.status || status,
-                headline: cleanHeadline,
-                copy: cr.criativo_nome || '',
-                ctaText: '💬 Falar no WhatsApp',
-                accountHandle: `${brand.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
-                accountName: brand,
-                accountAvatar: '🏢',
-                preview_link: cr.preview_link,
-                link_permanente: cr.link_permanente || cr.instagram_permalink_url,
-                instagram_permalink_url: cr.instagram_permalink_url,
-                thumbnail_storage_path: cr.thumbnail_storage_path,
-                imageUrl: realThumb,
-                slides: realThumb
-                  ? [{ num: 1, title: cleanHeadline, desc: cr.criativo_nome || '', imgUrl: realThumb }]
-                  : undefined,
-              };
-            }),
-          })),
+          objetivo: campObj,
+          adsets: c.adsets.map((as: any) => {
+            const asCtr = as.ctr !== null && as.ctr !== undefined ? Number(as.ctr) : Number(c.ctr || 0);
+            return {
+              id: as.id,
+              nome: as.nome,
+              campanhaId: campId,
+              campanhaNome: campNome,
+              segmentacao: as.segmentacao || as.nome,
+              orcamento: as.orcamento || (orcDiario ? formatBRL(orcDiario) + '/dia (CBO)' : 'CBO'),
+              gasto: as.gasto,
+              leads: as.leads || 0,
+              conversas: as.conversas || 0,
+              cliques: as.cliques || 0,
+              impressoes: as.impressoes || 0,
+              ctr: asCtr,
+              status: as.status || status,
+              objetivo: campObj,
+              criativos: (as.criativos || []).map((cr: any) => {
+                const targetLink = cr.instagram_permalink_url || cr.link_permanente || cr.preview_link;
+                const realThumb = cr.thumbnail_storage_path
+                  ? cr.thumbnail_storage_path
+                  : cr.midia_storage_path
+                  ? `/api/meta/media?path=${encodeURIComponent(cr.midia_storage_path)}`
+                  : targetLink
+                  ? `/api/meta/thumbnail?url=${encodeURIComponent(targetLink)}`
+                  : `/api/meta/thumbnail?url=default`;
+                const isVideo =
+                  cr.criativo_tipo === 'VIDEO' ||
+                  Boolean(cr.video_storage_path) ||
+                  cr.midia_storage_path?.toLowerCase().endsWith('.mp4');
+                const isCarousel =
+                  cr.criativo_tipo === 'CAROUSEL' ||
+                  (Array.isArray(cr.slides) && cr.slides.length > 1);
+                const fNorm = isVideo ? ('reels' as const) : isCarousel ? ('carousel' as const) : ('image' as const);
+                const badge = isVideo ? 'REELS' : isCarousel ? 'CARROSSEL' : '1:1';
+                const cleanHeadline = cr.criativo_titulo?.trim() || cr.nome;
+                const crCtr = cr.ctr !== null && cr.ctr !== undefined ? Number(cr.ctr) : asCtr;
+                return {
+                  id: cr.id,
+                  campaignId: campId,
+                  adsetId: as.id,
+                  nome: cr.nome,
+                  formato: fNorm,
+                  badge,
+                  thumbUrl: realThumb,
+                  adset: as.nome,
+                  campanha: campNome,
+                  gasto: cr.gasto,
+                  leads: cr.leads || 0,
+                  conversas: cr.conversas || 0,
+                  cliques: cr.cliques || 0,
+                  impressoes: cr.impressoes || 0,
+                  ctr: crCtr,
+                  cpl: cr.cpl,
+                  custo_por_conversa: cr.custo_por_conversa,
+                  status: cr.status || status,
+                  objetivo: campObj,
+                  objetivo_padrao: c.objetivo_padrao || cr.objetivo_padrao || null,
+                  campanha_gasto: c.gasto,
+                  campanha_leads: c.leads,
+                  campanha_conversas: c.conversas_iniciadas,
+                  campanha_ctr: c.ctr,
+                  headline: cleanHeadline,
+                  copy: cr.criativo_nome || '',
+                  ctaText: campObj === 'forms' ? '📋 Preencher Formulário' : campObj === 'traffic' ? '🌐 Saiba Mais' : '💬 Falar no WhatsApp',
+                  accountHandle: `${brand.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+                  accountName: brand,
+                  accountAvatar: '🏢',
+                  preview_link: cr.preview_link,
+                  link_permanente: cr.link_permanente || cr.instagram_permalink_url,
+                  instagram_permalink_url: cr.instagram_permalink_url,
+                  thumbnail_storage_path: cr.thumbnail_storage_path,
+                  imageUrl: realThumb,
+                  slides: realThumb
+                    ? [{ num: 1, title: cleanHeadline, desc: cr.criativo_nome || '', imgUrl: realThumb }]
+                    : undefined,
+                };
+              }),
+            };
+          }),
         };
       }
 
@@ -1045,12 +1184,12 @@ function MidiaContent() {
                   onChange={(e: any) => setMetaObjectiveFilter(e.target.value)}
                   className="bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg px-3 py-1.5 text-xs text-[#0F172A] focus:outline-none focus:border-[#0050FF] font-semibold cursor-pointer shadow-xs"
                 >
-                  <option value="all">🌐 Todos os Objetivos</option>
-                  <option value="messages">💬 Mensagens / WhatsApp (Leads)</option>
-                  <option value="forms">📋 Formulários Nativos / Cadastros (Lead Ads)</option>
-                  <option value="conversions">🎯 Conversões / Vendas no Site (Pixel & ROAS)</option>
-                  <option value="reach">📢 Reconhecimento & Alcance (Branding / Vídeo)</option>
-                  <option value="traffic">🌐 Tráfego / Cliques & Landing Page Views</option>
+                  <option value="all">⚡ Automático por Objetivo (Detectado por Campanha)</option>
+                  <option value="forms">📋 Cadastros & Formulários (Leads & CPL)</option>
+                  <option value="messages">💬 WhatsApp & Mensagens (Conversas & CPMsg)</option>
+                  <option value="reach">📢 Alcance & Vídeo (Impressões & CPM)</option>
+                  <option value="traffic">🌐 Tráfego & Visitas (Cliques & CPC)</option>
+                  <option value="conversions">🎯 Vendas & Conversões (Site & CPA)</option>
                 </select>
               </div>
 
@@ -1157,60 +1296,72 @@ function MidiaContent() {
                           </div>
                         </div>
 
-                        {/* Métricas Principais da Campanha */}
-                        <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
-                          <div className="text-right">
-                            <span className="text-[10px] text-[#64748B] block uppercase font-sans font-semibold">Orçamento</span>
-                            <span className="text-[#0F172A] font-bold">
-                              {camp.orcamento_diario ? formatBRL(camp.orcamento_diario) + '/dia' : 'CBO'}
-                            </span>
-                          </div>
-                          <div className="text-right border-l border-[#E2E8F0] pl-4">
-                            <span className="text-[10px] text-[#64748B] block uppercase font-sans font-semibold">Gasto Total</span>
-                            <span className="text-[#0F172A] font-bold">{formatBRL(camp.gasto)}</span>
-                          </div>
-                          <div className="text-right border-l border-[#E2E8F0] pl-4">
-                            <span className="text-[10px] text-[#64748B] block uppercase font-sans font-semibold">Leads / WPP</span>
-                            <div className="flex items-center gap-2">
-                              {camp.leads > 0 && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openLeadsDrilldown(camp.nome, 'form', camp.leads, { campanha: camp.nome });
-                                  }}
-                                  className="text-[#0050FF] font-bold hover:underline cursor-pointer"
-                                  title="Ver leads capturados no formulário"
-                                >
-                                  📋 {camp.leads}
-                                </button>
-                              )}
-                              {camp.conversas_iniciadas > 0 && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openLeadsDrilldown(camp.nome, 'whatsapp', camp.conversas_iniciadas, { campanha: camp.nome });
-                                  }}
-                                  className="text-emerald-600 font-bold hover:underline cursor-pointer"
-                                  title="Ver conversas iniciadas no WhatsApp"
-                                >
-                                  💬 {camp.conversas_iniciadas}
-                                </button>
-                              )}
-                              {camp.leads === 0 && camp.conversas_iniciadas === 0 && (
-                                <span className="text-[#64748B]">0 contatos</span>
-                              )}
+                        {/* Métricas Principais da Campanha (Adaptadas Automaticamente ao Objetivo) */}
+                        {(() => {
+                          const effectiveCampObj = metaObjectiveFilter !== 'all' ? metaObjectiveFilter : (camp.objetivo || getCampaignObjective(camp));
+                          const campRetorno = formatRetorno(camp, effectiveCampObj);
+                          const campCusto = formatCustoUnitario(camp, effectiveCampObj);
+
+                          return (
+                            <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
+                              <div className="text-right">
+                                <span className="text-[10px] text-[#64748B] block uppercase font-sans font-semibold">Orçamento</span>
+                                <span className="text-[#0F172A] font-bold">
+                                  {camp.orcamento_diario ? formatBRL(camp.orcamento_diario) + '/dia' : 'CBO'}
+                                </span>
+                              </div>
+
+                              <div className="text-right border-l border-[#E2E8F0] pl-4">
+                                <span className="text-[10px] text-[#64748B] block uppercase font-sans font-semibold">Gasto Total</span>
+                                <span className="text-[#0F172A] font-bold">{formatBRL(camp.gasto)}</span>
+                              </div>
+
+                              <div className="text-right border-l border-[#E2E8F0] pl-4">
+                                <span className="text-[10px] text-[#64748B] block uppercase font-sans font-semibold">
+                                  Retorno ({effectiveCampObj === 'forms' ? 'Leads' : effectiveCampObj === 'messages' ? 'WPP' : effectiveCampObj === 'reach' ? 'Alcance' : 'Cliques'})
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  {campRetorno.count > 0 ? (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openLeadsDrilldown(camp.nome, campRetorno.type === 'form' ? 'form' : 'whatsapp', campRetorno.count, { campanha: camp.nome });
+                                      }}
+                                      className={`${campRetorno.color} font-bold hover:underline cursor-pointer flex items-center gap-1`}
+                                      title="Clique para ver os contatos no Kommo"
+                                    >
+                                      <span>{campRetorno.icon} {campRetorno.label}</span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-[#64748B]">{campRetorno.icon} 0 {effectiveCampObj === 'forms' ? 'leads' : effectiveCampObj === 'messages' ? 'conversas' : 'retornos'}</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="text-right border-l border-[#E2E8F0] pl-4">
+                                <span className="text-[10px] text-[#64748B] block uppercase font-sans font-semibold">{campCusto.label}</span>
+                                <span className={`${campCusto.color} font-bold`}>{campCusto.value}</span>
+                              </div>
+
+                              <div className="text-right border-l border-[#E2E8F0] pl-4">
+                                <span className="text-[10px] text-[#64748B] block uppercase font-sans font-semibold">
+                                  {effectiveCampObj === 'reach' ? 'Impressões' : 'Cliques / CTR'}
+                                </span>
+                                <span className="text-[#475569]">
+                                  {effectiveCampObj === 'reach'
+                                    ? `${Number(camp.impressoes || 0).toLocaleString('pt-BR')} imp.`
+                                    : `${camp.cliques || 0} • ${camp.ctr}%`}
+                                </span>
+                              </div>
+
+                              <div className="border-l border-[#E2E8F0] pl-4">
+                                <span className="px-2 py-1 rounded bg-[#F1F5F9] border border-[#E2E8F0] text-[10px] text-[#475569] font-sans font-semibold">
+                                  {camp.adsets.length} AdSets • {totalAdsInCamp} Criativos
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-right border-l border-[#E2E8F0] pl-4">
-                            <span className="text-[10px] text-[#64748B] block uppercase font-sans font-semibold">CTR Médio</span>
-                            <span className="text-[#475569]">{camp.ctr}%</span>
-                          </div>
-                          <div className="border-l border-[#E2E8F0] pl-4">
-                            <span className="px-2 py-1 rounded bg-[#F1F5F9] border border-[#E2E8F0] text-[10px] text-[#475569] font-sans font-semibold">
-                              {camp.adsets.length} AdSets • {totalAdsInCamp} Criativos
-                            </span>
-                          </div>
-                        </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Conteúdo Aninhado: Conjuntos e Criativos */}
@@ -1249,27 +1400,40 @@ function MidiaContent() {
 
                                   <div className="flex items-center gap-3 text-xs font-mono">
                                     <span className="text-[#64748B]">Gasto: <b className="text-[#0F172A]">{adset.gasto !== null && adset.gasto !== undefined && adset.gasto > 0 ? formatBRL(adset.gasto) : 'CBO'}</b></span>
+                                    {(() => {
+                                      const effectiveAsObj = metaObjectiveFilter !== 'all' ? metaObjectiveFilter : (adset.objetivo || camp.objetivo || getCampaignObjective(camp));
+                                      const asRetorno = formatRetorno(adset, effectiveAsObj);
+                                      const asCusto = formatCustoUnitario(adset, effectiveAsObj);
+
+                                      return (
+                                        <>
+                                          <span className="text-[#64748B] border-l border-[#E2E8F0] pl-3">
+                                            Retorno:{' '}
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                openLeadsDrilldown(
+                                                  `${adset.nome} • ${camp.nome}`,
+                                                  asRetorno.type === 'form' ? 'form' : 'whatsapp',
+                                                  asRetorno.count,
+                                                  { conjunto: adset.nome, campanha: camp.nome }
+                                                );
+                                              }}
+                                              className={`${asRetorno.color} font-bold hover:underline cursor-pointer`}
+                                              title="Ver contatos deste conjunto sincronizados do Kommo"
+                                            >
+                                              {asRetorno.icon} {asRetorno.short}
+                                            </button>
+                                          </span>
+                                          <span className="text-[#64748B] border-l border-[#E2E8F0] pl-3">
+                                            {asCusto.label}: <b className={asCusto.color}>{asCusto.value}</b>
+                                          </span>
+                                        </>
+                                      );
+                                    })()}
                                     <span className="text-[#64748B] border-l border-[#E2E8F0] pl-3">
-                                      Retorno:{' '}
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          openLeadsDrilldown(
-                                            `${adset.nome} • ${camp.nome}`,
-                                            adset.leads > 0 ? 'form' : 'whatsapp',
-                                            adset.leads || adset.conversas || 0,
-                                            { conjunto: adset.nome, campanha: camp.nome }
-                                          );
-                                        }}
-                                        className="text-[#0050FF] font-bold hover:underline cursor-pointer"
-                                        title="Ver contatos deste conjunto sincronizados do Kommo"
-                                      >
-                                        {adset.leads > 0 ? `${adset.leads} leads` : `${adset.conversas} conversas`}
-                                      </button>
-                                    </span>
-                                    <span className="text-[#64748B] border-l border-[#E2E8F0] pl-3">
-                                      CTR: <b className="text-[#0F172A]">{adset.ctr}</b>
+                                      CTR: <b className="text-[#0F172A]">{adset.ctr ? `${adset.ctr}%` : camp.ctr ? `${camp.ctr}%` : '—'}</b>
                                     </span>
                                     <span className="px-2 py-0.5 rounded bg-[#F1F5F9] text-[10px] text-[#475569] font-sans border border-[#E2E8F0] ml-1">
                                       {adset.criativos.length} Criativos
@@ -1338,26 +1502,40 @@ function MidiaContent() {
                                             <span className="text-[#64748B] text-[9px] block font-sans">Gasto</span>
                                             <span className="text-[#0F172A] font-bold">{criat.gasto !== null && criat.gasto !== undefined && criat.gasto > 0 ? formatBRL(criat.gasto) : '—'}</span>
                                           </div>
-                                          <div>
-                                            <span className="text-[#64748B] text-[9px] block font-sans">Retorno</span>
-                                            <button
-                                              onClick={() =>
-                                                openLeadsDrilldown(
-                                                  `${criat.nome} • ${camp.nome}`,
-                                                  criat.leads > 0 ? 'form' : 'whatsapp',
-                                                  criat.leads || criat.conversas || 0,
-                                                  { criativo: criat.nome, campanha: camp.nome, conjunto: adset.nome }
-                                                )
-                                              }
-                                              className="text-[#0050FF] font-bold hover:underline cursor-pointer"
-                                              title="Ver contatos capturados deste criativo no Kommo"
-                                            >
-                                              {criat.leads > 0 ? `${criat.leads} leads` : `${criat.conversas} conv.`}
-                                            </button>
-                                          </div>
+                                          {(() => {
+                                            const effectiveCrObj = metaObjectiveFilter !== 'all' ? metaObjectiveFilter : (criat.objetivo || adset.objetivo || getCampaignObjective(camp));
+                                            const crRetorno = formatRetorno(criat, effectiveCrObj);
+                                            const crCusto = formatCustoUnitario(criat, effectiveCrObj);
+
+                                            return (
+                                              <>
+                                                <div>
+                                                  <span className="text-[#64748B] text-[9px] block font-sans">Retorno</span>
+                                                  <button
+                                                    onClick={() =>
+                                                      openLeadsDrilldown(
+                                                        `${criat.nome} • ${camp.nome}`,
+                                                        crRetorno.type === 'form' ? 'form' : 'whatsapp',
+                                                        crRetorno.count,
+                                                        { criativo: criat.nome, campanha: camp.nome, conjunto: adset.nome }
+                                                      )
+                                                    }
+                                                    className={`${crRetorno.color} font-bold hover:underline cursor-pointer truncate max-w-[85px] block`}
+                                                    title="Ver contatos capturados deste criativo no Kommo"
+                                                  >
+                                                    {crRetorno.short}
+                                                  </button>
+                                                </div>
+                                                <div>
+                                                  <span className="text-[#64748B] text-[9px] block font-sans">{crCusto.label}</span>
+                                                  <span className={`${crCusto.color} font-bold`}>{crCusto.value}</span>
+                                                </div>
+                                              </>
+                                            );
+                                          })()}
                                           <div>
                                             <span className="text-[#64748B] text-[9px] block font-sans">CTR</span>
-                                            <span className="text-[#475569]">{criat.ctr}</span>
+                                            <span className="text-[#475569]">{criat.ctr ? `${criat.ctr}%` : adset.ctr ? `${adset.ctr}%` : camp.ctr ? `${camp.ctr}%` : '—'}</span>
                                           </div>
                                           <div className="flex items-center gap-1.5">
                                             <button
@@ -1720,7 +1898,7 @@ function MidiaContent() {
                                                   <span className="text-[#0F172A] hover:text-[#0050FF] truncate font-medium">{cr.nome}</span>
                                                 </div>
                                                 <span className="text-[#0050FF] text-[10px] font-mono font-bold shrink-0">
-                                                  {cr.leads > 0 ? `${cr.leads} leads` : `${cr.conversas} conv.`}
+                                                  {formatRetorno(cr, getCampaignObjective(c)).short}
                                                 </span>
                                               </div>
                                             ))}
@@ -1842,7 +2020,7 @@ function MidiaContent() {
                                       <div className="min-w-0">
                                         <p className="text-xs font-bold text-[#0F172A] truncate">{cr.nome}</p>
                                         <p className="text-[10px] text-[#64748B] font-mono mt-0.5">
-                                          Gasto: {cr.gasto !== null && cr.gasto !== undefined && cr.gasto > 0 ? formatBRL(cr.gasto) : '—'} • Retorno: {cr.leads > 0 ? `${cr.leads} leads` : `${cr.conversas} conv.`}
+                                          Gasto: {cr.gasto !== null && cr.gasto !== undefined && cr.gasto > 0 ? formatBRL(cr.gasto) : '—'} • Retorno: {formatRetorno(cr, as.objetivo || getCampaignObjective(as)).short}
                                         </p>
                                       </div>
                                     </div>
@@ -1979,7 +2157,7 @@ function MidiaContent() {
                             title="Clique para ver os nomes e contatos capturados neste criativo"
                           >
                             <span>
-                              {ad.leads > 0 ? `${ad.leads} leads` : ad.conversas > 0 ? `${ad.conversas} conv.` : '—'}
+                              {formatRetorno(ad, ad.objetivo || getCampaignObjective(ad)).short}
                             </span>
                             <span className="text-[9px]">👁️</span>
                           </button>

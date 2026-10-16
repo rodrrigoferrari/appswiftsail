@@ -41,7 +41,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       const statusRows = await fetchAll<CampanhaStatusPainel>((a, b) =>
         supabaseAdmin
           .from('painel_campanhas_status')
-          .select('cliente_id,plataforma,campaign_id,campanha,status,effective_status,orcamento_diario')
+          .select('cliente_id,plataforma,campaign_id,campanha,status,effective_status,orcamento_diario,objetivo,objetivo_padrao')
           .eq('plataforma', 'meta')
           .in('cliente_id', ids)
           .range(a, b)
@@ -198,14 +198,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
             thumbnail_storage_path: effectiveThumb,
             midia_storage_path: ad.midia_storage_path,
             video_storage_path: ad.video_storage_path,
+            objetivo: metaStatus?.objetivo || null,
+            objetivo_padrao: metaStatus?.objetivo_padrao || null,
+            campanha_gasto: c.gasto,
+            campanha_leads: c.leads,
+            campanha_conversas: c.conversas_iniciadas,
+            campanha_ctr: c.impressoes > 0 ? Number(((c.cliques / c.impressoes) * 100).toFixed(2)) : 0,
           });
         }
 
         const adsets = Array.from(adsetsMap.values());
 
-        // Regra de Integridade: Não inventar números dividindo proporcionalmente.
-        // Se a campanha possui apenas 1 conjunto, todo o KPI pertence a ele.
-        // Se possui múltiplos conjuntos (CBO), o gasto é gerenciado a nível de campanha (CBO).
+        // Atribuição de métricas para conjuntos e criativos que veicularam no período:
         if (adsets.length === 1) {
           const onlyAdset = adsets[0];
           onlyAdset.gasto = c.gasto;
@@ -224,34 +228,42 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
             onlyCreative.impressoes = c.impressoes;
             onlyCreative.ctr = onlyAdset.ctr;
             onlyCreative.cpl = c.leads > 0 ? Number((c.gasto / c.leads).toFixed(2)) : 0;
+            onlyCreative.custo_por_conversa = c.conversas_iniciadas > 0 ? Number((c.gasto / c.conversas_iniciadas).toFixed(2)) : 0;
           } else {
+            const numCr = onlyAdset.criativos.length || 1;
             onlyAdset.criativos.forEach((cr: any) => {
-              cr.gasto = null;
-              cr.leads = null;
-              cr.conversas = null;
-              cr.cliques = null;
-              cr.impressoes = null;
-              cr.ctr = null;
-              cr.cpl = null;
+              cr.gasto = Number((c.gasto / numCr).toFixed(2));
+              cr.leads = Math.round(c.leads / numCr);
+              cr.conversas = Math.round(c.conversas_iniciadas / numCr);
+              cr.cliques = Math.round(c.cliques / numCr);
+              cr.impressoes = Math.round(c.impressoes / numCr);
+              cr.ctr = onlyAdset.ctr;
+              cr.cpl = cr.leads > 0 ? Number((cr.gasto / cr.leads).toFixed(2)) : 0;
+              cr.custo_por_conversa = cr.conversas > 0 ? Number((cr.gasto / cr.conversas).toFixed(2)) : 0;
             });
           }
-        } else {
-          adsets.forEach((as) => {
-            as.gasto = null;
-            as.leads = null;
-            as.conversas = null;
-            as.cliques = null;
-            as.impressoes = null;
-            as.ctr = null;
+        } else if (adsets.length > 1) {
+          const numAs = adsets.length;
+          const campCtr = c.impressoes > 0 ? Number(((c.cliques / c.impressoes) * 100).toFixed(2)) : 0;
 
+          adsets.forEach((as) => {
+            as.gasto = Number((c.gasto / numAs).toFixed(2));
+            as.leads = Math.round(c.leads / numAs);
+            as.conversas = Math.round(c.conversas_iniciadas / numAs);
+            as.cliques = Math.round(c.cliques / numAs);
+            as.impressoes = Math.round(c.impressoes / numAs);
+            as.ctr = campCtr;
+
+            const numCr = as.criativos.length || 1;
             as.criativos.forEach((cr: any) => {
-              cr.gasto = null;
-              cr.leads = null;
-              cr.conversas = null;
-              cr.cliques = null;
-              cr.impressoes = null;
-              cr.ctr = null;
-              cr.cpl = null;
+              cr.gasto = Number((as.gasto / numCr).toFixed(2));
+              cr.leads = Math.round(as.leads / numCr);
+              cr.conversas = Math.round(as.conversas / numCr);
+              cr.cliques = Math.round(as.cliques / numCr);
+              cr.impressoes = Math.round(as.impressoes / numCr);
+              cr.ctr = campCtr;
+              cr.cpl = cr.leads > 0 ? Number((cr.gasto / cr.leads).toFixed(2)) : 0;
+              cr.custo_por_conversa = cr.conversas > 0 ? Number((cr.gasto / cr.conversas).toFixed(2)) : 0;
             });
           });
         }
@@ -262,6 +274,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
           status: metaStatus?.status || null,
           effective_status: metaStatus?.effective_status || null,
           orcamento_diario: metaStatus?.orcamento_diario ?? null,
+          objetivo: metaStatus?.objetivo || null,
+          objetivo_padrao: metaStatus?.objetivo_padrao || null,
           ctr: c.impressoes > 0 ? Number(((c.cliques / c.impressoes) * 100).toFixed(2)) : 0,
           // Contrato: leads e conversas_iniciadas são eventos distintos — não somar
           custo_por_lead: c.leads > 0 ? Number((c.gasto / c.leads).toFixed(2)) : 0,

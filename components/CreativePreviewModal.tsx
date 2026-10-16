@@ -46,8 +46,17 @@ export interface CreativePreviewItem {
   gasto?: number;
   leads?: number;
   conversas?: number;
+  impressoes?: number;
+  cliques?: number;
   ctr?: string;
   cpl?: number;
+  custo_por_conversa?: number;
+  objetivo?: string;
+  objetivo_padrao?: string;
+  campanha_gasto?: number;
+  campanha_leads?: number;
+  campanha_conversas?: number;
+  campanha_ctr?: number;
   status?: string;
   effective_status?: string;
   headline?: string;
@@ -127,8 +136,8 @@ export default function CreativePreviewModal({
     setLiked(false);
     setSaved(false);
     setCopied(false);
-    setViewMode(hasEmbed ? 'embed' : 'media');
-  }, [creative, hasEmbed]);
+    setViewMode('media');
+  }, [creative]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -320,7 +329,13 @@ export default function CreativePreviewModal({
             {/* MODO 1: IFRAME INCORPORADO REAL DO INSTAGRAM / FACEBOOK */}
             {hasEmbed && viewMode === 'embed' ? (
               <div className="w-full max-w-[440px] flex flex-col items-center">
-                <div className="w-full h-[560px] rounded-2xl border border-[#CBD5E1] shadow-xl overflow-hidden bg-white flex items-center justify-center">
+                <div className="w-full mb-2.5 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 flex items-start gap-2">
+                  <span className="text-base shrink-0">💡</span>
+                  <span>
+                    Caso o Instagram bloqueie a exibição incorporada por políticas da Meta, utilize <b>"Ver no Meta / Insta"</b> acima ou alterne para a aba <b>"Mídia & Mockup"</b> para visualizar a foto/vídeo real.
+                  </span>
+                </div>
+                <div className="w-full h-[520px] rounded-2xl border border-[#CBD5E1] shadow-xl overflow-hidden bg-white flex items-center justify-center">
                   <iframe
                     src={igEmbedUrl || fbEmbedUrl!}
                     className="w-full h-full border-0"
@@ -493,41 +508,100 @@ export default function CreativePreviewModal({
                 </div>
               </div>
 
-              {/* Grid de KPIs do Criativo (Asaas Light) */}
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
-                  <span className="text-[10px] text-[#64748B] flex items-center gap-1 font-semibold uppercase">
-                    <BarChart3 className="w-3 h-3 text-[#0050FF]" /> Gasto
-                  </span>
-                  <div className="text-sm font-bold text-[#0F172A] font-mono">{formatBRL(creative.gasto || 0)}</div>
-                </div>
+              {/* Grid de KPIs do Criativo Adaptado ao Objetivo */}
+              {(() => {
+                const cGastoRaw = Number(creative.gasto || 0);
+                const campGastoRaw = Number(creative.campanha_gasto || 0);
+                const isCboFallback = cGastoRaw === 0 && campGastoRaw > 0;
+                const cGasto = cGastoRaw > 0 ? cGastoRaw : campGastoRaw;
 
-                <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
-                  <span className="text-[10px] text-[#64748B] flex items-center gap-1 font-semibold uppercase">
-                    <Flame className="w-3 h-3 text-emerald-600" /> Retorno
-                  </span>
-                  <div className="text-sm font-bold text-emerald-600 font-mono">
-                    {creative.leads || creative.conversas || 0} contatos
-                  </div>
-                </div>
+                const cLeadsRaw = Math.max(0, Number(creative.leads || 0));
+                const campLeadsRaw = Math.max(0, Number(creative.campanha_leads || 0));
+                const cLeads = cLeadsRaw > 0 ? cLeadsRaw : (isCboFallback ? campLeadsRaw : 0);
 
-                <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
-                  <span className="text-[10px] text-[#64748B] font-semibold uppercase">Custo por Lead</span>
-                  <div className="text-sm font-bold text-emerald-600 font-mono">
-                    {formatBRL(
-                      creative.cpl ||
-                        (creative.gasto && (creative.leads || creative.conversas)
-                          ? creative.gasto / (creative.leads || creative.conversas || 1)
-                          : 0)
+                const cConvRaw = Math.max(0, Number(creative.conversas || 0));
+                const campConvRaw = Math.max(0, Number(creative.campanha_conversas || 0));
+                const cConv = cConvRaw > 0 ? cConvRaw : (isCboFallback ? campConvRaw : 0);
+
+                const cImp = Math.max(0, Number(creative.impressoes || 0));
+                const cCliques = Math.max(0, Number(creative.cliques || 0));
+                const cCtr = creative.ctr || (creative.campanha_ctr ? `${creative.campanha_ctr}%` : null);
+
+                const padrao = String(creative.objetivo_padrao || '').toUpperCase();
+                let cObj = creative.objetivo;
+                if (!cObj) {
+                  if (padrao === 'MENSAGENS') cObj = 'messages';
+                  else if (padrao === 'LEADS') cObj = cConv > 0 && cLeads === 0 ? 'messages' : 'forms';
+                  else if (padrao === 'TRAFEGO') cObj = 'traffic';
+                  else if (padrao === 'RECONHECIMENTO') cObj = 'reach';
+                  else if (padrao === 'VENDAS') cObj = 'conversions';
+                  else cObj = cLeads > 0 && cConv === 0 ? 'forms' : cConv > 0 ? 'messages' : cImp > 5000 ? 'reach' : cCliques > 10 ? 'traffic' : 'forms';
+                }
+
+                let retLabel = `${cLeads} leads`;
+                let retColor = 'text-[#0050FF]';
+                let custoLabel = 'CPL (Custo / Lead)';
+                let custoVal = cLeads > 0 && cGasto > 0 ? formatBRL(cGasto / cLeads) : creative.cpl ? formatBRL(creative.cpl) : '—';
+                let custoColor = 'text-cyan-700';
+
+                if (cObj === 'messages') {
+                  retLabel = `${cConv} conversas WPP`;
+                  retColor = 'text-emerald-600';
+                  custoLabel = 'CPMsg (Custo / Conv.)';
+                  custoVal = cConv > 0 && cGasto > 0 ? formatBRL(cGasto / cConv) : creative.custo_por_conversa ? formatBRL(creative.custo_por_conversa) : '—';
+                  custoColor = 'text-emerald-700';
+                } else if (cObj === 'reach') {
+                  retLabel = `${cImp.toLocaleString('pt-BR')} imp.`;
+                  retColor = 'text-amber-700';
+                  custoLabel = 'CPM (Custo / Mil)';
+                  custoVal = cImp > 0 && cGasto > 0 ? formatBRL((cGasto / cImp) * 1000) : '—';
+                  custoColor = 'text-amber-700';
+                } else if (cObj === 'traffic') {
+                  retLabel = `${cCliques} cliques no link`;
+                  retColor = 'text-teal-700';
+                  custoLabel = 'CPC (Custo / Clique)';
+                  custoVal = cCliques > 0 && cGasto > 0 ? formatBRL(cGasto / cCliques) : '—';
+                  custoColor = 'text-teal-700';
+                }
+
+                return (
+                  <div className="space-y-2 pt-2">
+                    {isCboFallback && (
+                      <div className="px-2.5 py-1 bg-blue-50 border border-blue-200 rounded-lg text-[10px] text-blue-700 flex items-center justify-between font-sans">
+                        <span>⚡ Orçamento CBO gerenciado na campanha mãe</span>
+                        <span className="font-bold uppercase font-mono">Campanha LIV</span>
+                      </div>
                     )}
-                  </div>
-                </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                        <span className="text-[10px] text-[#64748B] flex items-center justify-between font-semibold uppercase">
+                          <span className="flex items-center gap-1"><BarChart3 className="w-3 h-3 text-[#0050FF]" /> Gasto</span>
+                          {isCboFallback && <span className="text-[9px] text-[#0050FF] font-mono">CBO</span>}
+                        </span>
+                        <div className="text-sm font-bold text-[#0F172A] font-mono">{cGasto > 0 ? formatBRL(cGasto) : '—'}</div>
+                      </div>
 
-                <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
-                  <span className="text-[10px] text-[#64748B] font-semibold uppercase">CTR</span>
-                  <div className="text-sm font-bold text-[#0F172A] font-mono">{creative.ctr || '—'}</div>
-                </div>
-              </div>
+                      <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                        <span className="text-[10px] text-[#64748B] flex items-center justify-between font-semibold uppercase">
+                          <span className="flex items-center gap-1"><Flame className="w-3 h-3 text-emerald-600" /> Retorno</span>
+                          {isCboFallback && <span className="text-[9px] text-emerald-600 font-mono">Campanha</span>}
+                        </span>
+                        <div className={`text-sm font-bold ${retColor} font-mono`}>{retLabel}</div>
+                      </div>
+
+                      <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                        <span className="text-[10px] text-[#64748B] font-semibold uppercase">{custoLabel}</span>
+                        <div className={`text-sm font-bold ${custoColor} font-mono`}>{custoVal}</div>
+                      </div>
+
+                      <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                        <span className="text-[10px] text-[#64748B] font-semibold uppercase">CTR</span>
+                        <div className="text-sm font-bold text-[#0F172A] font-mono">{cCtr ? (cCtr.includes('%') ? cCtr : `${cCtr}%`) : '—'}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Estrutura de Origem */}
               <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-2 text-xs">

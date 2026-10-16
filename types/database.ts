@@ -121,7 +121,7 @@ export interface KommoPipelineResumo {
   etapas_count: number;
 }
 
-// painel.campanhas_status (Cleide): status e orçamento diário em reais
+// painel.campanhas_status (Cleide): status, orçamento diário e objetivos oficiais
 export interface CampanhaStatusPainel {
   cliente_id: string;
   plataforma: 'meta' | 'google' | string;
@@ -130,6 +130,8 @@ export interface CampanhaStatusPainel {
   status: string | null;
   effective_status: string | null;
   orcamento_diario: number | null;
+  objetivo?: string | null;
+  objetivo_padrao?: 'LEADS' | 'TRAFEGO' | 'ENGAJAMENTO' | 'MENSAGENS' | 'RECONHECIMENTO' | 'VENDAS' | 'OUTRO' | string | null;
 }
 
 export interface CsStatus {
