@@ -439,17 +439,19 @@ function MidiaContent() {
 
   // Helper de retorno principal adaptativo por objetivo (100% blindado contra null/undefined)
   const formatRetorno = (item: any, obj: 'messages' | 'forms' | 'conversions' | 'reach' | 'traffic') => {
-    const directLeads = Math.max(0, Number(item?.leads || 0));
-    const leads = directLeads > 0 ? directLeads : Math.max(0, Number(item?.campanha_leads || 0));
+    const hasDirectLeads = item?.leads !== null && item?.leads !== undefined;
+    const leads = hasDirectLeads ? Math.max(0, Number(item.leads)) : Math.max(0, Number(item?.campanha_leads || 0));
 
-    const directConv = Math.max(0, Number(item?.conversas || item?.conversas_iniciadas || 0));
-    const conv = directConv > 0 ? directConv : Math.max(0, Number(item?.campanha_conversas || 0));
+    const hasDirectConv = (item?.conversas !== null && item?.conversas !== undefined) || (item?.conversas_iniciadas !== null && item?.conversas_iniciadas !== undefined);
+    const directConvVal = item?.conversas !== null && item?.conversas !== undefined ? item.conversas : item?.conversas_iniciadas;
+    const conv = hasDirectConv ? Math.max(0, Number(directConvVal)) : Math.max(0, Number(item?.campanha_conversas || 0));
 
-    const directImp = Math.max(0, Number(item?.impressoes || 0));
-    const imp = directImp > 0 ? directImp : Math.max(0, Number(item?.campanha_impressoes || 0));
+    const hasDirectImp = item?.impressoes !== null && item?.impressoes !== undefined;
+    const imp = hasDirectImp ? Math.max(0, Number(item.impressoes)) : Math.max(0, Number(item?.campanha_impressoes || 0));
 
-    const directCliques = Math.max(0, Number(item?.cliques || item?.cliques_link || 0));
-    const cliques = directCliques > 0 ? directCliques : Math.max(0, Number(item?.campanha_cliques || 0));
+    const hasDirectCliques = (item?.cliques !== null && item?.cliques !== undefined) || (item?.cliques_link !== null && item?.cliques_link !== undefined);
+    const directCliquesVal = item?.cliques !== null && item?.cliques !== undefined ? item.cliques : item?.cliques_link;
+    const cliques = hasDirectCliques ? Math.max(0, Number(directCliquesVal)) : Math.max(0, Number(item?.campanha_cliques || 0));
 
     if (obj === 'forms') {
       return {
@@ -506,25 +508,37 @@ function MidiaContent() {
 
   // Helper de custo unitário de eficiência adaptativo por objetivo (CPL, CPMsg, CPM, CPC, CPA)
   const formatCustoUnitario = (item: any, obj: 'messages' | 'forms' | 'conversions' | 'reach' | 'traffic') => {
-    const gasto = Number(item?.gasto || item?.campanha_gasto || 0);
-    const directLeads = Math.max(0, Number(item?.leads || 0));
-    const leads = directLeads > 0 ? directLeads : Math.max(0, Number(item?.campanha_leads || 0));
+    const hasDirectGasto = item?.gasto !== null && item?.gasto !== undefined;
+    const gasto = hasDirectGasto ? Number(item.gasto) : Number(item?.campanha_gasto || 0);
 
-    const directConv = Math.max(0, Number(item?.conversas || item?.conversas_iniciadas || 0));
-    const conv = directConv > 0 ? directConv : Math.max(0, Number(item?.campanha_conversas || 0));
+    const hasDirectLeads = item?.leads !== null && item?.leads !== undefined;
+    const leads = hasDirectLeads ? Math.max(0, Number(item.leads)) : Math.max(0, Number(item?.campanha_leads || 0));
 
-    const directImp = Math.max(0, Number(item?.impressoes || 0));
-    const imp = directImp > 0 ? directImp : Math.max(0, Number(item?.campanha_impressoes || 0));
+    const hasDirectConv = (item?.conversas !== null && item?.conversas !== undefined) || (item?.conversas_iniciadas !== null && item?.conversas_iniciadas !== undefined);
+    const directConvVal = item?.conversas !== null && item?.conversas !== undefined ? item.conversas : item?.conversas_iniciadas;
+    const conv = hasDirectConv ? Math.max(0, Number(directConvVal)) : Math.max(0, Number(item?.campanha_conversas || 0));
 
-    const directCliques = Math.max(0, Number(item?.cliques || item?.cliques_link || 0));
-    const cliques = directCliques > 0 ? directCliques : Math.max(0, Number(item?.campanha_cliques || 0));
+    const hasDirectImp = item?.impressoes !== null && item?.impressoes !== undefined;
+    const imp = hasDirectImp ? Math.max(0, Number(item.impressoes)) : Math.max(0, Number(item?.campanha_impressoes || 0));
+
+    const hasDirectCliques = (item?.cliques !== null && item?.cliques !== undefined) || (item?.cliques_link !== null && item?.cliques_link !== undefined);
+    const directCliquesVal = item?.cliques !== null && item?.cliques !== undefined ? item.cliques : item?.cliques_link;
+    const cliques = hasDirectCliques ? Math.max(0, Number(directCliquesVal)) : Math.max(0, Number(item?.campanha_cliques || 0));
 
     if (obj === 'forms') {
-      const cpl = item?.cpl > 0 ? Number(item.cpl) : Number(item?.campanha_cpl || 0) > 0 ? Number(item.campanha_cpl) : (leads > 0 && gasto > 0 ? gasto / leads : 0);
+      const cpl = item?.cpl !== null && item?.cpl !== undefined && Number(item.cpl) > 0
+        ? Number(item.cpl)
+        : leads > 0 && gasto > 0
+        ? gasto / leads
+        : (!hasDirectGasto && Number(item?.campanha_cpl || 0) > 0 ? Number(item.campanha_cpl) : 0);
       return { label: 'CPL', value: cpl > 0 ? formatBRL(cpl) : '—', color: 'text-cyan-700' };
     }
     if (obj === 'messages') {
-      const cpmsg = item?.custo_por_conversa > 0 ? Number(item.custo_por_conversa) : Number(item?.campanha_custo_por_conversa || 0) > 0 ? Number(item.campanha_custo_por_conversa) : (conv > 0 && gasto > 0 ? gasto / conv : 0);
+      const cpmsg = item?.custo_por_conversa !== null && item?.custo_por_conversa !== undefined && Number(item.custo_por_conversa) > 0
+        ? Number(item.custo_por_conversa)
+        : conv > 0 && gasto > 0
+        ? gasto / conv
+        : (!hasDirectGasto && Number(item?.campanha_custo_por_conversa || 0) > 0 ? Number(item.campanha_custo_por_conversa) : 0);
       return { label: 'CPMsg', value: cpmsg > 0 ? formatBRL(cpmsg) : '—', color: 'text-emerald-700' };
     }
     if (obj === 'reach') {
@@ -1409,13 +1423,18 @@ function MidiaContent() {
                                       {isAdSetExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                                     </button>
                                     <div>
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 flex-wrap">
                                         <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                                           👥 Nível 2 • Conjunto {asIdx + 1}
                                         </span>
                                         <h5 className="text-xs font-bold text-[#0F172A] hover:text-[#0050FF] transition-colors">
                                           {adset.nome}
                                         </h5>
+                                        {adset.orcamento && (
+                                          <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-medium bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1]">
+                                            💰 {adset.orcamento}
+                                          </span>
+                                        )}
                                       </div>
                                       <p className="text-[10px] text-[#64748B] mt-0.5">
                                         🎯 Segmentação: <span className="text-[#0F172A] font-mono">{adset.segmentacao}</span>
@@ -1426,17 +1445,17 @@ function MidiaContent() {
                                   <div className="flex items-center gap-3 text-xs font-mono">
                                     <span className="text-[#64748B]">
                                       Gasto:{' '}
-                                      {adset.gasto !== null && adset.gasto !== undefined && adset.gasto > 0 ? (
+                                      {adset.gasto !== null && adset.gasto !== undefined ? (
                                         <b className="text-[#0F172A]">{formatBRL(adset.gasto)}</b>
                                       ) : (
-                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]" title="Orçamento gerenciado automaticamente pela Meta no nível da campanha">CBO</span>
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]" title="Orçamento gerenciado no nível da campanha">CBO</span>
                                       )}
                                     </span>
                                     {(() => {
                                       const effectiveAsObj = metaObjectiveFilter !== 'all' ? metaObjectiveFilter : (adset.objetivo || camp.objetivo || getCampaignObjective(camp));
                                       const asRetorno = formatRetorno(adset, effectiveAsObj);
                                       const asCusto = formatCustoUnitario(adset, effectiveAsObj);
-                                      const isCboAdset = adset.gasto === null || adset.isCbo || (camp.adsets && camp.adsets.length > 1 && !adset.gasto);
+                                      const isFallbackCbo = adset.gasto === null;
 
                                       return (
                                         <>
@@ -1454,10 +1473,10 @@ function MidiaContent() {
                                                 );
                                               }}
                                               className={`${asRetorno.color} font-bold hover:underline cursor-pointer inline-flex items-center gap-1 font-mono`}
-                                              title={isCboAdset ? "Distribuição CBO gerenciada na campanha. Clique para ver contatos." : "Ver contatos deste conjunto"}
+                                              title={isFallbackCbo ? "Distribuição CBO gerenciada na campanha. Clique para ver contatos." : "Ver contatos deste conjunto"}
                                             >
                                               <span>{asRetorno.icon} {asRetorno.short}</span>
-                                              {isCboAdset && (
+                                              {isFallbackCbo && (
                                                 <span className="text-[9px] font-sans font-semibold text-[#0050FF] bg-[#EFF4FF] px-1 py-0.2 rounded border border-[#BFDBFE]">
                                                   CBO
                                                 </span>
@@ -1539,10 +1558,10 @@ function MidiaContent() {
                                         <div className="pt-2 border-t border-[#E2E8F0] flex items-center justify-between text-[11px] font-mono">
                                           <div>
                                             <span className="text-[#64748B] text-[9px] block font-sans">Gasto</span>
-                                            {criat.gasto !== null && criat.gasto !== undefined && criat.gasto > 0 ? (
+                                            {criat.gasto !== null && criat.gasto !== undefined ? (
                                               <span className="text-[#0F172A] font-bold">{formatBRL(criat.gasto)}</span>
                                             ) : (
-                                              <span className="text-[#0050FF] font-bold text-[10px] font-sans">CBO</span>
+                                              <span className="text-[#94A3B8] font-bold text-[10px] font-sans">—</span>
                                             )}
                                           </div>
                                           {(() => {
@@ -1927,7 +1946,7 @@ function MidiaContent() {
                                         <div key={as.id} className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-2">
                                           <div className="flex items-center justify-between text-xs font-bold text-[#0F172A]">
                                             <span className="truncate">{as.nome}</span>
-                                            <span className="text-[#0050FF] font-mono text-[11px]">{as.gasto !== null && as.gasto !== undefined && as.gasto > 0 ? formatBRL(as.gasto) : 'CBO'}</span>
+                                            <span className="text-[#0050FF] font-mono text-[11px]">{as.gasto !== null && as.gasto !== undefined ? formatBRL(as.gasto) : '—'}</span>
                                           </div>
                                           <div className="space-y-1">
                                             {as.criativos.map((cr: any) => (
@@ -1941,7 +1960,7 @@ function MidiaContent() {
                                                   <span className="text-[#0F172A] hover:text-[#0050FF] truncate font-medium">{cr.nome}</span>
                                                 </div>
                                                 <span className="text-[#0050FF] text-[10px] font-mono font-bold shrink-0">
-                                                  {cr.gasto !== null && cr.gasto > 0 ? formatRetorno(cr, getCampaignObjective(c)).short : "CBO"}
+                                                  {formatRetorno(cr, getCampaignObjective(c)).short}
                                                 </span>
                                               </div>
                                             ))}
@@ -2218,7 +2237,7 @@ function MidiaContent() {
                         </td>
 
                         {/* GASTO */}
-                        <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{ad.gasto !== null && ad.gasto !== undefined && ad.gasto > 0 ? formatBRL(ad.gasto) : 'CBO'}</td>
+                        <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{ad.gasto !== null && ad.gasto !== undefined ? formatBRL(ad.gasto) : '—'}</td>
 
                         {/* RETORNO ADAPTATIVO POR OBJETIVO E CPL */}
                         {(() => {
@@ -2234,7 +2253,7 @@ function MidiaContent() {
                                   title="Clique para ver os nomes e contatos capturados neste criativo"
                                 >
                                   <span>{adRet.short}</span>
-                                  {ad.isCbo && (
+                                  {ad.gasto === null && ad.isCbo && (
                                     <span className="text-[9px] font-sans font-semibold text-[#0050FF] bg-[#EFF4FF] px-1 py-0.2 rounded border border-[#BFDBFE]">CBO</span>
                                   )}
                                   <span className="text-[9px]">👁️</span>
