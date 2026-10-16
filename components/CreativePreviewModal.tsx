@@ -96,7 +96,15 @@ export default function CreativePreviewModal({
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState<'embed' | 'media'>('embed');
+  const [viewMode, setViewMode] = useState<'embed' | 'media'>('media');
+
+  const formatCtrDisplay = (val?: any) => {
+    if (val == null || val === '' || val === '—') return '—';
+    const s = String(val);
+    if (s.includes('%')) return s;
+    const n = Number(val);
+    return isNaN(n) ? s : `${n.toFixed(2)}%`;
+  };
 
   // URLs oficiais no Meta / Instagram
   const igUrl =
@@ -503,7 +511,7 @@ export default function CreativePreviewModal({
                     </span>
                   )}
                   <span className="text-xs text-[#64748B] font-mono">
-                    CTR: <b className="text-[#0F172A]">{creative.ctr || '—'}</b>
+                    CTR: <b className="text-[#0F172A]">{formatCtrDisplay(creative.ctr)}</b>
                   </span>
                 </div>
               </div>
@@ -596,7 +604,7 @@ export default function CreativePreviewModal({
 
                       <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
                         <span className="text-[10px] text-[#64748B] font-semibold uppercase">CTR</span>
-                        <div className="text-sm font-bold text-[#0F172A] font-mono">{cCtr ? (cCtr.includes('%') ? cCtr : `${cCtr}%`) : '—'}</div>
+                        <div className="text-sm font-bold text-[#0F172A] font-mono">{formatCtrDisplay(cCtr)}</div>
                       </div>
                     </div>
                   </div>
