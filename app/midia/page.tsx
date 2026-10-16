@@ -1399,35 +1399,57 @@ function MidiaContent() {
                                   </div>
 
                                   <div className="flex items-center gap-3 text-xs font-mono">
-                                    <span className="text-[#64748B]">Gasto: <b className="text-[#0F172A]">{adset.gasto !== null && adset.gasto !== undefined && adset.gasto > 0 ? formatBRL(adset.gasto) : 'CBO'}</b></span>
+                                    <span className="text-[#64748B]">
+                                      Gasto:{' '}
+                                      {adset.gasto !== null && adset.gasto !== undefined && adset.gasto > 0 ? (
+                                        <b className="text-[#0F172A]">{formatBRL(adset.gasto)}</b>
+                                      ) : (
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#EFF4FF] text-[#0050FF] border border-[#BFDBFE]" title="Orçamento gerenciado automaticamente pela Meta no nível da campanha">CBO</span>
+                                      )}
+                                    </span>
                                     {(() => {
                                       const effectiveAsObj = metaObjectiveFilter !== 'all' ? metaObjectiveFilter : (adset.objetivo || camp.objetivo || getCampaignObjective(camp));
                                       const asRetorno = formatRetorno(adset, effectiveAsObj);
                                       const asCusto = formatCustoUnitario(adset, effectiveAsObj);
+                                      const isCboAdset = adset.gasto === null || adset.isCbo || (camp.adsets && camp.adsets.length > 1 && !adset.gasto);
 
                                       return (
                                         <>
                                           <span className="text-[#64748B] border-l border-[#E2E8F0] pl-3">
                                             Retorno:{' '}
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                openLeadsDrilldown(
-                                                  `${adset.nome} • ${camp.nome}`,
-                                                  asRetorno.type === 'form' ? 'form' : 'whatsapp',
-                                                  asRetorno.count,
-                                                  { conjunto: adset.nome, campanha: camp.nome }
-                                                );
-                                              }}
-                                              className={`${asRetorno.color} font-bold hover:underline cursor-pointer`}
-                                              title="Ver contatos deste conjunto sincronizados do Kommo"
-                                            >
-                                              {asRetorno.icon} {asRetorno.short}
-                                            </button>
+                                            {isCboAdset ? (
+                                              <span className="text-[10px] font-medium text-[#0050FF] bg-[#EFF4FF] px-1.5 py-0.5 rounded border border-[#BFDBFE] font-sans" title="A distribuição entre públicos é otimizada dinamicamente pelo algoritmo da Meta">
+                                                Distribuição CBO
+                                              </span>
+                                            ) : (
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  openLeadsDrilldown(
+                                                    `${adset.nome} • ${camp.nome}`,
+                                                    asRetorno.type === 'form' ? 'form' : 'whatsapp',
+                                                    asRetorno.count,
+                                                    { conjunto: adset.nome, campanha: camp.nome }
+                                                  );
+                                                }}
+                                                className={`${asRetorno.color} font-bold hover:underline cursor-pointer`}
+                                                title="Ver contatos deste conjunto sincronizados do Kommo"
+                                              >
+                                                {asRetorno.icon} {asRetorno.short}
+                                              </button>
+                                            )}
                                           </span>
                                           <span className="text-[#64748B] border-l border-[#E2E8F0] pl-3">
-                                            {asCusto.label}: <b className={asCusto.color}>{asCusto.value}</b>
+                                            {asCusto.label}:{' '}
+                                            {isCboAdset ? (
+                                              <b className="text-[#0F172A]">
+                                                {camp.custo_por_conversa > 0 ? formatBRL(camp.custo_por_conversa) : camp.custo_por_lead > 0 ? formatBRL(camp.custo_por_lead) : '—'}{' '}
+                                                <span className="text-[9px] font-normal text-[#64748B]">(Campanha)</span>
+                                              </b>
+                                            ) : (
+                                              <b className={asCusto.color}>{asCusto.value}</b>
+                                            )}
                                           </span>
                                         </>
                                       );
@@ -1500,7 +1522,11 @@ function MidiaContent() {
                                         <div className="pt-2 border-t border-[#E2E8F0] flex items-center justify-between text-[11px] font-mono">
                                           <div>
                                             <span className="text-[#64748B] text-[9px] block font-sans">Gasto</span>
-                                            <span className="text-[#0F172A] font-bold">{criat.gasto !== null && criat.gasto !== undefined && criat.gasto > 0 ? formatBRL(criat.gasto) : '—'}</span>
+                                            {criat.gasto !== null && criat.gasto !== undefined && criat.gasto > 0 ? (
+                                              <span className="text-[#0F172A] font-bold">{formatBRL(criat.gasto)}</span>
+                                            ) : (
+                                              <span className="text-[#0050FF] font-bold text-[10px] font-sans">CBO</span>
+                                            )}
                                           </div>
                                           {(() => {
                                             const effectiveCrObj = metaObjectiveFilter !== 'all' ? metaObjectiveFilter : (criat.objetivo || adset.objetivo || getCampaignObjective(camp));
@@ -1898,7 +1924,7 @@ function MidiaContent() {
                                                   <span className="text-[#0F172A] hover:text-[#0050FF] truncate font-medium">{cr.nome}</span>
                                                 </div>
                                                 <span className="text-[#0050FF] text-[10px] font-mono font-bold shrink-0">
-                                                  {formatRetorno(cr, getCampaignObjective(c)).short}
+                                                  {cr.gasto !== null && cr.gasto > 0 ? formatRetorno(cr, getCampaignObjective(c)).short : "CBO"}
                                                 </span>
                                               </div>
                                             ))}
@@ -1977,14 +2003,18 @@ function MidiaContent() {
                             <td className="py-3 px-4 font-mono text-[#475569]">{as.orcamento}</td>
                             <td className="py-3 px-4 font-mono font-bold text-[#0F172A]">{as.gasto !== null && as.gasto !== undefined && as.gasto > 0 ? formatBRL(as.gasto) : 'CBO'}</td>
                             <td className="py-3 px-4 font-mono font-bold text-[#0050FF]">
-                              <button
-                                onClick={() => openLeadsDrilldown(`${as.nome} • ${as.campanhaNome}`, as.leads > 0 ? 'form' : 'whatsapp', as.leads || as.conversas || 0, { conjunto: as.nome, campanha: as.campanhaNome })}
-                                className="hover:underline transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
-                                title="Clique para ver os nomes e contatos capturados neste público"
-                              >
-                                <span>{as.leads > 0 ? `${as.leads} leads` : as.conversas > 0 ? `${as.conversas} conversas` : '—'}</span>
-                                <span className="text-[9px]">👁️</span>
-                              </button>
+                              {as.gasto !== null && as.gasto !== undefined && as.gasto > 0 ? (
+                                <button
+                                  onClick={() => openLeadsDrilldown(`${as.nome} • ${as.campanhaNome}`, as.leads > 0 ? 'form' : 'whatsapp', as.leads || as.conversas || 0, { conjunto: as.nome, campanha: as.campanhaNome })}
+                                  className="hover:underline transition-colors flex items-center gap-1 cursor-pointer font-bold font-mono"
+                                  title="Clique para ver os nomes e contatos capturados neste público"
+                                >
+                                  <span>{as.leads > 0 ? `${as.leads} leads` : as.conversas > 0 ? `${as.conversas} conversas` : '—'}</span>
+                                  <span className="text-[9px]">👁️</span>
+                                </button>
+                              ) : (
+                                <span className="text-[#64748B] text-[11px] font-sans font-medium" title="Otimização automática gerenciada pela Meta">Distribuição CBO</span>
+                              )}
                             </td>
                             <td className="py-3 px-4 font-mono text-[#475569]">{as.ctr || '—'}</td>
                             <td className="py-3 px-4">

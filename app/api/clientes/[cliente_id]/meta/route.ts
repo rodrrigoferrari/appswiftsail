@@ -209,7 +209,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
 
         const adsets = Array.from(adsetsMap.values());
 
-        // Atribuição de métricas para conjuntos e criativos que veicularam no período:
+        // Atribuição de métricas respeitando integridade de dados reais:
+        // 1. Se a campanha possui apenas 1 conjunto: 100% da métrica pertence a ele
         if (adsets.length === 1) {
           const onlyAdset = adsets[0];
           onlyAdset.gasto = c.gasto;
@@ -218,6 +219,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
           onlyAdset.cliques = c.cliques;
           onlyAdset.impressoes = c.impressoes;
           onlyAdset.ctr = c.impressoes > 0 ? Number(((c.cliques / c.impressoes) * 100).toFixed(2)) : 0;
+          onlyAdset.isCbo = false;
 
           if (onlyAdset.criativos.length === 1) {
             const onlyCreative = onlyAdset.criativos[0];
@@ -229,41 +231,46 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
             onlyCreative.ctr = onlyAdset.ctr;
             onlyCreative.cpl = c.leads > 0 ? Number((c.gasto / c.leads).toFixed(2)) : 0;
             onlyCreative.custo_por_conversa = c.conversas_iniciadas > 0 ? Number((c.gasto / c.conversas_iniciadas).toFixed(2)) : 0;
+            onlyCreative.isCbo = false;
           } else {
-            const numCr = onlyAdset.criativos.length || 1;
+            // Múltiplos criativos no conjunto único: a entrega é otimizada pela Meta
             onlyAdset.criativos.forEach((cr: any) => {
-              cr.gasto = Number((c.gasto / numCr).toFixed(2));
-              cr.leads = Math.round(c.leads / numCr);
-              cr.conversas = Math.round(c.conversas_iniciadas / numCr);
-              cr.cliques = Math.round(c.cliques / numCr);
-              cr.impressoes = Math.round(c.impressoes / numCr);
+              cr.gasto = null;
+              cr.leads = null;
+              cr.conversas = null;
+              cr.cliques = null;
+              cr.impressoes = null;
               cr.ctr = onlyAdset.ctr;
-              cr.cpl = cr.leads > 0 ? Number((cr.gasto / cr.leads).toFixed(2)) : 0;
-              cr.custo_por_conversa = cr.conversas > 0 ? Number((cr.gasto / cr.conversas).toFixed(2)) : 0;
+              cr.cpl = null;
+              cr.custo_por_conversa = null;
+              cr.isCbo = true;
             });
           }
         } else if (adsets.length > 1) {
-          const numAs = adsets.length;
+          // 2. Múltiplos conjuntos (CBO / Advantage Campaign Budget):
+          // O leilão da Meta aloca o orçamento de forma dinâmica no nível de campanha.
+          // Nunca dividir artificialmente por N (ex: R$ 266 / 3) para não gerar métricas falsas.
           const campCtr = c.impressoes > 0 ? Number(((c.cliques / c.impressoes) * 100).toFixed(2)) : 0;
 
           adsets.forEach((as) => {
-            as.gasto = Number((c.gasto / numAs).toFixed(2));
-            as.leads = Math.round(c.leads / numAs);
-            as.conversas = Math.round(c.conversas_iniciadas / numAs);
-            as.cliques = Math.round(c.cliques / numAs);
-            as.impressoes = Math.round(c.impressoes / numAs);
+            as.gasto = null;
+            as.leads = null;
+            as.conversas = null;
+            as.cliques = null;
+            as.impressoes = null;
             as.ctr = campCtr;
+            as.isCbo = true;
 
-            const numCr = as.criativos.length || 1;
             as.criativos.forEach((cr: any) => {
-              cr.gasto = Number((as.gasto / numCr).toFixed(2));
-              cr.leads = Math.round(as.leads / numCr);
-              cr.conversas = Math.round(as.conversas / numCr);
-              cr.cliques = Math.round(as.cliques / numCr);
-              cr.impressoes = Math.round(as.impressoes / numCr);
+              cr.gasto = null;
+              cr.leads = null;
+              cr.conversas = null;
+              cr.cliques = null;
+              cr.impressoes = null;
               cr.ctr = campCtr;
-              cr.cpl = cr.leads > 0 ? Number((cr.gasto / cr.leads).toFixed(2)) : 0;
-              cr.custo_por_conversa = cr.conversas > 0 ? Number((cr.gasto / cr.conversas).toFixed(2)) : 0;
+              cr.cpl = null;
+              cr.custo_por_conversa = null;
+              cr.isCbo = true;
             });
           });
         }
