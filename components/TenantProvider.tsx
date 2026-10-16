@@ -51,17 +51,107 @@ export function TenantProvider({
   const [mappings, setMappings] = useState<GroupAdMapping[]>([]);
   const [contasAds, setContasAds] = useState<ContaAdsPainel[] | null>(null);
   const [csStatusList, setCsStatusList] = useState<CsStatus[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState<string>('ALL');
-  const [viewMode, setViewMode] = useState<'admin' | 'client'>('admin');
+  const [selectedClientId, setSelectedClientId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('swiftsail_selected_client_id');
+        if (saved) return saved;
+      } catch {}
+    }
+    return 'ALL';
+  });
+
+  const [viewMode, setViewMode] = useState<'admin' | 'client'>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('swiftsail_view_mode') as 'admin' | 'client' | null;
+        if (saved === 'admin' || saved === 'client') return saved;
+      } catch {}
+    }
+    return 'admin';
+  });
+
   const [users, setUsers] = useState<AppUser[]>([]);
   const [invites, setInvites] = useState<UserInvite[]>([]);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [isAuthChecked, setIsAuthChecked] = useState<boolean>(false);
-  const [dateRange, setDateRange] = useState(() => ({
-    start: diasAtrasBRT(29),
-    end: hojeBRT(),
-    label: 'Últimos 30 Dias',
-  }));
+  const [dateRange, setDateRange] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('swiftsail_date_range');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.start && parsed.end && parsed.label) {
+            return parsed;
+          }
+        }
+      } catch {}
+    }
+    return {
+      start: diasAtrasBRT(29),
+      end: hojeBRT(),
+      label: 'Últimos 30 Dias',
+    };
+  });
+
+  const [isReady, setIsReady] = useState(false);
+
+  // 1. Carrega do localStorage de forma garantida no primeiro ciclo do navegador
+  useEffect(() => {
+    try {
+      const savedClientId = localStorage.getItem('swiftsail_selected_client_id');
+      if (savedClientId) {
+        setSelectedClientId(savedClientId);
+      }
+
+      const savedViewMode = localStorage.getItem('swiftsail_view_mode') as 'admin' | 'client' | null;
+      if (savedViewMode === 'admin' || savedViewMode === 'client') {
+        setViewMode(savedViewMode);
+      }
+
+      const savedDateRange = localStorage.getItem('swiftsail_date_range');
+      if (savedDateRange) {
+        const parsed = JSON.parse(savedDateRange);
+        if (parsed && parsed.start && parsed.end && parsed.label) {
+          setDateRange(parsed);
+        }
+      }
+    } catch (err) {
+      console.warn('[TenantProvider] Falha ao hidratar filtros:', err);
+    } finally {
+      setIsReady(true);
+    }
+  }, []);
+
+  // 2. Persiste selectedClientId APENAS após a carga inicial estar concluída
+  useEffect(() => {
+    if (!isReady) return;
+    if (typeof window !== 'undefined' && selectedClientId) {
+      try {
+        localStorage.setItem('swiftsail_selected_client_id', selectedClientId);
+      } catch {}
+    }
+  }, [selectedClientId, isReady]);
+
+  // 3. Persiste viewMode APENAS após a carga inicial estar concluída
+  useEffect(() => {
+    if (!isReady) return;
+    if (typeof window !== 'undefined' && viewMode) {
+      try {
+        localStorage.setItem('swiftsail_view_mode', viewMode);
+      } catch {}
+    }
+  }, [viewMode, isReady]);
+
+  // 4. Persiste dateRange APENAS após a carga inicial estar concluída
+  useEffect(() => {
+    if (!isReady) return;
+    if (typeof window !== 'undefined' && dateRange) {
+      try {
+        localStorage.setItem('swiftsail_date_range', JSON.stringify(dateRange));
+      } catch {}
+    }
+  }, [dateRange, isReady]);
 
   // Carrega usuário autenticado do localStorage e cookies, e valida em segundo plano com Supabase /api/auth/me
   useEffect(() => {
@@ -277,6 +367,16 @@ export function TenantProvider({
       setViewMode('client');
     }
   }, [pathname, clients]);
+
+  // Salva a última página visualizada para evitar perda de tela em recarregamentos
+  useEffect(() => {
+    if (typeof window !== 'undefined' && pathname && pathname !== '/login' && pathname !== '/') {
+      try {
+        const fullPath = window.location.pathname + window.location.search;
+        localStorage.setItem('swiftsail_last_path', fullPath);
+      } catch {}
+    }
+  }, [pathname]);
 
   const refreshUsers = async (targetClientId?: string) => {
     try {

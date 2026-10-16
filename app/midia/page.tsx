@@ -57,12 +57,52 @@ function MidiaContent() {
   const [selectedCreativeModal, setSelectedCreativeModal] = useState<CreativePreviewItem | null>(null);
   const [selectedGoogleAdModal, setSelectedGoogleAdModal] = useState<any | null>(null);
 
+  // Hidrata filtros internos de mídia a partir do localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const savedLevel = localStorage.getItem('swiftsail_midia_meta_level');
+      if (savedLevel && ['tree', 'campaigns', 'adsets', 'ads'].includes(savedLevel)) {
+        setMetaLevel(savedLevel as any);
+      }
+
+      const savedStatus = localStorage.getItem('swiftsail_midia_status_filter');
+      if (savedStatus && ['all', 'active', 'paused'].includes(savedStatus)) {
+        setStatusFilter(savedStatus as any);
+      }
+
+      const savedObjective = localStorage.getItem('swiftsail_midia_meta_objective');
+      if (savedObjective && ['all', 'messages', 'forms', 'conversions', 'reach', 'traffic'].includes(savedObjective)) {
+        setMetaObjectiveFilter(savedObjective as any);
+      }
+    } catch {}
+  }, []);
+
+  // Persiste filtros sempre que o usuário alternar
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('swiftsail_midia_meta_level', metaLevel);
+        localStorage.setItem('swiftsail_midia_status_filter', statusFilter);
+        localStorage.setItem('swiftsail_midia_meta_objective', metaObjectiveFilter);
+      } catch {}
+    }
+  }, [metaLevel, statusFilter, metaObjectiveFilter]);
+
   useEffect(() => {
     const plat = searchParams?.get('plataforma');
     const tab = searchParams?.get('tab');
     if (plat === 'meta' || plat === 'google') {
       setActivePlatformTab(plat);
+    } else if (typeof window !== 'undefined') {
+      try {
+        const savedPlat = localStorage.getItem('swiftsail_midia_platform');
+        if (savedPlat === 'meta' || savedPlat === 'google') {
+          setActivePlatformTab(savedPlat);
+        }
+      } catch {}
     }
+
     if (plat === 'meta' || !plat) {
       if (tab === 'contas') {
         setMetaSubTab('contas');
@@ -86,6 +126,15 @@ function MidiaContent() {
       }
     }
   }, [searchParams]);
+
+  // Persiste a plataforma ativa
+  useEffect(() => {
+    if (typeof window !== 'undefined' && activePlatformTab) {
+      try {
+        localStorage.setItem('swiftsail_midia_platform', activePlatformTab);
+      } catch {}
+    }
+  }, [activePlatformTab]);
 
   const currentModuleTitle = useMemo(() => {
     if (activePlatformTab === 'meta') {

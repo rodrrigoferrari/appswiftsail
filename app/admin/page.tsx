@@ -30,8 +30,7 @@ export default function AdminHQPage() {
   // Assegura que o modo Admin está ativado ao acessar esta página
   useEffect(() => {
     setViewMode('admin');
-    setSelectedClientId('ALL');
-  }, [setViewMode, setSelectedClientId]);
+  }, [setViewMode]);
 
   // Contadores
   const totalClients = clients.length;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTenant } from '@/components/TenantProvider';
 import {
@@ -24,7 +24,35 @@ function CriativosContent() {
   const { selectedClientId, activeClient, currentUser, isMasterAdmin, availableClients, clients } = useTenant();
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab');
-  const activeModule: 'criativos' | 'landing_page' = tabParam === 'criativos' ? 'criativos' : 'landing_page';
+  const [activeModule, setActiveModule] = useState<'criativos' | 'landing_page'>(() => {
+    if (tabParam === 'criativos' || tabParam === 'landing_page') return tabParam;
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('swiftsail_criativos_tab');
+        if (saved === 'criativos' || saved === 'landing_page') return saved as any;
+      } catch {}
+    }
+    return 'landing_page';
+  });
+
+  useEffect(() => {
+    if (tabParam === 'criativos' || tabParam === 'landing_page') {
+      setActiveModule(tabParam);
+    }
+  }, [tabParam]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && activeModule) {
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('tab') !== activeModule) {
+          url.searchParams.set('tab', activeModule);
+          window.history.replaceState(null, '', url.toString());
+        }
+        localStorage.setItem('swiftsail_criativos_tab', activeModule);
+      } catch {}
+    }
+  }, [activeModule]);
 
   // Para cliente comum, NUNCA expõe 'Todos os Clientes'
   const effectiveClientId = !isMasterAdmin

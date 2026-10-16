@@ -53,7 +53,31 @@ export default function DashboardPage() {
     if (!isAuthChecked) return;
 
     if (currentUser) {
+      // 1. Tenta restaurar a última página que o usuário estava visualizando antes de atualizar
+      try {
+        const lastPath = localStorage.getItem('swiftsail_last_path');
+        if (
+          lastPath &&
+          lastPath !== '/' &&
+          lastPath !== '/login' &&
+          !lastPath.startsWith('/login')
+        ) {
+          router.replace(lastPath);
+          return;
+        }
+      } catch {}
+
       if (currentUser.role === 'master_admin') {
+        const savedViewMode = typeof window !== 'undefined' ? localStorage.getItem('swiftsail_view_mode') : null;
+        if (savedViewMode === 'client') {
+          const savedClientId = typeof window !== 'undefined' ? localStorage.getItem('swiftsail_selected_client_id') : null;
+          if (savedClientId && savedClientId !== 'ALL') {
+            router.replace(`/client/${savedClientId.toLowerCase().replace(/_/g, '-')}`);
+            return;
+          }
+          router.replace('/client');
+          return;
+        }
         router.replace('/admin');
       } else if (currentUser.cliente_id) {
         router.replace(`/client/${currentUser.cliente_id.toLowerCase().replace(/_/g, '-')}`);

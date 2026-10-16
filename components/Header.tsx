@@ -57,7 +57,8 @@ export default function Header({ onToggleMobileMenu }: HeaderProps) {
     const target = clients.find((c) => c.cliente_id === newClientId);
     if (target) {
       const slug = getClientSlug(target);
-      if (pathname.startsWith('/client/')) {
+      if (pathname === '/admin' || pathname === '/admin/clientes' || pathname.startsWith('/client/')) {
+        setViewMode('client');
         router.push(`/client/${slug}`);
       } else if (pathname.startsWith('/admin/client/')) {
         router.push(`/admin/client/${slug}`);

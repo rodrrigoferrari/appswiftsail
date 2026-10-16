@@ -56,23 +56,40 @@ function WhatsAppContent() {
   const { selectedClientId, activeClient, currentUser, isMasterAdmin, availableClients, clients } = useTenant();
 
   const urlTab = searchParams?.get('tab');
-  const [subTab, setSubTab] = useState<'conexao' | 'grupos' | 'disparos' | 'ligacoes' | 'tracking'>(
-    urlTab === 'grupos'
-      ? 'grupos'
-      : urlTab === 'disparos'
-      ? 'disparos'
-      : urlTab === 'ligacoes'
-      ? 'ligacoes'
-      : urlTab === 'tracking'
-      ? 'tracking'
-      : 'conexao'
-  );
+  const [subTab, setSubTab] = useState<'conexao' | 'grupos' | 'disparos' | 'ligacoes' | 'tracking'>(() => {
+    if (urlTab === 'grupos' || urlTab === 'disparos' || urlTab === 'ligacoes' || urlTab === 'tracking' || urlTab === 'conexao') {
+      return urlTab;
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('swiftsail_whatsapp_tab') as any;
+        if (saved && ['conexao', 'grupos', 'disparos', 'ligacoes', 'tracking'].includes(saved)) {
+          return saved;
+        }
+      } catch {}
+    }
+    return 'conexao';
+  });
 
   useEffect(() => {
     if (urlTab === 'grupos' || urlTab === 'disparos' || urlTab === 'ligacoes' || urlTab === 'tracking' || urlTab === 'conexao') {
       setSubTab(urlTab);
     }
   }, [urlTab]);
+
+  // Mantém a URL (query string ?tab=...) e o localStorage perfeitamente sincronizados
+  useEffect(() => {
+    if (typeof window !== 'undefined' && subTab) {
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('tab') !== subTab) {
+          url.searchParams.set('tab', subTab);
+          window.history.replaceState(null, '', url.toString());
+        }
+        localStorage.setItem('swiftsail_whatsapp_tab', subTab);
+      } catch {}
+    }
+  }, [subTab]);
 
   // Para cliente comum, targetId NUNCA é 'swiftsail'. É SEMPRE o cliente_id do cliente atribuído!
   const effectiveClientId = !isMasterAdmin

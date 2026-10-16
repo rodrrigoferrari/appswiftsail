@@ -71,6 +71,38 @@ export default function AdminUsuariosPage() {
   const [clientFilter, setClientFilter] = useState('ALL');
   const [roleFilter, setRoleFilter] = useState('ALL');
 
+  // Hidrata a aba ativa com base na URL ou localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      const tabParam = url.searchParams.get('tab');
+      if (tabParam === 'invites' || tabParam === 'users') {
+        setActiveTab(tabParam);
+      } else {
+        try {
+          const saved = localStorage.getItem('swiftsail_usuarios_tab');
+          if (saved === 'invites' || saved === 'users') {
+            setActiveTab(saved);
+          }
+        } catch {}
+      }
+    }
+  }, []);
+
+  // Mantém a aba ativa sincronizada na URL e no localStorage ao alternar
+  useEffect(() => {
+    if (typeof window !== 'undefined' && activeTab) {
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('tab') !== activeTab) {
+          url.searchParams.set('tab', activeTab);
+          window.history.replaceState(null, '', url.toString());
+        }
+        localStorage.setItem('swiftsail_usuarios_tab', activeTab);
+      } catch {}
+    }
+  }, [activeTab]);
+
   // Ao montar ou mudar o workspace de cliente, atualiza os dados restritos
   useEffect(() => {
     if (isClientView && effectiveClientId) {
