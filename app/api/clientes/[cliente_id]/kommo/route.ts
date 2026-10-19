@@ -114,6 +114,53 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
       }
     }
 
+    // Se a consulta foi para um cliente filho (ex: GONZAGA_AMST com pai REALIZACOES_GONZAGA),
+    // isola os leads da conta compartilhada apenas para o empreendimento correspondente
+    if (cliente_id.toUpperCase() !== 'ALL') {
+      try {
+        const { data: clientInfo } = await supabaseAdmin
+          .from('clientes')
+          .select('cliente_id, nome, parent_cliente_id')
+          .eq('cliente_id', cliente_id.toUpperCase())
+          .maybeSingle();
+
+        if (clientInfo?.parent_cliente_id) {
+          const { data: parentInfo } = await supabaseAdmin
+            .from('clientes')
+            .select('cliente_id, nome')
+            .eq('cliente_id', clientInfo.parent_cliente_id)
+            .maybeSingle();
+
+          const parentWords = new Set(
+            ((parentInfo?.nome || '') + ' ' + (parentInfo?.cliente_id || ''))
+              .toLowerCase()
+              .split(/[\s_]+/)
+              .filter(Boolean)
+          );
+
+          const childTokens = ((clientInfo.nome || '') + ' ' + clientInfo.cliente_id)
+            .toLowerCase()
+            .split(/[\s_]+/)
+            .filter((w) => w && !parentWords.has(w));
+
+          if (childTokens.length > 0) {
+            allRows = allRows.filter((r) => {
+              if (r.cliente_id && r.cliente_id.toUpperCase() === clientInfo.cliente_id.toUpperCase()) {
+                return true;
+              }
+              const camp = (r.campanha_nome || r.utm_campaign || '').toLowerCase();
+              const orig = (r.origem && !r.origem.includes('Busca Paga') ? r.origem : '').toLowerCase();
+              const pub = (r.publico || '').toLowerCase();
+              const combined = `${camp} ${orig} ${pub}`;
+              return childTokens.some((tok) => combined.includes(tok));
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[Kommo Route] Erro ao filtrar leads por conta filha:', err);
+      }
+    }
+
     // 3. Contabilização dos funis (todos os funis disponíveis para o seletor)
     const isMultiClient = ids.length > 1;
     const funisContagemMap = new Map<

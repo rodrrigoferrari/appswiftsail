@@ -304,49 +304,66 @@ function MidiaContent() {
           ? { filterTerm: filterCriteria }
           : filterCriteria || {};
 
-      const term = normalize(options.filterTerm || title);
       const optCamp = normalize(options.campanha);
       const optCriat = normalize(options.criativo);
       const optConj = normalize(options.conjunto);
+      const optTerm = normalize(options.filterTerm);
 
       let filtered = kommoData.leads_amostra.filter((l: any) => {
         const lCamp = normalize(l.campanha);
         const lCriat = normalize(l.criativo);
         const lConj = normalize(l.conjunto);
+        const lOrigem = normalize(l.origem);
 
-        // Se especificou criativo exato
-        if (optCriat && lCriat && (lCriat.includes(optCriat) || optCriat.includes(lCriat))) {
-          return true;
-        }
-        // Se especificou conjunto exato
-        if (optConj && lConj && (lConj.includes(optConj) || optConj.includes(lConj))) {
-          return true;
-        }
-        // Se especificou campanha exata
-        if (optCamp && lCamp && (lCamp.includes(optCamp) || optCamp.includes(lCamp))) {
-          return true;
+        // 1. Validação estrita de Campanha se informada
+        if (optCamp) {
+          const campMatches =
+            (lCamp && (lCamp.includes(optCamp) || optCamp.includes(lCamp))) ||
+            (lOrigem && lOrigem.includes(optCamp)) ||
+            (lCriat && lCriat.includes(optCamp));
+
+          if (!campMatches) return false;
         }
 
-        // Busca flexível pelo termo geral
-        if (term) {
-          if (lCriat && (lCriat.includes(term) || term.includes(lCriat))) return true;
-          if (lCamp && (lCamp.includes(term) || term.includes(lCamp))) return true;
-          if (lConj && (lConj.includes(term) || term.includes(lConj))) return true;
+        // 2. Se informou criativo específico
+        if (optCriat) {
+          const criatExact = lCriat === optCriat;
+          const criatIncludes = lCriat && (lCriat.includes(optCriat) || (lCriat.length >= 8 && optCriat.includes(lCriat)));
+          if (!criatExact && !criatIncludes) return false;
         }
 
-        return false;
+        // 3. Se informou conjunto (quando criativo não foi informado)
+        if (optConj && !optCriat) {
+          const conjMatches = lConj && (lConj.includes(optConj) || optConj.includes(lConj));
+          if (!conjMatches) return false;
+        }
+
+        // 4. Se for busca por termo genérico (quando nem criativo nem campanha foram dados)
+        if (optTerm && !optCamp && !optCriat && !optConj) {
+          const termMatches =
+            (lCriat && (lCriat.includes(optTerm) || optTerm.includes(lCriat))) ||
+            (lCamp && (lCamp.includes(optTerm) || optTerm.includes(lCamp))) ||
+            (lConj && (lConj.includes(optTerm) || optTerm.includes(lConj)));
+          if (!termMatches) return false;
+        }
+
+        return true;
       });
 
-      // Se a filtragem específica não retornou (ex: variações de UTM do criativo), tenta fallback por campanha
-      if (filtered.length === 0 && optCamp) {
+      // Se filtrou por criativo e não encontrou correspondência exata de UTM de anúncio,
+      // tenta fallback estritamente DENTRO DA MESMA CAMPANHA e CONJUNTO (evita vazar outras campanhas)
+      if (filtered.length === 0 && optCamp && optCriat && optConj) {
         filtered = kommoData.leads_amostra.filter((l: any) => {
           const lCamp = normalize(l.campanha);
-          return lCamp && (lCamp.includes(optCamp) || optCamp.includes(lCamp));
+          const lConj = normalize(l.conjunto);
+          const campMatches = lCamp && (lCamp.includes(optCamp) || optCamp.includes(lCamp));
+          if (!campMatches) return false;
+          return lConj && (lConj.includes(optConj) || optConj.includes(lConj));
         });
       }
 
-      // Se ainda não encontrou e o termo geral falhou, usa a amostra do período do cliente
-      const list = filtered.length > 0 ? filtered : kommoData.leads_amostra;
+      // NUNCA faz fallback para kommoData.leads_amostra inteira (evita vazar leads de outras campanhas ou datas)
+      const list = filtered;
 
       initialLeads = list.map((l: any, i: number) => {
         const urlFinal =
@@ -2297,7 +2314,7 @@ function MidiaContent() {
                             <>
                               <td className="py-3 px-4 font-mono font-bold text-[#0050FF]">
                                 <button
-                                  onClick={() => openLeadsDrilldown(`${ad.nome} • ${ad.adset}`, adRet.type === 'form' ? 'form' : 'whatsapp', adRet.count, { criativo: ad.nome, conjunto: ad.adset })}
+                                  onClick={() => openLeadsDrilldown(`${ad.nome} • ${ad.adset}`, adRet.type === 'form' ? 'form' : 'whatsapp', adRet.count, { criativo: ad.nome, conjunto: ad.adset, campanha: ad.campanha })}
                                   className="hover:underline transition-colors flex items-center gap-1.5 cursor-pointer font-bold font-mono"
                                   title="Clique para ver os nomes e contatos capturados neste criativo"
                                 >

@@ -3,8 +3,42 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Cliente, GroupAdAccount, GroupAdMapping, CsStatus, AppUser, UserInvite, ContaAdsPainel, UserModulePermission } from '@/types/database';
-import { hojeBRT, diasAtrasBRT } from '@/lib/date';
+import { hojeBRT, diasAtrasBRT, ontemBRT, semanaAtualBRT, semanaPassadaBRT, mesAtualBRT, mesPassadoBRT } from '@/lib/date';
 import { findClientBySlug } from '@/lib/clientSlug';
+
+function refreshPresetDateRange(dr: { start: string; end: string; label: string } | null | undefined) {
+  if (!dr || !dr.label) {
+    return {
+      start: diasAtrasBRT(29),
+      end: hojeBRT(),
+      label: 'Últimos 30 Dias',
+    };
+  }
+  if (dr.label === 'Ontem') {
+    const ont = ontemBRT();
+    return { start: ont, end: ont, label: 'Ontem' };
+  }
+  if (dr.label === 'Semana atual') {
+    const sa = semanaAtualBRT();
+    return { start: sa.start, end: sa.end, label: 'Semana atual' };
+  }
+  if (dr.label === 'Semana passada') {
+    const sp = semanaPassadaBRT();
+    return { start: sp.start, end: sp.end, label: 'Semana passada' };
+  }
+  if (dr.label === 'Mês atual') {
+    const ma = mesAtualBRT();
+    return { start: ma.start, end: ma.end, label: 'Mês atual' };
+  }
+  if (dr.label === 'Mês passado') {
+    const mp = mesPassadoBRT();
+    return { start: mp.start, end: mp.end, label: 'Mês passado' };
+  }
+  if (dr.label === 'Últimos 30 Dias') {
+    return { start: diasAtrasBRT(29), end: hojeBRT(), label: 'Últimos 30 Dias' };
+  }
+  return dr;
+}
 
 interface TenantContextType {
   selectedClientId: string;
@@ -82,7 +116,7 @@ export function TenantProvider({
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed && parsed.start && parsed.end && parsed.label) {
-            return parsed;
+            return refreshPresetDateRange(parsed);
           }
         }
       } catch {}
@@ -113,7 +147,7 @@ export function TenantProvider({
       if (savedDateRange) {
         const parsed = JSON.parse(savedDateRange);
         if (parsed && parsed.start && parsed.end && parsed.label) {
-          setDateRange(parsed);
+          setDateRange(refreshPresetDateRange(parsed));
         }
       }
     } catch (err) {
