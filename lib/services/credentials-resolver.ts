@@ -199,14 +199,18 @@ export async function getUazapiCredentialsForClient(
           const instances = await res.json();
           if (Array.isArray(instances)) {
             const cleanTarget = targetClient.toLowerCase().replace(/[^a-z0-9]/g, '');
-            // Prioridade 1: Match por nome do cliente na instância (ignora instâncias de notificações/master da agência se for cliente)
+            // Prioridade 1: Match por nome do cliente na instância (ignora instâncias com adminField01 === 'admin' ou notificações/master da agência se for cliente)
             const matched = instances.find((inst: any) => {
-              const cleanName = (inst.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
               if (targetClient !== 'swiftsail') {
+                if ((inst.adminField01 || '').toLowerCase().trim() === 'admin') {
+                  return false;
+                }
+                const cleanName = (inst.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
                 if (cleanName.includes('notificac') || (cleanName.includes('swiftsail') && !cleanName.includes(cleanTarget))) {
                   return false;
                 }
               }
+              const cleanName = (inst.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
               return cleanName.includes(cleanTarget) || (cleanTarget.length > 4 && cleanTarget.includes(cleanName));
             });
 
@@ -243,7 +247,18 @@ export async function getUazapiCredentialsForClient(
 /**
  * Retorna todas as instâncias existentes na UAZAPI com seus status e nomes
  */
-export async function getAllUazapiInstances(): Promise<Array<{ name: string; status: string; token: string }>> {
+export async function getAllUazapiInstances(): Promise<Array<{
+  name: string;
+  status: string;
+  token: string;
+  owner?: string;
+  profileName?: string;
+  profilePicUrl?: string;
+  systemName?: string;
+  updated?: string;
+  adminField01?: string;
+  adminField02?: string;
+}>> {
   try {
     const creds = await getUazapiCredentialsForClient('swiftsail');
     if (!creds.adminToken) return [];
@@ -280,6 +295,8 @@ export async function getAllUazapiInstances(): Promise<Array<{ name: string; sta
             profilePicUrl: inst.profilePicUrl || '',
             systemName: inst.systemName || 'app.swiftsail',
             updated: inst.updated || inst.created || '',
+            adminField01: inst.adminField01 || '',
+            adminField02: inst.adminField02 || '',
           };
         });
       }

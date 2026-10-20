@@ -65,6 +65,7 @@ export class UazapiClient {
       body: JSON.stringify({
         name,
         systemName,
+        adminField01: 'appswiftsail',
         fingerprintProfile: 'chrome',
         browser: 'chrome',
       }),

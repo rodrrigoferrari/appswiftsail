@@ -53,6 +53,7 @@ export async function createClientInstance(instanceName: string) {
     body: JSON.stringify({
       name: instanceName,
       systemName: 'app.swiftsail',
+      adminField01: 'appswiftsail',
       fingerprintProfile: 'chrome',
       browser: 'chrome',
     }),

@@ -58,7 +58,14 @@ export async function POST(req: Request) {
           return NextResponse.json({ success: true, instances: allInstances });
         }
 
-        // ISOLAMENTO DE CLIENTE: Busca a instância vinculada ao cliente na knowledge_base
+        // ISOLAMENTO DE CLIENTE:
+        // 1. Instâncias marcadas com adminField01 = 'admin' NUNCA são trazidas para workspaces de clientes
+        const nonAdminInstances = allInstances.filter((inst: any) => {
+          const field = (inst.adminField01 || '').toLowerCase().trim();
+          return field !== 'admin';
+        });
+
+        // 2. Busca a instância vinculada ao cliente na knowledge_base
         const { data: clientKb } = await supabaseAdmin
           .from('knowledge_base')
           .select('content')
@@ -83,15 +90,17 @@ export async function POST(req: Request) {
           .split(/[^a-z0-9]+/)
           .filter((k: string) => k.length >= 3 && k !== 'incorporadora' && k !== 'ltda' && k !== 'construtora' && k !== 'grupo');
 
-        // Filtra estritamente instâncias que pertençam a este cliente
-        const clientInstances = allInstances.filter((inst: any) => {
+        // Filtra estritamente instâncias que pertençam a este cliente (garantindo que palavras inteiras confiram)
+        const clientInstances = nonAdminInstances.filter((inst: any) => {
           if (inst.token && clientTokens.has(inst.token)) return true;
           const instName = (inst.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
           if (clientNames.has((inst.name || '').toLowerCase())) return true;
           if (instName.includes(cleanTarget) || (cleanTarget.length > 4 && cleanTarget.includes(instName))) {
             return true;
           }
-          if (clientKeywords.some((kw: string) => instName.includes(kw))) {
+          // Comparação por palavras completas para evitar falsos positivos (ex: "pessoa" dentro de "pessoal")
+          const instWords = (inst.name || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+          if (clientKeywords.some((kw: string) => instWords.includes(kw))) {
             return true;
           }
           return false;
