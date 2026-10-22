@@ -135,34 +135,50 @@ export async function getUazapiCredentialsForClient(
   let instanceName = `swiftsail-${targetClient.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
 
   try {
-    // 1. Buscar se há instância salva para este cliente
-    const { data: instData } = await supabaseAdmin
+    // 1. Buscar se há instância salva para este cliente (busca direta por tag ou flexível)
+    let instRow: any = null;
+    const { data: directData } = await supabaseAdmin
       .from('knowledge_base')
       .select('content')
       .contains('tags', ['uazapi_instance', targetClient])
       .order('created_at', { ascending: false })
       .limit(1);
 
-    if (instData && instData.length > 0) {
+    if (directData && directData.length > 0) {
+      instRow = directData[0];
+    } else {
+      // Fallback flexível: busca qualquer tag uazapi_instance cujo cliente_id normalize igual
+      const { data: allInstData } = await supabaseAdmin
+        .from('knowledge_base')
+        .select('content')
+        .contains('tags', ['uazapi_instance'])
+        .limit(50);
+
+      if (allInstData && allInstData.length > 0) {
+        const cleanTarget = targetClient.toLowerCase().replace(/[^a-z0-9]/g, '');
+        for (const row of allInstData) {
+          try {
+            const p = JSON.parse(row.content);
+            const rowClientId = (p.cliente_id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const rowInstName = (p.instance_name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (rowClientId === cleanTarget || (cleanTarget.length >= 4 && (rowClientId.includes(cleanTarget) || cleanTarget.includes(rowClientId))) || rowInstName === cleanTarget) {
+              instRow = row;
+              break;
+            }
+          } catch {}
+        }
+      }
+    }
+
+    if (instRow) {
       try {
-        const parsed = JSON.parse(instData[0].content);
+        const parsed = JSON.parse(instRow.content);
         if (parsed.instance_name) instanceName = parsed.instance_name;
         if (parsed.server_url) serverUrl = parsed.server_url;
         
-        // Verifica se a instância salva no Supabase está realmente conectada
+        // Atribui o token da instância do cliente para que possamos monitorar seu ciclo de vida
         if (parsed.token) {
-          const cleanUrl = (parsed.server_url || serverUrl).replace(/\/+$/, '');
-          const statusRes = await fetch(`${cleanUrl}/instance/status`, {
-            headers: { token: parsed.token },
-            cache: 'no-store',
-          }).catch(() => null);
-
-          if (statusRes && statusRes.ok) {
-            const statusJson = await statusRes.json();
-            if (statusJson.status?.connected === true || statusJson.instance?.status === 'connected') {
-              instanceToken = parsed.token;
-            }
-          }
+          instanceToken = parsed.token;
         }
       } catch {}
     }

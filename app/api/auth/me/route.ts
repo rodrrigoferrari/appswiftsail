@@ -102,6 +102,27 @@ export async function GET(req: NextRequest) {
         ? p.cliente_ids
         : p.cliente_id ? [p.cliente_id] : [];
 
+      // Atualiza timestamp de último acesso em background (não-bloqueante)
+      if (authUserId && !isMasterProfile) {
+        (async () => {
+          try {
+            const nowIso = new Date().toISOString();
+            await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+              user_metadata: {
+                nome: p.name,
+                role: p.role,
+                whatsapp: p.phone || phone,
+                cliente_id: p.cliente_id,
+                ultimo_acesso: nowIso,
+              },
+            });
+            try {
+              await supabaseAdmin.from('profiles').update({ ultimo_acesso: nowIso } as any).eq('id', p.id);
+            } catch {}
+          } catch {}
+        })();
+      }
+
       const appUser: AppUser = {
         id: p.id,
         nome: p.name || 'Usuário Swiftsail',
@@ -113,6 +134,7 @@ export async function GET(req: NextRequest) {
         cliente_nome: p.cliente_nome || 'Workspace',
         status: 'ativo',
         modulos: ['midia', 'whatsapp', 'crm', 'criativos', 'financeiro'],
+        ultimo_acesso: (p as any).ultimo_acesso || null,
       };
 
       return NextResponse.json({ authenticated: true, user: appUser });

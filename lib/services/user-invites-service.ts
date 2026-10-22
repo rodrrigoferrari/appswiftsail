@@ -200,7 +200,7 @@ export async function persistInvite(invite: UserInvite): Promise<UserInvite> {
         cliente_nome: invite.cliente_nome,
         status: 'ativo',
         modulos: invite.modulos || ['midia', 'whatsapp', 'crm', 'criativos', 'financeiro'],
-        ultimo_acesso: 'Cadastrado agora',
+        ultimo_acesso: null,
         criado_em: new Date().toISOString().split('T')[0],
       };
 
@@ -412,14 +412,42 @@ export async function listAllUsers(): Promise<AppUser[]> {
   };
   usersMap.set('usr_rodrigo_ferrari', rodrigoMaster);
 
-  // 2. Busca todos os perfis reais da tabela public.profiles do Supabase
+  // 2. Busca todos os perfis reais da tabela public.profiles do Supabase e o último acesso do Supabase Auth
   try {
-    const { data: profiles, error } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const [{ data: profiles, error: pError }, authUserListRes] = await Promise.all([
+      supabaseAdmin.from('profiles').select('*').order('created_at', { ascending: false }),
+      supabaseAdmin.auth.admin.listUsers().catch(() => ({ data: { users: [] }, error: null })),
+    ]);
 
-    if (!error && profiles) {
+    const authById = new Map<string, any>();
+    const authByPhone = new Map<string, any>();
+    const authByEmail = new Map<string, any>();
+
+    const authUsers = (authUserListRes as any)?.data?.users || [];
+    for (const u of authUsers) {
+      if (u.id) authById.set(u.id, u);
+      if (u.phone) {
+        const clean = cleanPhoneNumber(u.phone);
+        if (clean) {
+          authByPhone.set(clean, u);
+          if (clean.startsWith('55')) authByPhone.set(clean.slice(2), u);
+          else authByPhone.set(`55${clean}`, u);
+        }
+      }
+      if (u.user_metadata?.whatsapp) {
+        const clean = cleanPhoneNumber(String(u.user_metadata.whatsapp));
+        if (clean) {
+          authByPhone.set(clean, u);
+          if (clean.startsWith('55')) authByPhone.set(clean.slice(2), u);
+          else authByPhone.set(`55${clean}`, u);
+        }
+      }
+      if (u.email) {
+        authByEmail.set(u.email.toLowerCase(), u);
+      }
+    }
+
+    if (!pError && profiles) {
       for (const p of profiles) {
         const phone = cleanPhoneNumber(p.phone);
         const isMaster =
@@ -428,6 +456,10 @@ export async function listAllUsers(): Promise<AppUser[]> {
           phone === '5541992332996';
 
         const clientName = resolveClientName(p.cliente_id, p.cliente_ids);
+
+        // Cruza com o Supabase Auth para recuperar o last_sign_in_at real ou metadata
+        const authUser = authById.get(p.id) || authByPhone.get(phone) || (p.email ? authByEmail.get(p.email.toLowerCase()) : null);
+        const lastAccessRaw = (p as any).ultimo_acesso || authUser?.user_metadata?.ultimo_acesso || authUser?.last_sign_in_at || null;
 
         const appUser: AppUser = {
           id: p.id,
@@ -442,7 +474,7 @@ export async function listAllUsers(): Promise<AppUser[]> {
           modulos: isMaster
             ? ['midia', 'whatsapp', 'criativos', 'crm', 'financeiro']
             : ['midia', 'whatsapp', 'crm', 'criativos', 'financeiro'],
-          ultimo_acesso: 'Sincronizado',
+          ultimo_acesso: isMaster ? 'Ativo agora' : (lastAccessRaw || null),
           criado_em: p.created_at ? p.created_at.split('T')[0] : '2026-10-14',
         };
 

@@ -106,6 +106,8 @@ export async function POST(req: NextRequest) {
         (u.phone && candidates.includes(u.phone.replace(/\D/g, '')))
     );
 
+    const nowIso = new Date().toISOString();
+
     if (existingAuthUser) {
       userId = existingAuthUser.id;
       await supabaseAdmin.auth.admin.updateUserById(userId, {
@@ -116,6 +118,7 @@ export async function POST(req: NextRequest) {
           role: appUser.role,
           whatsapp: cleanPhone,
           cliente_id: appUser.cliente_id,
+          ultimo_acesso: nowIso,
         },
       });
     } else {
@@ -130,6 +133,7 @@ export async function POST(req: NextRequest) {
           role: appUser.role,
           whatsapp: cleanPhone,
           cliente_id: appUser.cliente_id,
+          ultimo_acesso: nowIso,
         },
       });
 
@@ -148,7 +152,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Tenta atualizar/inserir na tabela profiles com cliente_id e cliente_ids
+    // Tenta atualizar/inserir na tabela profiles com cliente_id, cliente_ids e ultimo_acesso
     try {
       await supabaseAdmin.from('profiles').upsert({
         id: userId,
@@ -157,9 +161,21 @@ export async function POST(req: NextRequest) {
         role: appUser.role,
         cliente_id: appUser.cliente_id,
         cliente_ids: appUser.cliente_ids || (appUser.cliente_id ? [appUser.cliente_id] : []),
+        ultimo_acesso: nowIso,
       });
-    } catch (profErr) {
-      console.warn('[verify-otp] Erro ao gravar profile no Supabase:', profErr);
+    } catch {
+      try {
+        await supabaseAdmin.from('profiles').upsert({
+          id: userId,
+          phone: cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`,
+          name: appUser.nome,
+          role: appUser.role,
+          cliente_id: appUser.cliente_id,
+          cliente_ids: appUser.cliente_ids || (appUser.cliente_id ? [appUser.cliente_id] : []),
+        });
+      } catch (profErr) {
+        console.warn('[verify-otp] Erro ao gravar profile no Supabase:', profErr);
+      }
     }
 
     // Consome e remove qualquer convite pendente associado a este telefone

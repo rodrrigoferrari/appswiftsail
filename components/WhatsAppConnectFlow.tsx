@@ -126,6 +126,19 @@ export function WhatsAppConnectFlow({ clienteId = 'swiftsail', onStatusChange }:
         )
       );
 
+      // Atualiza a instância selecionada para que o painel mude imediatamente de 'Conectando...' para 'Conectada'
+      setSelectedInstance((prev) =>
+        prev && prev.name === selectedInstance.name
+          ? {
+              ...prev,
+              status: newStatus,
+              owner: data.instance?.owner || data.owner || prev.owner,
+              profileName: data.instance?.profileName || data.profileName || prev.profileName,
+              profilePicUrl: data.instance?.profilePicUrl || data.profilePicUrl || prev.profilePicUrl,
+            }
+          : prev
+      );
+
       if (isConnected) {
         setQrCode('');
         setPairingCode('');

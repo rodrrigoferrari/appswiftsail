@@ -21,6 +21,8 @@ import {
   MessageSquare,
   Phone,
   Pencil,
+  Clock,
+  Calendar,
 } from 'lucide-react';
 import { UserRole, UserModulePermission, AppUser, UserInvite } from '@/types/database';
 
@@ -44,6 +46,63 @@ const ALL_MODULES: { id: UserModulePermission; label: string; icon: string }[] =
   { id: 'criativos', label: 'Criativos & Landing Pages', icon: 'Sparkles' },
   { id: 'financeiro', label: 'Financeiro (Asaas)', icon: 'CreditCard' },
 ];
+
+function formatUltimoAcesso(ultimoAcesso?: string | null): React.ReactNode {
+  if (
+    !ultimoAcesso ||
+    ultimoAcesso === 'Nunca acessou' ||
+    ultimoAcesso === 'Sincronizado' ||
+    ultimoAcesso.toLowerCase() === 'ainda não acessou'
+  ) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium text-[#B45309] bg-[#FEF3C7] border border-[#FDE68A]">
+        <Clock className="w-3 h-3 text-[#D97706]" />
+        <span>ainda não acessou</span>
+      </span>
+    );
+  }
+
+  if (ultimoAcesso === 'Ativo agora') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        <span>Ativo agora</span>
+      </span>
+    );
+  }
+
+  try {
+    const date = new Date(ultimoAcesso);
+    if (!isNaN(date.getTime())) {
+      const dataFormatada = date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone: 'America/Sao_Paulo',
+      });
+      const horaFormatada = date.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'America/Sao_Paulo',
+      });
+
+      return (
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-[#0F172A]">
+            <Calendar className="w-3 h-3 text-[#64748B]" />
+            <span>{dataFormatada}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-[#64748B]">
+            <Clock className="w-3 h-3 text-[#94A3B8]" />
+            <span>às {horaFormatada}</span>
+          </div>
+        </div>
+      );
+    }
+  } catch {}
+
+  return <span className="text-xs text-[#64748B]">{ultimoAcesso}</span>;
+}
 
 export default function AdminUsuariosPage() {
   const {
@@ -103,11 +162,13 @@ export default function AdminUsuariosPage() {
     }
   }, [activeTab]);
 
-  // Ao montar ou mudar o workspace de cliente, atualiza os dados restritos
+  // Ao montar ou alternar filtros/visão, sincroniza usuários do backend
   useEffect(() => {
     if (isClientView && effectiveClientId) {
       setClientFilter(effectiveClientId);
       refreshUsers(effectiveClientId);
+    } else {
+      refreshUsers('ALL');
     }
   }, [isClientView, effectiveClientId]);
 
@@ -724,8 +785,8 @@ export default function AdminUsuariosPage() {
                           </div>
                         </td>
 
-                        <td className="p-4 font-mono text-[11px] text-[#64748B]">
-                          {user.ultimo_acesso || 'Nunca acessou'}
+                        <td className="p-4">
+                          {formatUltimoAcesso(user.ultimo_acesso)}
                         </td>
 
                         <td className="p-4">
